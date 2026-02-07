@@ -31,7 +31,12 @@ function RoomDashboard({ roomId, joinToken }: RoomDashboardProps) {
       });
 
       conn.on('ParticipantLeft', (data: ParticipantLeft) => {
-        setStudents(prev => prev.filter(s => s.studentId !== data.studentId));
+        console.log('ParticipantLeft event received:', data);
+        setStudents(prev => {
+          const filtered = prev.filter(s => s.studentId !== data.studentId);
+          console.log(`Removing student ${data.studentId}. Students before: ${prev.length}, after: ${filtered.length}`);
+          return filtered;
+        });
       });
 
       conn.on('ConfidenceChanged', (message: ConfidenceChanged) => {
@@ -70,16 +75,17 @@ function RoomDashboard({ roomId, joinToken }: RoomDashboardProps) {
     <div className="dashboard-container">
       <div className="dashboard-header">
         <h1>WhitePad Dashboard</h1>
-        <div className="room-info">
-          <p><strong>Room ID:</strong> {roomId}</p>
-          <p><strong>Join URL:</strong> {joinUrl}</p>
-          <p className="student-count">Students Connected: {students.length}</p>
+        <div className="dashboard-info-row">
+          <div className="room-info">
+            <p><strong>Room ID:</strong> {roomId}</p>
+            <p><strong>Join URL:</strong> {joinUrl}</p>
+            <p className="student-count">Students Connected: {students.length}</p>
+          </div>
+          <ConfidenceSummary students={students} />
         </div>
       </div>
 
       {error && <p className="error-message">{error}</p>}
-
-      <ConfidenceSummary students={students} />
 
       <StudentGrid students={students} connection={connection} />
     </div>

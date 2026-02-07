@@ -59,7 +59,7 @@ function DrawingPage({ roomId, studentId, displayName, connection }: DrawingPage
     };
   }, []);
 
-  const redrawCanvas = () => {
+  const redrawCanvas = (strokeIds?: string[]) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -69,8 +69,11 @@ function DrawingPage({ roomId, studentId, displayName, connection }: DrawingPage
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    // Use provided strokeIds or current strokeHistory
+    const idsToRender = strokeIds !== undefined ? strokeIds : strokeHistory;
+
     // Redraw all strokes in history order
-    strokeHistory.forEach(strokeId => {
+    idsToRender.forEach(strokeId => {
       const stroke = strokesRef.current.get(strokeId);
       if (!stroke) return;
 
@@ -250,10 +253,13 @@ function DrawingPage({ roomId, studentId, displayName, connection }: DrawingPage
     if (strokeHistory.length === 0) return;
 
     const lastStrokeId = strokeHistory[strokeHistory.length - 1];
-    setStrokeHistory(prev => prev.slice(0, -1));
+    const newHistory = strokeHistory.slice(0, -1);
+
+    setStrokeHistory(newHistory);
     setUndoneStrokes(prev => [...prev, lastStrokeId]);
 
-    redrawCanvas();
+    // Redraw with the new history immediately
+    redrawCanvas(newHistory);
 
     // Notify server so teacher view updates
     connection.invoke('UndoStroke', lastStrokeId).catch(err => {
@@ -265,10 +271,13 @@ function DrawingPage({ roomId, studentId, displayName, connection }: DrawingPage
     if (undoneStrokes.length === 0) return;
 
     const strokeToRedo = undoneStrokes[undoneStrokes.length - 1];
-    setUndoneStrokes(prev => prev.slice(0, -1));
-    setStrokeHistory(prev => [...prev, strokeToRedo]);
+    const newHistory = [...strokeHistory, strokeToRedo];
 
-    redrawCanvas();
+    setUndoneStrokes(prev => prev.slice(0, -1));
+    setStrokeHistory(newHistory);
+
+    // Redraw with the new history immediately
+    redrawCanvas(newHistory);
   };
 
   const handleClear = () => {
