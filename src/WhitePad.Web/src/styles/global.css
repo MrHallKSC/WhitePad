@@ -61,6 +61,8 @@ body {
   padding: 10px;
   display: flex;
   flex-direction: column;
+  position: relative;
+  align-self: flex-start;
 }
 
 .student-tile-header {
@@ -118,10 +120,30 @@ body {
   overflow: hidden;
 }
 
-.drawing-canvas {
+.canvas-wrapper {
   flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.drawing-canvas {
+  width: 100%;
+  height: 100%;
   touch-action: none;
   background: white;
+}
+
+.drawing-canvas.erasing {
+  cursor: none;
+}
+
+.eraser-cursor {
+  position: absolute;
+  border: 2px solid #333;
+  border-radius: 50%;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  z-index: 1000;
 }
 
 .student-info {
@@ -346,4 +368,118 @@ body {
 .button.danger:hover {
   background: #c82333;
   border-color: #bd2130;
+}
+
+/* Confidence Selector */
+.confidence-selector {
+  display: flex;
+  gap: 8px;
+}
+
+.confidence-button {
+  width: 48px;
+  height: 48px;
+  border: 2px solid #dee2e6;
+  border-radius: 50%;
+  background: white;
+  cursor: pointer;
+  font-size: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.confidence-button:hover {
+  transform: scale(1.1);
+  border-color: #495057;
+}
+
+.confidence-button.selected {
+  border-width: 3px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+  transform: scale(1.15);
+}
+
+.confidence-button.red.selected {
+  border-color: #EF4444;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+}
+
+.confidence-button.amber.selected {
+  border-color: #F59E0B;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+}
+
+.confidence-button.green.selected {
+  border-color: #10B981;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+}
+
+/* Confidence Indicator on Student Tile */
+.confidence-indicator {
+  position: absolute;
+  bottom: 18px;
+  right: 18px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.confidence-indicator.red {
+  background-color: #EF4444;
+}
+
+.confidence-indicator.amber {
+  background-color: #F59E0B;
+}
+
+.confidence-indicator.green {
+  background-color: #10B981;
+}
+
+/* Confidence Summary */
+.confidence-summary {
+  background: #f8f9fa;
+  padding: 15px 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.confidence-summary h3 {
+  margin: 0 0 12px 0;
+  font-size: 18px;
+  color: #212529;
+}
+
+.confidence-stats {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.confidence-stat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+}
+
+.confidence-icon {
+  font-size: 20px;
+}
+
+.confidence-label {
+  font-weight: 500;
+  color: #495057;
+}
+
+.confidence-count {
+  font-weight: 700;
+  font-size: 18px;
+  color: #212529;
+  min-width: 24px;
+  text-align: center;
 }

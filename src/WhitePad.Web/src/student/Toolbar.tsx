@@ -4,9 +4,11 @@ interface ToolbarProps {
   currentColor: string;
   currentThickness: number;
   isErasing: boolean;
+  currentConfidence: 'none' | 'red' | 'amber' | 'green';
   onColorChange: (color: string) => void;
   onThicknessChange: (thickness: number) => void;
   onToggleEraser: () => void;
+  onConfidenceChange: (level: 'none' | 'red' | 'amber' | 'green') => void;
   onUndo: () => void;
   onRedo: () => void;
   onClear: () => void;
@@ -41,9 +43,11 @@ function Toolbar({
   currentColor,
   currentThickness,
   isErasing,
+  currentConfidence,
   onColorChange,
   onThicknessChange,
   onToggleEraser,
+  onConfidenceChange,
   onUndo,
   onRedo,
   onClear,
@@ -98,7 +102,6 @@ function Toolbar({
               }`}
               onClick={() => onThicknessChange(thickness.value)}
               title={thickness.name}
-              disabled={isErasing}
             >
               <div
                 className="thickness-preview"
@@ -147,6 +150,34 @@ function Toolbar({
         >
           🗑️ Clear
         </button>
+      </div>
+
+      {/* Confidence Selector */}
+      <div className="toolbar-section">
+        <label className="toolbar-label">How confident are you?</label>
+        <div className="confidence-selector">
+          <button
+            className={`confidence-button red ${currentConfidence === 'red' ? 'selected' : ''}`}
+            onClick={() => onConfidenceChange(currentConfidence === 'red' ? 'none' : 'red')}
+            title="Need Help"
+          >
+            🔴
+          </button>
+          <button
+            className={`confidence-button amber ${currentConfidence === 'amber' ? 'selected' : ''}`}
+            onClick={() => onConfidenceChange(currentConfidence === 'amber' ? 'none' : 'amber')}
+            title="Unsure"
+          >
+            🟡
+          </button>
+          <button
+            className={`confidence-button green ${currentConfidence === 'green' ? 'selected' : ''}`}
+            onClick={() => onConfidenceChange(currentConfidence === 'green' ? 'none' : 'green')}
+            title="Got It!"
+          >
+            🟢
+          </button>
+        </div>
       </div>
 
       {/* Clear Confirmation Dialog */}

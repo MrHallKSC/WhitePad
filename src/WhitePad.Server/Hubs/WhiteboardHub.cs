@@ -142,6 +142,107 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
         await Clients.Group($"room:{roomId}:teacher").ReceiveStrokeBatch(batch);
     }
 
+    // Student sets confidence level
+    public async Task SetConfidence(string confidenceLevel)
+    {
+        var connectionId = Context.ConnectionId;
+
+        // Validate confidence level
+        var validLevels = new[] { "none", "red", "amber", "green" };
+        if (!validLevels.Contains(confidenceLevel))
+        {
+            _logger.LogWarning("Invalid confidence level: {ConfidenceLevel}", confidenceLevel);
+            return;
+        }
+
+        // Find student's room
+        var rooms = await _roomStateManager.GetAllRoomsAsync();
+        var room = rooms.FirstOrDefault(r => r.Participants.Any(p => p.ConnectionId == connectionId));
+
+        if (room == null)
+        {
+            _logger.LogWarning("Student not in any room, cannot set confidence");
+            return;
+        }
+
+        var student = room.Participants.FirstOrDefault(p => p.ConnectionId == connectionId);
+        if (student == null) return;
+
+        // Update confidence level
+        student.ConfidenceLevel = confidenceLevel;
+        student.LastSeenAt = DateTime.UtcNow;
+
+        _logger.LogInformation("Student {StudentId} set confidence to {Level}", student.StudentId, confidenceLevel);
+
+        // Notify teacher
+        var message = new ConfidenceChanged
+        {
+            StudentId = student.StudentId,
+            ConfidenceLevel = confidenceLevel
+        };
+
+        await Clients.Group($"room:{room.RoomId}:teacher").ConfidenceChanged(message);
+    }
+
+    // Student undoes a stroke
+    public async Task UndoStroke(string strokeId)
+    {
+        var connectionId = Context.ConnectionId;
+
+        // Find student's room
+        var rooms = await _roomStateManager.GetAllRoomsAsync();
+        var room = rooms.FirstOrDefault(r => r.Participants.Any(p => p.ConnectionId == connectionId));
+
+        if (room == null)
+        {
+            _logger.LogWarning("Student not in any room, cannot undo stroke");
+            return;
+        }
+
+        var student = room.Participants.FirstOrDefault(p => p.ConnectionId == connectionId);
+        if (student == null) return;
+
+        _logger.LogInformation("Student {StudentId} undid stroke {StrokeId}", student.StudentId, strokeId);
+
+        // Notify teacher
+        var message = new StrokeUndone
+        {
+            StudentId = student.StudentId,
+            StrokeId = strokeId
+        };
+
+        await Clients.Group($"room:{room.RoomId}:teacher").StrokeUndone(message);
+    }
+
+    // Student clears their board
+    public async Task ClearBoard()
+    {
+        var connectionId = Context.ConnectionId;
+
+        // Find student's room
+        var rooms = await _roomStateManager.GetAllRoomsAsync();
+        var room = rooms.FirstOrDefault(r => r.Participants.Any(p => p.ConnectionId == connectionId));
+
+        if (room == null)
+        {
+            _logger.LogWarning("Student not in any room, cannot clear board");
+            return;
+        }
+
+        var student = room.Participants.FirstOrDefault(p => p.ConnectionId == connectionId);
+        if (student == null) return;
+
+        _logger.LogInformation("Student {StudentId} cleared their board", student.StudentId);
+
+        // Notify teacher
+        var message = new BoardCleared
+        {
+            StudentId = student.StudentId
+        };
+
+        await Clients.Group($"room:{room.RoomId}:teacher").BoardCleared(message);
+    }
+
     // Handle disconnect
     public override async Task OnDisconnectedAsync(Exception? exception)
     {

@@ -55,10 +55,25 @@ export interface ParticipantLeft {
   leftAt: string;
 }
 
+export interface ConfidenceChanged {
+  studentId: string;
+  confidenceLevel: 'none' | 'red' | 'amber' | 'green';
+}
+
+export interface StrokeUndone {
+  studentId: string;
+  strokeId: string;
+}
+
+export interface BoardCleared {
+  studentId: string;
+}
+
 export interface Student {
   studentId: string;
   displayName: string;
   connectionId?: string;
   connectedAt: string;
   inputMode: string;
+  confidenceLevel?: 'none' | 'red' | 'amber' | 'green';
 }

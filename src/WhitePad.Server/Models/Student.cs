@@ -6,6 +6,7 @@ public class Student
     public string DisplayName { get; set; } = string.Empty;
     public string ConnectionId { get; set; } = string.Empty;
     public string InputMode { get; set; } = "draw"; // "draw" or "type"
+    public string ConfidenceLevel { get; set; } = "none"; // "none", "red", "amber", "green"
     public DateTime ConnectedAt { get; set; }
     public DateTime LastSeenAt { get; set; }
 }

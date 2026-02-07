@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { HubConnection } from '@microsoft/signalr';
 import { createSignalRConnection } from '../services/signalr';
-import { ParticipantJoined, ParticipantLeft, Student } from '../shared/types/messages';
+import { ParticipantJoined, ParticipantLeft, Student, ConfidenceChanged } from '../shared/types/messages';
 import StudentGrid from './StudentGrid';
+import ConfidenceSummary from './ConfidenceSummary';
 
 interface RoomDashboardProps {
   roomId: string;
@@ -31,6 +32,16 @@ function RoomDashboard({ roomId, joinToken }: RoomDashboardProps) {
 
       conn.on('ParticipantLeft', (data: ParticipantLeft) => {
         setStudents(prev => prev.filter(s => s.studentId !== data.studentId));
+      });
+
+      conn.on('ConfidenceChanged', (message: ConfidenceChanged) => {
+        setStudents(prev =>
+          prev.map(s =>
+            s.studentId === message.studentId
+              ? { ...s, confidenceLevel: message.confidenceLevel }
+              : s
+          )
+        );
       });
 
       try {
@@ -67,6 +78,8 @@ function RoomDashboard({ roomId, joinToken }: RoomDashboardProps) {
       </div>
 
       {error && <p className="error-message">{error}</p>}
+
+      <ConfidenceSummary students={students} />
 
       <StudentGrid students={students} connection={connection} />
     </div>
