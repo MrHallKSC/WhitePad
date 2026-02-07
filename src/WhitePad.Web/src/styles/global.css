@@ -895,6 +895,7 @@ body {
 /* Horizontal Picker Popouts */
 .picker-container {
   position: relative;
+  z-index: 10001;
 }
 
 .picker-current-btn {
@@ -929,13 +930,13 @@ body {
 }
 
 .picker-popup {
-  position: absolute;
+  position: fixed;
   background: white;
   border: 2px solid #007bff;
   border-radius: 6px;
   padding: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 10000;
+  z-index: 10002;
 }
 
 .picker-popup.horizontal {

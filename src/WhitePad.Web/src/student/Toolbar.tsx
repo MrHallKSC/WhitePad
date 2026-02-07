@@ -66,6 +66,8 @@ function Toolbar({
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showThicknessPicker, setShowThicknessPicker] = useState(false);
+  const [colorPickerPos, setColorPickerPos] = useState({ top: 0, left: 0 });
+  const [thicknessPickerPos, setThicknessPickerPos] = useState({ top: 0, left: 0 });
 
   const handleClearClick = () => {
     setShowClearConfirm(true);
@@ -90,6 +92,28 @@ function Toolbar({
   const handleThicknessSelect = (thickness: number) => {
     onThicknessChange(thickness);
     setShowThicknessPicker(false);
+  };
+
+  const handleColorPickerToggle = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (!showColorPicker) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      setColorPickerPos({
+        top: rect.top,
+        left: rect.right + 8,
+      });
+    }
+    setShowColorPicker(!showColorPicker);
+  };
+
+  const handleThicknessPickerToggle = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (!showThicknessPicker) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      setThicknessPickerPos({
+        top: rect.top,
+        left: rect.right + 8,
+      });
+    }
+    setShowThicknessPicker(!showThicknessPicker);
   };
 
   return (
@@ -196,7 +220,7 @@ function Toolbar({
             <button
               type="button"
               className="picker-current-btn"
-              onClick={() => setShowColorPicker(!showColorPicker)}
+              onClick={handleColorPickerToggle}
               title="Select Color"
               disabled={isErasing}
             >
@@ -206,7 +230,10 @@ function Toolbar({
               />
             </button>
             {showColorPicker && (
-              <div className="picker-popup horizontal">
+              <div
+                className="picker-popup horizontal"
+                style={{ top: `${colorPickerPos.top}px`, left: `${colorPickerPos.left}px` }}
+              >
                 {COLORS.map((color) => (
                   <button
                     type="button"
@@ -231,7 +258,7 @@ function Toolbar({
             <button
               type="button"
               className="picker-current-btn"
-              onClick={() => setShowThicknessPicker(!showThicknessPicker)}
+              onClick={handleThicknessPickerToggle}
               title="Select Thickness"
             >
               <div
@@ -243,7 +270,10 @@ function Toolbar({
               />
             </button>
             {showThicknessPicker && (
-              <div className="picker-popup horizontal">
+              <div
+                className="picker-popup horizontal"
+                style={{ top: `${thicknessPickerPos.top}px`, left: `${thicknessPickerPos.left}px` }}
+              >
                 {THICKNESSES.map((thickness) => (
                   <button
                     type="button"
