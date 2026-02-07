@@ -1,0 +1,76 @@
+import { useState, useEffect, useRef } from 'react';
+import { HubConnection } from '@microsoft/signalr';
+import { createSignalRConnection } from '../services/signalr';
+import { ParticipantJoined, ParticipantLeft, Student } from '../shared/types/messages';
+import StudentGrid from './StudentGrid';
+
+interface RoomDashboardProps {
+  roomId: string;
+  joinToken: string;
+}
+
+function RoomDashboard({ roomId, joinToken }: RoomDashboardProps) {
+  const [connection, setConnection] = useState<HubConnection | null>(null);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const connectionRef = useRef<HubConnection | null>(null);
+
+  useEffect(() => {
+    const setupConnection = async () => {
+      const conn = createSignalRConnection('/hub/whiteboard');
+
+      conn.on('ParticipantJoined', (data: ParticipantJoined) => {
+        const student: Student = {
+          studentId: data.studentId,
+          displayName: data.displayName,
+          connectedAt: data.connectedAt,
+          inputMode: data.inputMode
+        };
+        setStudents(prev => [...prev, student]);
+      });
+
+      conn.on('ParticipantLeft', (data: ParticipantLeft) => {
+        setStudents(prev => prev.filter(s => s.studentId !== data.studentId));
+      });
+
+      try {
+        await conn.start();
+        await conn.invoke('JoinRoomAsTeacher', roomId);
+        connectionRef.current = conn;
+        setConnection(conn);
+      } catch (err) {
+        console.error('Failed to connect:', err);
+        setError('Failed to connect to room');
+      }
+    };
+
+    setupConnection();
+
+    return () => {
+      if (connectionRef.current) {
+        connectionRef.current.stop();
+      }
+    };
+  }, [roomId]);
+
+  const joinUrl = `${window.location.origin}/join?roomId=${roomId}&token=${joinToken}`;
+
+  return (
+    <div className="dashboard-container">
+      <div className="dashboard-header">
+        <h1>WhitePad Dashboard</h1>
+        <div className="room-info">
+          <p><strong>Room ID:</strong> {roomId}</p>
+          <p><strong>Join URL:</strong> {joinUrl}</p>
+          <p className="student-count">Students Connected: {students.length}</p>
+        </div>
+      </div>
+
+      {error && <p className="error-message">{error}</p>}
+
+      <StudentGrid students={students} connection={connection} />
+    </div>
+  );
+}
+
+export default RoomDashboard;

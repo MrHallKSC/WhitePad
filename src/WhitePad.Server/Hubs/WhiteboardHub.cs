@@ -1,0 +1,180 @@
+using Microsoft.AspNetCore.SignalR;
+using WhitePad.Server.Models;
+using WhitePad.Server.Models.Messages;
+using WhitePad.Server.Services;
+
+namespace WhitePad.Server.Hubs;
+
+public class WhiteboardHub : Hub<IWhiteboardClient>
+{
+    private readonly IRoomStateManager _roomStateManager;
+    private readonly ILogger<WhiteboardHub> _logger;
+
+    public WhiteboardHub(IRoomStateManager roomStateManager, ILogger<WhiteboardHub> logger)
+    {
+        _roomStateManager = roomStateManager;
+        _logger = logger;
+    }
+
+    // Teacher creates a room
+    public async Task<CreateRoomResponse> CreateRoom()
+    {
+        var room = await _roomStateManager.CreateRoomAsync();
+
+        _logger.LogInformation("Room created: {RoomId}", room.RoomId);
+
+        return new CreateRoomResponse
+        {
+            RoomId = room.RoomId,
+            JoinToken = room.JoinToken,
+            JoinUrl = $"https://localhost:5001/join?room={room.RoomId}&token={room.JoinToken}",
+            CreatedAt = room.CreatedAt
+        };
+    }
+
+    // Teacher joins room to view dashboard
+    public async Task JoinRoomAsTeacher(string roomId)
+    {
+        var room = await _roomStateManager.GetRoomAsync(roomId);
+        if (room == null)
+        {
+            _logger.LogWarning("Teacher tried to join non-existent room: {RoomId}", roomId);
+            return;
+        }
+
+        await _roomStateManager.UpdateTeacherSessionAsync(roomId, Context.ConnectionId);
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"room:{roomId}:teacher");
+
+        _logger.LogInformation("Teacher joined room: {RoomId}", roomId);
+
+        // Send current participants to teacher
+        foreach (var student in room.Participants)
+        {
+            await Clients.Caller.ParticipantJoined(new ParticipantJoined
+            {
+                StudentId = student.StudentId,
+                DisplayName = student.DisplayName,
+                ConnectedAt = student.ConnectedAt,
+                InputMode = student.InputMode
+            });
+        }
+    }
+
+    // Student joins room
+    public async Task<JoinRoomResponse> JoinRoomAsStudent(string roomId, string joinToken)
+    {
+        _logger.LogInformation("Student attempting to join room: {RoomId}", roomId);
+
+        // Validate room and token
+        var room = await _roomStateManager.GetRoomAsync(roomId);
+        if (room == null)
+        {
+            return new JoinRoomResponse { Success = false, Error = "Room not found" };
+        }
+
+        var isValidToken = await _roomStateManager.ValidateJoinTokenAsync(roomId, joinToken);
+        if (!isValidToken)
+        {
+            return new JoinRoomResponse { Success = false, Error = "Invalid or expired join token" };
+        }
+
+        if (room.Participants.Count >= room.Settings.MaxStudents)
+        {
+            return new JoinRoomResponse { Success = false, Error = $"Room is full (max {room.Settings.MaxStudents} students)" };
+        }
+
+        // Add student to room
+        var student = await _roomStateManager.AddStudentAsync(roomId, Context.ConnectionId);
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"room:{roomId}:students");
+
+        _logger.LogInformation("Student joined: {StudentId} in room {RoomId}", student.StudentId, roomId);
+
+        // Notify teacher
+        await Clients.Group($"room:{roomId}:teacher").ParticipantJoined(new ParticipantJoined
+        {
+            StudentId = student.StudentId,
+            DisplayName = student.DisplayName,
+            ConnectedAt = student.ConnectedAt,
+            InputMode = student.InputMode
+        });
+
+        return new JoinRoomResponse
+        {
+            Success = true,
+            StudentId = student.StudentId,
+            DisplayName = student.DisplayName,
+            RoomSettings = room.Settings
+        };
+    }
+
+    // Student sends stroke batch
+    public async Task SendStrokeBatch(StrokeBatch batch)
+    {
+        // Get student info from connection
+        var student = await _roomStateManager.GetStudentByConnectionIdAsync(Context.ConnectionId);
+        if (student == null)
+        {
+            _logger.LogWarning("Unknown student tried to send stroke: {ConnectionId}", Context.ConnectionId);
+            return;
+        }
+
+        // Set student ID on batch (security - don't trust client)
+        batch.StudentId = student.StudentId;
+
+        // Find which room this student is in
+        string? roomId = null;
+        foreach (var room in await GetAllRoomsAsync())
+        {
+            if (room.Participants.Any(s => s.StudentId == student.StudentId))
+            {
+                roomId = room.RoomId;
+                break;
+            }
+        }
+
+        if (roomId == null)
+        {
+            _logger.LogWarning("Student {StudentId} not in any room", student.StudentId);
+            return;
+        }
+
+        // Send to teacher only
+        await Clients.Group($"room:{roomId}:teacher").ReceiveStrokeBatch(batch);
+    }
+
+    // Handle disconnect
+    public override async Task OnDisconnectedAsync(Exception? exception)
+    {
+        var student = await _roomStateManager.GetStudentByConnectionIdAsync(Context.ConnectionId);
+
+        if (student != null)
+        {
+            // Find and remove from room
+            foreach (var room in await GetAllRoomsAsync())
+            {
+                if (room.Participants.Any(s => s.StudentId == student.StudentId))
+                {
+                    await _roomStateManager.RemoveStudentAsync(room.RoomId, student.StudentId);
+
+                    // Notify teacher
+                    await Clients.Group($"room:{room.RoomId}:teacher").ParticipantLeft(new ParticipantLeft
+                    {
+                        StudentId = student.StudentId,
+                        Reason = "disconnect",
+                        LeftAt = DateTime.UtcNow
+                    });
+
+                    _logger.LogInformation("Student disconnected: {StudentId} from room {RoomId}", student.StudentId, room.RoomId);
+                    break;
+                }
+            }
+        }
+
+        await base.OnDisconnectedAsync(exception);
+    }
+
+    private async Task<IEnumerable<Room>> GetAllRoomsAsync()
+    {
+        return await _roomStateManager.GetAllRoomsAsync();
+    }
+}

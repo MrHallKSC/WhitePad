@@ -11,4 +11,5 @@ public interface IRoomStateManager
     Task RemoveStudentAsync(string roomId, string studentId);
     Task<Student?> GetStudentByConnectionIdAsync(string connectionId);
     Task UpdateTeacherSessionAsync(string roomId, string sessionId);
+    Task<IEnumerable<Room>> GetAllRoomsAsync();
 }

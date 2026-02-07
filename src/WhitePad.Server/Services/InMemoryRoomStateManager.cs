@@ -46,10 +46,11 @@ public class InMemoryRoomStateManager : IRoomStateManager
         if (!_rooms.TryGetValue(roomId, out var room))
             throw new InvalidOperationException("Room not found");
 
+        var studentNumber = ++room.StudentCounter;
         var student = new Student
         {
             StudentId = Guid.NewGuid().ToString(),
-            DisplayName = $"Student {Interlocked.Increment(ref room.StudentCounter)}",
+            DisplayName = $"Student {studentNumber}",
             ConnectionId = connectionId,
             ConnectedAt = DateTime.UtcNow,
             LastSeenAt = DateTime.UtcNow
@@ -97,5 +98,10 @@ public class InMemoryRoomStateManager : IRoomStateManager
         }
 
         return Task.CompletedTask;
+    }
+
+    public Task<IEnumerable<Room>> GetAllRoomsAsync()
+    {
+        return Task.FromResult<IEnumerable<Room>>(_rooms.Values);
     }
 }
