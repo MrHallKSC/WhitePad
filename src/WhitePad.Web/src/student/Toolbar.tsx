@@ -10,13 +10,11 @@ interface ToolbarProps {
   currentTool: ToolType;
   currentConfidence: 'none' | 'red' | 'amber' | 'green';
   currentBackground: BackgroundType;
-  showGrid: boolean;
   onColorChange: (color: string) => void;
   onThicknessChange: (thickness: number) => void;
   onToolChange: (tool: ToolType) => void;
   onConfidenceChange: (level: 'none' | 'red' | 'amber' | 'green') => void;
   onBackgroundChange: (background: BackgroundType) => void;
-  onToggleGrid: () => void;
   onUndo: () => void;
   onRedo: () => void;
   onClear: () => void;
@@ -55,13 +53,11 @@ function Toolbar({
   currentTool,
   currentConfidence,
   currentBackground,
-  showGrid,
   onColorChange,
   onThicknessChange,
   onToolChange,
   onConfidenceChange,
   onBackgroundChange,
-  onToggleGrid,
   onUndo,
   onRedo,
   onClear,
@@ -281,15 +277,6 @@ function Toolbar({
           >
             <span className="tool-icon">✛</span>
             {!isCollapsed && <span className="tool-label">+-Axes</span>}
-          </button>
-          <button
-            type="button"
-            className={`tool-btn ${showGrid ? 'active' : ''}`}
-            onClick={onToggleGrid}
-            title="Toggle Grid"
-          >
-            <span className="tool-icon">#</span>
-            {!isCollapsed && <span className="tool-label">Grid</span>}
           </button>
         </div>
 

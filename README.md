@@ -174,7 +174,9 @@ Comprehensive documentation is available in the `docs/` folder:
 - Line tool (drag-to-draw)
 - Rectangle tool
 - Circle tool
+- Arrow tool
 - Axes tools (L-shaped and cross-shaped)
+- Background patterns (dotted, lined, squares with notebook spacing)
 - Teacher controls: Clear All Boards, Clear Student Board (context menu)
 - All shapes sync to teacher dashboard in real-time
 
@@ -214,9 +216,10 @@ Comprehensive documentation is available in the `docs/` folder:
 - ✅ Real-time drawing with <200ms latency
 - ✅ Teacher dashboard with live student tile grid
 - ✅ Room creation and student joining via URL
-- ✅ **Drawing tools**: 8+ colors, 5 thickness levels, eraser
-- ✅ **Shape tools**: line, rectangle, circle, axes (L-shaped and cross)
-- ✅ **Undo/redo**: Last 20 strokes
+- ✅ **Drawing tools**: 12 colors, 5 thickness levels, eraser with composite mode
+- ✅ **Shape tools**: line, rectangle, circle, arrow, axes (L-shaped and cross)
+- ✅ **Background patterns**: Dotted grid, ruled lines, square grid (notebook-style)
+- ✅ **Undo/redo**: Unlimited undo with keyboard shortcuts (Ctrl+Z/Y)
 - ✅ **Clear controls**: Student clear (with confirmation), teacher clear individual/all boards
 - ✅ **Confidence traffic light**: Red/Amber/Green formative assessment indicator
 

@@ -29,7 +29,6 @@ function DrawingPage({ studentId, displayName, connection }: DrawingPageProps) {
   const [currentThickness, setCurrentThickness] = useState(2);
   const [currentTool, setCurrentTool] = useState<ToolType>('pen');
   const [currentBackground, setCurrentBackground] = useState<BackgroundType>('none');
-  const [showGrid, setShowGrid] = useState(false);
   const [confidenceLevel, setConfidenceLevel] = useState<'none' | 'red' | 'amber' | 'green'>('none');
   const [isLocked, setIsLocked] = useState(false);
 
@@ -715,10 +714,6 @@ function DrawingPage({ studentId, displayName, connection }: DrawingPageProps) {
     setCurrentTool(tool);
   };
 
-  const handleToggleGrid = () => {
-    setShowGrid(!showGrid);
-  };
-
   const handleConfidenceChange = (level: 'none' | 'red' | 'amber' | 'green') => {
     setConfidenceLevel(level);
     connection.invoke('SetConfidence', level).catch(err => {
@@ -812,13 +807,11 @@ function DrawingPage({ studentId, displayName, connection }: DrawingPageProps) {
         currentTool={currentTool}
         currentConfidence={confidenceLevel}
         currentBackground={currentBackground}
-        showGrid={showGrid}
         onColorChange={handleColorChange}
         onThicknessChange={handleThicknessChange}
         onToolChange={handleToolChange}
         onConfidenceChange={handleConfidenceChange}
         onBackgroundChange={setCurrentBackground}
-        onToggleGrid={handleToggleGrid}
         onUndo={handleUndo}
         onRedo={handleRedo}
         onClear={handleClear}

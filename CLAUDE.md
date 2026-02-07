@@ -33,8 +33,10 @@ WhitePad is a web-based collaborative whiteboard system for classroom use. Stude
 - ✅ Lock/unlock individual students or all students
 - ✅ Kick students from room
 - ✅ Visual lock indicators and overlay on student canvas
-- ✅ **Shape tools**: Line, rectangle, circle with drag-to-draw interaction
+- ✅ **Shape tools**: Line, rectangle, circle, arrow with drag-to-draw interaction
 - ✅ **Axes tools**: L-shaped (bottom-left origin) and cross-shaped (center origin)
+- ✅ **Background patterns**: Dotted grid, ruled lines, square grid (notebook-style spacing ~35px)
+- ✅ **Dual-canvas architecture**: Backgrounds on separate layer, persist through eraser and clear operations
 - ✅ **Teacher clear controls**: Clear individual student board (context menu), Clear All Boards button
 - ✅ All shapes sync to teacher dashboard in real-time with color and thickness
 
