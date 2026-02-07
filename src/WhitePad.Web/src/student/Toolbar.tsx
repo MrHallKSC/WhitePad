@@ -17,6 +17,7 @@ interface ToolbarProps {
   onUndo: () => void;
   onRedo: () => void;
   onClear: () => void;
+  onToolbarResized?: () => void;
   canUndo: boolean;
   canRedo: boolean;
 }
@@ -59,6 +60,7 @@ function Toolbar({
   onUndo,
   onRedo,
   onClear,
+  onToolbarResized,
   canUndo,
   canRedo,
 }: ToolbarProps) {
@@ -66,8 +68,20 @@ function Toolbar({
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showThicknessPicker, setShowThicknessPicker] = useState(false);
+  const [showConfidencePicker, setShowConfidencePicker] = useState(false);
   const [colorPickerPos, setColorPickerPos] = useState({ top: 0, left: 0 });
   const [thicknessPickerPos, setThicknessPickerPos] = useState({ top: 0, left: 0 });
+  const [confidencePickerPos, setConfidencePickerPos] = useState({ top: 0, left: 0 });
+
+  const handleCollapseToggle = () => {
+    setIsCollapsed(!isCollapsed);
+    // Notify parent after a delay to allow CSS transition to complete
+    if (onToolbarResized) {
+      setTimeout(() => {
+        onToolbarResized();
+      }, 350); // Wait for CSS transition (usually 300ms) plus a bit extra
+    }
+  };
 
   const handleClearClick = () => {
     setShowClearConfirm(true);
@@ -116,6 +130,31 @@ function Toolbar({
     setShowThicknessPicker(!showThicknessPicker);
   };
 
+  const handleConfidencePickerToggle = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (!showConfidencePicker) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      setConfidencePickerPos({
+        top: rect.top,
+        left: rect.right + 8,
+      });
+    }
+    setShowConfidencePicker(!showConfidencePicker);
+  };
+
+  const handleConfidenceSelect = (level: 'none' | 'red' | 'amber' | 'green') => {
+    onConfidenceChange(level);
+    setShowConfidencePicker(false);
+  };
+
+  const getConfidenceIcon = (level: 'none' | 'red' | 'amber' | 'green') => {
+    switch (level) {
+      case 'red': return '🔴';
+      case 'amber': return '🟡';
+      case 'green': return '🟢';
+      default: return '⚪';
+    }
+  };
+
   return (
     <>
       <div className={`toolbar vertical ${isCollapsed ? 'collapsed' : ''}`}>
@@ -123,7 +162,7 @@ function Toolbar({
         <button
           type="button"
           className="toolbar-collapse-btn"
-          onClick={() => setIsCollapsed(!isCollapsed)}
+          onClick={handleCollapseToggle}
           title={isCollapsed ? 'Expand Toolbar' : 'Collapse Toolbar'}
         >
           {isCollapsed ? '▶' : '◀'}
@@ -331,35 +370,81 @@ function Toolbar({
           </div>
         </div>
 
-        {/* Confidence Section - Horizontal */}
+        {/* Confidence Section */}
         <div className="toolbar-section confidence-section">
           {!isCollapsed && <label className="toolbar-section-label">HOW DO YOU FEEL?</label>}
-          <div className="confidence-selector horizontal">
-            <button
-              type="button"
-              className={`confidence-button red ${currentConfidence === 'red' ? 'selected' : ''}`}
-              onClick={() => onConfidenceChange(currentConfidence === 'red' ? 'none' : 'red')}
-              title="Need Help"
-            >
-              🔴
-            </button>
-            <button
-              type="button"
-              className={`confidence-button amber ${currentConfidence === 'amber' ? 'selected' : ''}`}
-              onClick={() => onConfidenceChange(currentConfidence === 'amber' ? 'none' : 'amber')}
-              title="Unsure"
-            >
-              🟡
-            </button>
-            <button
-              type="button"
-              className={`confidence-button green ${currentConfidence === 'green' ? 'selected' : ''}`}
-              onClick={() => onConfidenceChange(currentConfidence === 'green' ? 'none' : 'green')}
-              title="Got It!"
-            >
-              🟢
-            </button>
-          </div>
+          {isCollapsed ? (
+            // Collapsed: Show current confidence as a button with popup
+            <div className="picker-container">
+              <button
+                type="button"
+                className="picker-current-btn"
+                onClick={handleConfidencePickerToggle}
+                title="Select Confidence Level"
+              >
+                <span style={{ fontSize: '20px' }}>{getConfidenceIcon(currentConfidence)}</span>
+              </button>
+              {showConfidencePicker && (
+                <div
+                  className="picker-popup horizontal"
+                  style={{ top: `${confidencePickerPos.top}px`, left: `${confidencePickerPos.left}px` }}
+                >
+                  <button
+                    type="button"
+                    className={`confidence-button red ${currentConfidence === 'red' ? 'selected' : ''}`}
+                    onClick={() => handleConfidenceSelect(currentConfidence === 'red' ? 'none' : 'red')}
+                    title="Need Help"
+                  >
+                    🔴
+                  </button>
+                  <button
+                    type="button"
+                    className={`confidence-button amber ${currentConfidence === 'amber' ? 'selected' : ''}`}
+                    onClick={() => handleConfidenceSelect(currentConfidence === 'amber' ? 'none' : 'amber')}
+                    title="Unsure"
+                  >
+                    🟡
+                  </button>
+                  <button
+                    type="button"
+                    className={`confidence-button green ${currentConfidence === 'green' ? 'selected' : ''}`}
+                    onClick={() => handleConfidenceSelect(currentConfidence === 'green' ? 'none' : 'green')}
+                    title="Got It!"
+                  >
+                    🟢
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            // Expanded: Show all confidence buttons horizontally
+            <div className="confidence-selector horizontal">
+              <button
+                type="button"
+                className={`confidence-button red ${currentConfidence === 'red' ? 'selected' : ''}`}
+                onClick={() => onConfidenceChange(currentConfidence === 'red' ? 'none' : 'red')}
+                title="Need Help"
+              >
+                🔴
+              </button>
+              <button
+                type="button"
+                className={`confidence-button amber ${currentConfidence === 'amber' ? 'selected' : ''}`}
+                onClick={() => onConfidenceChange(currentConfidence === 'amber' ? 'none' : 'amber')}
+                title="Unsure"
+              >
+                🟡
+              </button>
+              <button
+                type="button"
+                className={`confidence-button green ${currentConfidence === 'green' ? 'selected' : ''}`}
+                onClick={() => onConfidenceChange(currentConfidence === 'green' ? 'none' : 'green')}
+                title="Got It!"
+              >
+                🟢
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

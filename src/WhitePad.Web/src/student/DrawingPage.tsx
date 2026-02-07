@@ -18,7 +18,7 @@ interface StoredStroke {
   lineWidth: number;
 }
 
-function DrawingPage({ roomId, studentId, displayName, connection }: DrawingPageProps) {
+function DrawingPage({ studentId, displayName, connection }: DrawingPageProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const batcherRef = useRef<StrokeBatcher | null>(null);
   const isDrawingRef = useRef(false);
@@ -34,10 +34,16 @@ function DrawingPage({ roomId, studentId, displayName, connection }: DrawingPage
   // Undo/redo state
   const strokesRef = useRef<Map<string, StoredStroke>>(new Map());
   const [strokeHistory, setStrokeHistory] = useState<string[]>([]);
+  const strokeHistoryRef = useRef<string[]>([]);
   const [undoneStrokes, setUndoneStrokes] = useState<string[]>([]);
 
   // Cursor state for eraser
   const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null);
+
+  // Keep strokeHistoryRef in sync with strokeHistory
+  useEffect(() => {
+    strokeHistoryRef.current = strokeHistory;
+  }, [strokeHistory]);
 
   // Listen for lock state changes
   useEffect(() => {
@@ -54,56 +60,59 @@ function DrawingPage({ roomId, studentId, displayName, connection }: DrawingPage
     };
   }, [connection, studentId]);
 
-  useEffect(() => {
+  // Manual resize handler that can be called when needed
+  const handleCanvasResize = useRef(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas) {
+      console.log('[RESIZE] Canvas ref is null');
+      return;
+    }
 
-    // Set canvas size to match its actual display size
-    const resizeCanvas = () => {
-      const rect = canvas.getBoundingClientRect();
-      canvas.width = rect.width;
-      canvas.height = rect.height;
+    // Skip if currently drawing
+    if (isDrawingRef.current) {
+      console.log('[RESIZE] Skipping - currently drawing');
+      return;
+    }
 
-      // Redraw all strokes after resize
-      redrawCanvas();
-    };
+    const rect = canvas.getBoundingClientRect();
+    const currentHistory = strokeHistoryRef.current;
+    console.log('[RESIZE] Canvas dimensions:', {
+      currentWidth: canvas.width,
+      currentHeight: canvas.height,
+      newWidth: rect.width,
+      newHeight: rect.height,
+      strokeHistoryLength: currentHistory.length,
+      strokesInMap: strokesRef.current.size
+    });
 
-    resizeCanvas();
-    window.addEventListener('resize', resizeCanvas);
+    // Only resize if dimensions actually changed
+    if (canvas.width === rect.width && canvas.height === rect.height) {
+      console.log('[RESIZE] Dimensions unchanged, skipping');
+      return;
+    }
 
-    // Also check for size changes periodically (for toolbar collapse/expand)
-    const interval = setInterval(resizeCanvas, 500);
+    console.log('[RESIZE] Resizing canvas and redrawing with', currentHistory.length, 'strokes...');
+    canvas.width = rect.width;
+    canvas.height = rect.height;
 
-    return () => {
-      window.removeEventListener('resize', resizeCanvas);
-      clearInterval(interval);
-    };
-  }, []);
-
-  const redrawCanvas = (strokeIds?: string[]) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
+    // Get context and redraw manually using the ref
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Use provided strokeIds or current strokeHistory
-    const idsToRender = strokeIds !== undefined ? strokeIds : strokeHistory;
-
-    // Redraw all strokes in history order
-    idsToRender.forEach(strokeId => {
+    currentHistory.forEach(strokeId => {
       const stroke = strokesRef.current.get(strokeId);
-      if (!stroke) return;
+      if (!stroke) {
+        console.log('[RESIZE-REDRAW] Stroke not found:', strokeId);
+        return;
+      }
 
       ctx.strokeStyle = stroke.color;
       ctx.lineWidth = stroke.lineWidth;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
 
-      // Draw all points from all batches
       const allPoints: StrokePoint[] = [];
       stroke.batches.forEach(batch => {
         allPoints.push(...batch.points);
@@ -122,6 +131,105 @@ function DrawingPage({ roomId, studentId, displayName, connection }: DrawingPage
 
       ctx.stroke();
     });
+
+    console.log('[RESIZE] Redraw complete');
+  });
+
+  // Initial setup and window resize handling
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    let resizeTimeout: number | null = null;
+
+    // Initial resize
+    handleCanvasResize.current();
+
+    // Handle actual window resize (browser window size change)
+    const handleWindowResize = () => {
+      if (resizeTimeout) {
+        clearTimeout(resizeTimeout);
+      }
+      resizeTimeout = window.setTimeout(() => {
+        handleCanvasResize.current();
+      }, 150);
+    };
+
+    window.addEventListener('resize', handleWindowResize);
+
+    return () => {
+      window.removeEventListener('resize', handleWindowResize);
+      if (resizeTimeout) {
+        clearTimeout(resizeTimeout);
+      }
+    };
+  }, []);
+
+  const redrawCanvas = (strokeIds?: string[]) => {
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      console.log('[REDRAW] Canvas ref is null');
+      return;
+    }
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      console.log('[REDRAW] Cannot get 2D context');
+      return;
+    }
+
+    // Use provided strokeIds or current strokeHistory
+    const idsToRender = strokeIds !== undefined ? strokeIds : strokeHistory;
+
+    console.log('[REDRAW] Starting redraw:', {
+      strokeIdsProvided: strokeIds !== undefined,
+      idsToRenderCount: idsToRender.length,
+      strokesInMap: strokesRef.current.size,
+      canvasSize: { width: canvas.width, height: canvas.height }
+    });
+
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Redraw all strokes in history order
+    let drawnCount = 0;
+    idsToRender.forEach(strokeId => {
+      const stroke = strokesRef.current.get(strokeId);
+      if (!stroke) {
+        console.log('[REDRAW] Stroke not found in map:', strokeId);
+        return;
+      }
+
+      ctx.strokeStyle = stroke.color;
+      ctx.lineWidth = stroke.lineWidth;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      // Draw all points from all batches
+      const allPoints: StrokePoint[] = [];
+      stroke.batches.forEach(batch => {
+        allPoints.push(...batch.points);
+      });
+
+      if (allPoints.length === 0) {
+        console.log('[REDRAW] Stroke has no points:', strokeId);
+        return;
+      }
+
+      ctx.beginPath();
+      const firstPoint = allPoints[0];
+      ctx.moveTo(firstPoint.x * canvas.width, firstPoint.y * canvas.height);
+
+      for (let i = 1; i < allPoints.length; i++) {
+        const point = allPoints[i];
+        ctx.lineTo(point.x * canvas.width, point.y * canvas.height);
+      }
+
+      ctx.stroke();
+      drawnCount++;
+    });
+
+    console.log('[REDRAW] Completed. Drew', drawnCount, 'strokes');
   };
 
   const getNormalizedPoint = (clientX: number, clientY: number, pressure: number): StrokePoint => {
@@ -187,7 +295,10 @@ function DrawingPage({ roomId, studentId, displayName, connection }: DrawingPage
     batcherRef.current = new StrokeBatcher(strokeId, (batch) => {
       // Add color and lineWidth to the batch
       const batchWithStyle: StrokeBatch = {
-        ...batch,
+        studentId: studentId,
+        strokeId: batch.strokeId || strokeId,
+        points: batch.points || [],
+        isComplete: batch.isComplete || false,
         color: drawColor,
         lineWidth: currentThickness,
       };
@@ -369,6 +480,7 @@ function DrawingPage({ roomId, studentId, displayName, connection }: DrawingPage
         onUndo={handleUndo}
         onRedo={handleRedo}
         onClear={handleClear}
+        onToolbarResized={handleCanvasResize.current}
         canUndo={strokeHistory.length > 0}
         canRedo={undoneStrokes.length > 0}
       />
