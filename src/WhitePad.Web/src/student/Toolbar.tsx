@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
-export type ToolType = 'pen' | 'eraser' | 'line' | 'rectangle' | 'circle' | 'axesL' | 'axesCross';
+export type ToolType = 'pen' | 'eraser' | 'line' | 'rectangle' | 'circle' | 'arrow' | 'axesL' | 'axesCross';
+export type BackgroundType = 'none' | 'dotted' | 'lined' | 'squares';
 
 interface ToolbarProps {
   displayName: string;
@@ -8,11 +9,13 @@ interface ToolbarProps {
   currentThickness: number;
   currentTool: ToolType;
   currentConfidence: 'none' | 'red' | 'amber' | 'green';
+  currentBackground: BackgroundType;
   showGrid: boolean;
   onColorChange: (color: string) => void;
   onThicknessChange: (thickness: number) => void;
   onToolChange: (tool: ToolType) => void;
   onConfidenceChange: (level: 'none' | 'red' | 'amber' | 'green') => void;
+  onBackgroundChange: (background: BackgroundType) => void;
   onToggleGrid: () => void;
   onUndo: () => void;
   onRedo: () => void;
@@ -51,11 +54,13 @@ function Toolbar({
   currentThickness,
   currentTool,
   currentConfidence,
+  currentBackground,
   showGrid,
   onColorChange,
   onThicknessChange,
   onToolChange,
   onConfidenceChange,
+  onBackgroundChange,
   onToggleGrid,
   onUndo,
   onRedo,
@@ -69,9 +74,11 @@ function Toolbar({
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showThicknessPicker, setShowThicknessPicker] = useState(false);
   const [showConfidencePicker, setShowConfidencePicker] = useState(false);
+  const [showBackgroundPicker, setShowBackgroundPicker] = useState(false);
   const [colorPickerPos, setColorPickerPos] = useState({ top: 0, left: 0 });
   const [thicknessPickerPos, setThicknessPickerPos] = useState({ top: 0, left: 0 });
   const [confidencePickerPos, setConfidencePickerPos] = useState({ top: 0, left: 0 });
+  const [backgroundPickerPos, setBackgroundPickerPos] = useState({ top: 0, left: 0 });
 
   const handleCollapseToggle = () => {
     setIsCollapsed(!isCollapsed);
@@ -146,12 +153,37 @@ function Toolbar({
     setShowConfidencePicker(false);
   };
 
+  const handleBackgroundPickerToggle = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (!showBackgroundPicker) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      setBackgroundPickerPos({
+        top: rect.top,
+        left: rect.right + 8,
+      });
+    }
+    setShowBackgroundPicker(!showBackgroundPicker);
+  };
+
+  const handleBackgroundSelect = (background: BackgroundType) => {
+    onBackgroundChange(background);
+    setShowBackgroundPicker(false);
+  };
+
   const getConfidenceIcon = (level: 'none' | 'red' | 'amber' | 'green') => {
     switch (level) {
       case 'red': return '🔴';
       case 'amber': return '🟡';
       case 'green': return '🟢';
       default: return '⚪';
+    }
+  };
+
+  const getBackgroundIcon = (bg: BackgroundType) => {
+    switch (bg) {
+      case 'dotted': return '⋮⋮';
+      case 'lined': return '☰';
+      case 'squares': return '⊞';
+      default: return '□';
     }
   };
 
@@ -225,6 +257,15 @@ function Toolbar({
           </button>
           <button
             type="button"
+            className={`tool-btn ${currentTool === 'arrow' ? 'active' : ''}`}
+            onClick={() => onToolChange('arrow')}
+            title="Arrow Tool"
+          >
+            <span className="tool-icon">→</span>
+            {!isCollapsed && <span className="tool-label">Arrow</span>}
+          </button>
+          <button
+            type="button"
             className={`tool-btn ${currentTool === 'axesL' ? 'active' : ''}`}
             onClick={() => onToolChange('axesL')}
             title="L-shaped Axes (bottom-left origin)"
@@ -250,6 +291,64 @@ function Toolbar({
             <span className="tool-icon">#</span>
             {!isCollapsed && <span className="tool-label">Grid</span>}
           </button>
+        </div>
+
+        {/* Background Picker */}
+        <div className="toolbar-section picker-section">
+          {!isCollapsed && <label className="toolbar-section-label">BACKGROUND</label>}
+          <div className="picker-container">
+            <button
+              type="button"
+              className="picker-current-btn"
+              onClick={handleBackgroundPickerToggle}
+              title="Select Background"
+            >
+              <span style={{ fontSize: '18px' }}>{getBackgroundIcon(currentBackground)}</span>
+            </button>
+            {showBackgroundPicker && (
+              <div
+                className="picker-popup vertical"
+                style={{ top: `${backgroundPickerPos.top}px`, left: `${backgroundPickerPos.left}px` }}
+              >
+                <button
+                  type="button"
+                  className={`background-button ${currentBackground === 'none' ? 'selected' : ''}`}
+                  onClick={() => handleBackgroundSelect('none')}
+                  title="No Background"
+                >
+                  <span className="bg-icon">□</span>
+                  <span className="bg-label">None</span>
+                </button>
+                <button
+                  type="button"
+                  className={`background-button ${currentBackground === 'dotted' ? 'selected' : ''}`}
+                  onClick={() => handleBackgroundSelect('dotted')}
+                  title="Dotted Grid"
+                >
+                  <span className="bg-icon">⋮⋮</span>
+                  <span className="bg-label">Dotted</span>
+                </button>
+                <button
+                  type="button"
+                  className={`background-button ${currentBackground === 'lined' ? 'selected' : ''}`}
+                  onClick={() => handleBackgroundSelect('lined')}
+                  title="Lined Paper"
+                >
+                  <span className="bg-icon">☰</span>
+                  <span className="bg-label">Lined</span>
+                </button>
+                <button
+                  type="button"
+                  className={`background-button ${currentBackground === 'squares' ? 'selected' : ''}`}
+                  onClick={() => handleBackgroundSelect('squares')}
+                  title="Square Grid"
+                >
+                  <span className="bg-icon">⊞</span>
+                  <span className="bg-label">Squares</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Color Picker - Horizontal Popup */}

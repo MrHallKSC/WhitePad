@@ -2,7 +2,7 @@ import { useRef, useEffect, useState } from 'react';
 import { HubConnection } from '@microsoft/signalr';
 import { StrokeBatcher } from '../shared/utils/strokeBatching';
 import { StrokePoint, StrokeBatch, StudentLocked, Shape } from '../shared/types/messages';
-import Toolbar, { ToolType } from './Toolbar';
+import Toolbar, { ToolType, BackgroundType } from './Toolbar';
 
 interface DrawingPageProps {
   roomId: string;
@@ -20,6 +20,7 @@ interface StoredStroke {
 
 function DrawingPage({ studentId, displayName, connection }: DrawingPageProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const backgroundCanvasRef = useRef<HTMLCanvasElement>(null);
   const batcherRef = useRef<StrokeBatcher | null>(null);
   const isDrawingRef = useRef(false);
 
@@ -27,6 +28,7 @@ function DrawingPage({ studentId, displayName, connection }: DrawingPageProps) {
   const [currentColor, setCurrentColor] = useState('#000000');
   const [currentThickness, setCurrentThickness] = useState(2);
   const [currentTool, setCurrentTool] = useState<ToolType>('pen');
+  const [currentBackground, setCurrentBackground] = useState<BackgroundType>('none');
   const [showGrid, setShowGrid] = useState(false);
   const [confidenceLevel, setConfidenceLevel] = useState<'none' | 'red' | 'amber' | 'green'>('none');
   const [isLocked, setIsLocked] = useState(false);
@@ -36,6 +38,7 @@ function DrawingPage({ studentId, displayName, connection }: DrawingPageProps) {
   const [strokeHistory, setStrokeHistory] = useState<string[]>([]);
   const strokeHistoryRef = useRef<string[]>([]);
   const [undoneStrokes, setUndoneStrokes] = useState<string[]>([]);
+  const currentBackgroundRef = useRef<BackgroundType>('none');
 
   // Cursor state for eraser
   const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null);
@@ -48,6 +51,16 @@ function DrawingPage({ studentId, displayName, connection }: DrawingPageProps) {
   useEffect(() => {
     strokeHistoryRef.current = strokeHistory;
   }, [strokeHistory]);
+
+  // Keep currentBackgroundRef in sync with currentBackground
+  useEffect(() => {
+    currentBackgroundRef.current = currentBackground;
+  }, [currentBackground]);
+
+  // Redraw background canvas when background changes
+  useEffect(() => {
+    renderBackgroundCanvas();
+  }, [currentBackground]);
 
   // Listen for lock state changes
   useEffect(() => {
@@ -126,6 +139,18 @@ function DrawingPage({ studentId, displayName, connection }: DrawingPageProps) {
     console.log('[RESIZE] Resizing canvas and redrawing with', currentHistory.length, 'strokes...');
     canvas.width = rect.width;
     canvas.height = rect.height;
+
+    // Also resize background canvas to match
+    const backgroundCanvas = backgroundCanvasRef.current;
+    if (backgroundCanvas) {
+      backgroundCanvas.width = rect.width;
+      backgroundCanvas.height = rect.height;
+      // Redraw background on the background canvas
+      const bgCtx = backgroundCanvas.getContext('2d');
+      if (bgCtx) {
+        drawBackground(bgCtx, backgroundCanvas.width, backgroundCanvas.height, currentBackgroundRef.current);
+      }
+    }
 
     // Get context and redraw manually using the ref
     const ctx = canvas.getContext('2d');
@@ -273,6 +298,75 @@ function DrawingPage({ studentId, displayName, connection }: DrawingPageProps) {
     console.log('[REDRAW] Completed. Drew', drawnCount, 'strokes');
   };
 
+  const drawBackground = (ctx: CanvasRenderingContext2D, width: number, height: number, backgroundType: BackgroundType) => {
+    if (backgroundType === 'none') return;
+
+    ctx.save();
+    ctx.strokeStyle = '#e5e5e5'; // Light gray, faint
+    ctx.lineWidth = 0.5;
+
+    const spacing = 35; // ~35px spacing similar to notebook paper on iPad
+
+    switch (backgroundType) {
+      case 'dotted':
+        // Draw dots in a grid
+        for (let x = spacing; x < width; x += spacing) {
+          for (let y = spacing; y < height; y += spacing) {
+            ctx.fillStyle = '#d0d0d0';
+            ctx.beginPath();
+            ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+        break;
+
+      case 'lined':
+        // Draw horizontal lines like ruled paper
+        for (let y = spacing; y < height; y += spacing) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(width, y);
+          ctx.stroke();
+        }
+        break;
+
+      case 'squares':
+        // Draw grid lines
+        // Vertical lines
+        for (let x = spacing; x < width; x += spacing) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, height);
+          ctx.stroke();
+        }
+        // Horizontal lines
+        for (let y = spacing; y < height; y += spacing) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(width, y);
+          ctx.stroke();
+        }
+        break;
+    }
+
+    ctx.restore();
+  };
+
+  // Render background on separate background canvas
+  const renderBackgroundCanvas = () => {
+    const canvas = backgroundCanvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Clear the background canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw the background pattern
+    drawBackground(ctx, canvas.width, canvas.height, currentBackground);
+  };
+
   const renderShape = (ctx: CanvasRenderingContext2D, shape: Shape, canvasWidth: number, canvasHeight: number, isDashed: boolean = false) => {
     if (shape.points.length === 0) return;
 
@@ -317,6 +411,38 @@ function DrawingPage({ studentId, displayName, connection }: DrawingPageProps) {
           const dy = (edge.y - center.y) * canvasHeight;
           const radius = Math.sqrt(dx * dx + dy * dy);
           ctx.arc(center.x * canvasWidth, center.y * canvasHeight, radius, 0, Math.PI * 2);
+        }
+        break;
+
+      case 'arrow':
+        // Arrow with line and arrowhead
+        if (shape.points.length >= 2) {
+          const start = shape.points[0];
+          const end = shape.points[1];
+          const startX = start.x * canvasWidth;
+          const startY = start.y * canvasHeight;
+          const endX = end.x * canvasWidth;
+          const endY = end.y * canvasHeight;
+
+          // Draw the line
+          ctx.moveTo(startX, startY);
+          ctx.lineTo(endX, endY);
+
+          // Calculate arrowhead
+          const headLength = Math.max(15, shape.lineWidth * 4); // Arrow head size proportional to line width
+          const angle = Math.atan2(endY - startY, endX - startX);
+
+          // Draw arrowhead (two lines forming a V)
+          ctx.moveTo(endX, endY);
+          ctx.lineTo(
+            endX - headLength * Math.cos(angle - Math.PI / 6),
+            endY - headLength * Math.sin(angle - Math.PI / 6)
+          );
+          ctx.moveTo(endX, endY);
+          ctx.lineTo(
+            endX - headLength * Math.cos(angle + Math.PI / 6),
+            endY - headLength * Math.sin(angle + Math.PI / 6)
+          );
         }
         break;
 
@@ -416,7 +542,7 @@ function DrawingPage({ studentId, displayName, connection }: DrawingPageProps) {
     const point = getNormalizedPoint(e.clientX, e.clientY, pressure);
 
     // Handle shape tools
-    if (currentTool === 'line' || currentTool === 'rectangle' || currentTool === 'circle' || currentTool === 'axesL' || currentTool === 'axesCross') {
+    if (currentTool === 'line' || currentTool === 'rectangle' || currentTool === 'circle' || currentTool === 'arrow' || currentTool === 'axesL' || currentTool === 'axesCross') {
       const shapeId = `${studentId}-shape-${Date.now()}`;
       const newShape: Shape = {
         shapeId,
@@ -431,9 +557,14 @@ function DrawingPage({ studentId, displayName, connection }: DrawingPageProps) {
       return;
     }
 
-    // Use white color for eraser, current color for pen
-    const drawColor = currentTool === 'eraser' ? '#FFFFFF' : currentColor;
-    ctx.strokeStyle = drawColor;
+    // Use destination-out composite mode for eraser to actually erase pixels
+    if (currentTool === 'eraser') {
+      ctx.globalCompositeOperation = 'destination-out';
+    } else {
+      ctx.globalCompositeOperation = 'source-over';
+    }
+
+    ctx.strokeStyle = currentColor;
     ctx.lineWidth = currentThickness;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
@@ -444,7 +575,7 @@ function DrawingPage({ studentId, displayName, connection }: DrawingPageProps) {
     const newStroke: StoredStroke = {
       strokeId,
       batches: [],
-      color: drawColor,
+      color: currentColor,
       lineWidth: currentThickness,
     };
     strokesRef.current.set(strokeId, newStroke);
@@ -458,7 +589,7 @@ function DrawingPage({ studentId, displayName, connection }: DrawingPageProps) {
         strokeId: batch.strokeId || strokeId,
         points: batch.points || [],
         isComplete: batch.isComplete || false,
-        color: drawColor,
+        color: currentColor,
         lineWidth: currentThickness,
       };
 
@@ -680,11 +811,13 @@ function DrawingPage({ studentId, displayName, connection }: DrawingPageProps) {
         currentThickness={currentThickness}
         currentTool={currentTool}
         currentConfidence={confidenceLevel}
+        currentBackground={currentBackground}
         showGrid={showGrid}
         onColorChange={handleColorChange}
         onThicknessChange={handleThicknessChange}
         onToolChange={handleToolChange}
         onConfidenceChange={handleConfidenceChange}
+        onBackgroundChange={setCurrentBackground}
         onToggleGrid={handleToggleGrid}
         onUndo={handleUndo}
         onRedo={handleRedo}
@@ -694,6 +827,10 @@ function DrawingPage({ studentId, displayName, connection }: DrawingPageProps) {
         canRedo={undoneStrokes.length > 0}
       />
       <div className="canvas-wrapper">
+        <canvas
+          ref={backgroundCanvasRef}
+          className="background-canvas"
+        />
         <canvas
           ref={canvasRef}
           className={`drawing-canvas ${currentTool === 'eraser' ? 'erasing' : ''}`}

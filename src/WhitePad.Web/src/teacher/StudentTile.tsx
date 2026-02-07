@@ -62,6 +62,38 @@ function StudentTile({ student, connection, roomId }: StudentTileProps) {
         }
         break;
 
+      case 'arrow':
+        // Arrow with line and arrowhead
+        if (shape.points.length >= 2) {
+          const start = shape.points[0];
+          const end = shape.points[1];
+          const startX = start.x * canvasWidth;
+          const startY = start.y * canvasHeight;
+          const endX = end.x * canvasWidth;
+          const endY = end.y * canvasHeight;
+
+          // Draw the line
+          ctx.moveTo(startX, startY);
+          ctx.lineTo(endX, endY);
+
+          // Calculate arrowhead
+          const headLength = Math.max(15, shape.lineWidth * 4); // Arrow head size proportional to line width
+          const angle = Math.atan2(endY - startY, endX - startX);
+
+          // Draw arrowhead (two lines forming a V)
+          ctx.moveTo(endX, endY);
+          ctx.lineTo(
+            endX - headLength * Math.cos(angle - Math.PI / 6),
+            endY - headLength * Math.sin(angle - Math.PI / 6)
+          );
+          ctx.moveTo(endX, endY);
+          ctx.lineTo(
+            endX - headLength * Math.cos(angle + Math.PI / 6),
+            endY - headLength * Math.sin(angle + Math.PI / 6)
+          );
+        }
+        break;
+
       case 'axesL':
         // L-shaped axes with origin at bottom-left
         if (shape.points.length >= 2) {

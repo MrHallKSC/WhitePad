@@ -88,7 +88,7 @@ export interface Student {
 export interface Shape {
   shapeId: string;
   studentId: string;
-  type: 'line' | 'rectangle' | 'circle' | 'axesL' | 'axesCross';
+  type: 'line' | 'rectangle' | 'circle' | 'arrow' | 'axesL' | 'axesCross';
   points: StrokePoint[];
   color: string;
   lineWidth: number;
@@ -98,7 +98,7 @@ export interface Shape {
 export interface ShapeDrawn {
   shapeId: string;
   studentId: string;
-  type: 'line' | 'rectangle' | 'circle' | 'axesL' | 'axesCross';
+  type: 'line' | 'rectangle' | 'circle' | 'arrow' | 'axesL' | 'axesCross';
   points: StrokePoint[];
   color: string;
   lineWidth: number;
