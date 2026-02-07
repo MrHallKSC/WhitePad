@@ -71,3 +71,6 @@ temp/
 test-results/
 playwright-report/
 playwright/.cache/
+
+# Frontend build artifacts
+src/WhitePad.Server/wwwroot/
