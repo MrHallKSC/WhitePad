@@ -58,11 +58,11 @@ function DrawingPage({ roomId, studentId, displayName, connection }: DrawingPage
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // Set canvas size to window size
+    // Set canvas size to window size minus toolbar
     const resizeCanvas = () => {
-      const toolbarHeight = 70; // Approximate toolbar height
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight - toolbarHeight;
+      const toolbarWidth = 180; // Width of toolbar
+      canvas.width = window.innerWidth - toolbarWidth;
+      canvas.height = window.innerHeight;
 
       // Redraw all strokes after resize
       redrawCanvas();
