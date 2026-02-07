@@ -33,8 +33,8 @@ Build a web-based system that replaces physical mini whiteboards with stylus inp
   - MVP: Anonymous join (no account)
   - Later: Microsoft school accounts (Entra ID / M365 login)
 - **Hosting**:
-  - **MVP testing** (Stages 1-4): Run server locally on Windows machine using Kestrel standalone (.exe)
-  - **Production** (Stage 6+): Deploy to on-prem Windows Server behind IIS reverse proxy
+  - **Local demo and MVP testing** (Stages 1-6): Run server locally on Windows machine using Kestrel standalone (.exe)
+  - **Production** (Stage 8+): Deploy to on-prem Windows Server behind IIS reverse proxy
 - **Development approach**: Local-first, validate with home iPads, then deploy to school infrastructure
 
 ---
@@ -122,9 +122,9 @@ This creates a certificate for `localhost`. For iPad testing, iPads will see a "
 - **qrcode.react** for QR code generation
 
 ### Deployment
-- **Stages 1-4**: Kestrel standalone (self-contained .exe on Windows dev PC)
-- **Stage 5**: Package for IIS deployment
-- **Stage 6+**: Behind IIS reverse proxy (production school server)
+- **Stages 1-6**: Kestrel standalone (self-contained .exe on Windows dev PC) - includes feature-complete local demo
+- **Stage 7**: Package for IIS deployment
+- **Stage 8+**: Behind IIS reverse proxy (production school server)
 
 ### Development Tools
 - **Visual Studio 2022** or **VS Code** with C# extension
@@ -199,7 +199,7 @@ This creates a certificate for `localhost`. For iPad testing, iPads will see a "
 
 ### Security
 - Join tokens expire and can be rotated by teacher
-- Teacher session protected by teacher access key or authentication (Stage 7+)
+- Teacher session protected by teacher access key or authentication (Stage 10+)
 - All traffic over HTTPS in production
 - Rate limiting: Max 100 messages/sec per student (prevents abuse)
 
@@ -290,7 +290,7 @@ Each stage includes: goals, deliverables, and "done" criteria.
 
 ---
 
-### Stage 1 — Local Windows Machine MVP (Browser-Only)
+### Stage 1 — Local Windows Machine MVP (Browser-Only) ✅ COMPLETE
 **Goals**
 - Prove the realtime room concept on a single development machine
 - Run ASP.NET Core standalone (Kestrel), no IIS required
@@ -314,26 +314,136 @@ Each stage includes: goals, deliverables, and "done" criteria.
   - Strokes stream from student tabs to teacher grid using SignalR
 
 **Deliverables**
-- Single Visual Studio solution:
+- ✅ Single Visual Studio solution:
   - `WhitePad.Server` (ASP.NET Core + SignalR)
   - `WhitePad.Web` (React frontend, built and served by Server)
-- Run with `dotnet run` or F5 in Visual Studio
-- Teacher opens `https://localhost:5001/teacher`
-- Student tabs open `https://localhost:5001/join?room=xxx`
+- ✅ Run with `dotnet run` or F5 in Visual Studio
+- ✅ Teacher opens `https://localhost:5001/teacher`
+- ✅ Student tabs open `https://localhost:5001/join?room=xxx`
 
 **Done criteria**
-- You can run the app, open 1 teacher tab and 5-10 student tabs in Chrome
-- Drawing in student tabs appears in teacher grid within 200ms
-- All basic SignalR events working (join, disconnect, stroke streaming)
+- ✅ You can run the app, open 1 teacher tab and 5-10 student tabs in Chrome
+- ✅ Drawing in student tabs appears in teacher grid within 200ms
+- ✅ All basic SignalR events working (join, disconnect, stroke streaming)
+
+**Completion Notes**
+- Successfully tested with multiple student tabs
+- Fixed React double-render issues (removed StrictMode)
+- Fixed stroke rendering bug (startIndex calculation and canvas path continuation)
+- Real-time stroke streaming working reliably with <200ms latency
+- Basic presence management working (connect/disconnect)
 
 ---
 
-### Stage 2 — iPad Testing on Home Wi-Fi
+### Stage 2 — Drawing Tools and Enhancements (Local Demo Features)
 **Goals**
-- Validate Apple Pencil input on iPadOS 18 / Safari
+- Add essential drawing tools for classroom use
+- Create a feature-rich local prototype to demonstrate to school
+- Improve student drawing experience with color and thickness options
+- Add undo/redo functionality
+- Provide eraser tool
+
+**Scope Additions**
+- **Student drawing tools**:
+  - **Color picker**: Palette of 8-12 colors (black, red, blue, green, orange, purple, brown, yellow, etc.)
+  - **Pen thickness selector**: 3-5 thickness options (thin, medium, thick, very thick, extra thick)
+  - **Eraser tool**: Toggle between pen and eraser mode
+  - **Undo/redo**: Undo last stroke, redo undone strokes (limited history, e.g., last 20 strokes)
+  - **Clear button**: Student can clear their own board (with confirmation)
+- **UI improvements**:
+  - Compact toolbar at top or side of canvas
+  - Visual feedback for selected tool/color/thickness
+  - Keyboard shortcuts for quick tool switching
+- **Teacher dashboard updates**:
+  - Show current tool/color in student tiles (optional indicator)
+  - Undo/redo actions sync to teacher view
+  - Erased content removed from teacher view
+
+**Deliverables**
+- Color picker component with preset palette
+- Thickness selector UI (buttons or slider)
+- Eraser mode toggle
+- Undo/redo stack implementation (client-side)
+- Updated stroke messages to include color and thickness
+- Clear button with confirmation dialog
+- Toolbar UI component for student app
+
+**Done Criteria**
+- Students can select from multiple colors and see color change immediately
+- Pen thickness changes are visible in drawn strokes
+- Eraser removes strokes (or draws in background color)
+- Undo removes last stroke, redo restores it
+- All drawing tool changes sync correctly to teacher dashboard
+- Toolbar is intuitive and doesn't obstruct drawing area
+- **Demo-ready**: Can show school a feature-rich whiteboard on localhost
+
+---
+
+### Stage 3 — Shape Tools and Graph Aids (Local Demo Features)
+**Goals**
+- Add geometric shape tools for classroom use (math, science, diagrams)
+- Provide graph axes and grid backgrounds for quantitative work
+- Enable structured drawing for geometry and data visualization
+- Complete the feature-rich local demo prototype
+
+**Scope Additions**
+- **Shape drawing tools**:
+  - **Line tool**: Click two points to draw straight line
+  - **Rectangle tool**: Click and drag to draw rectangle
+  - **Square tool**: Click and drag to draw square (locked aspect ratio)
+  - **Triangle tool**: Click three points to draw triangle
+  - **Circle/Ellipse tool**: Click center and drag to set radius
+  - **Arrow tool**: Line with arrowhead (useful for annotations)
+- **Graph and grid aids**:
+  - **Grid toggle**: Show/hide background grid (square or dot grid)
+  - **Axes tool**: Draw x/y axes with origin at center OR bottom-left
+    - Configurable scale and labels
+    - Snap-to-grid option
+  - **Ruler overlay** (optional): Temporary measurement guide
+- **Shape properties**:
+  - Filled vs outline shapes (toggle)
+  - Dashed/dotted line styles
+  - Use current color and thickness settings
+- **UI additions**:
+  - Shape palette in toolbar
+  - Mode indicator (freehand / line / rectangle / etc.)
+  - Grid settings panel
+
+**Deliverables**
+- Shape tool implementations for each geometric shape
+- Axes drawing tool with configurable origin
+- Grid background toggle with settings
+- Shape drawing UI (tool palette)
+- Line style options (solid, dashed, dotted)
+- Fill/outline toggle for shapes
+- Updated message contracts for shape data
+
+**Done Criteria**
+- Students can draw basic geometric shapes accurately
+- Axes tool creates proper coordinate systems
+- Grid background aids drawing without cluttering view
+- Shapes render correctly on teacher dashboard
+- All tools work smoothly with mouse/trackpad (iPad testing comes later)
+- **School demo ready**: Feature-complete local prototype demonstrates viability
+
+**Suggested Future Additions** (for later stages):
+- **Highlighter tool**: Semi-transparent pen for emphasis
+- **Text tool**: Add text labels to drawings
+- **Select/move tool**: Select and reposition drawn elements
+- **Snap-to-grid**: Shapes align to grid lines automatically
+- **Angle measurement**: Show angle between lines
+- **Protractor overlay**: Temporary angle guide
+- **Color fill**: Fill closed shapes with color
+
+---
+
+### Stage 4 — iPad Testing on Home Wi-Fi
+**Goals**
+- Validate Apple Pencil input on iPadOS 18 / Safari with all drawing tools
 - Confirm networking works across devices (PC to iPad)
 - Test HTTPS access from iPads with self-signed certificate
 - Validate latency and feel on real hardware
+- Test all drawing tools (colors, shapes, etc.) with Apple Pencil
 
 **Scope Additions**
 - Configure Kestrel to bind to your local network IP (e.g., 192.168.1.x)
@@ -342,6 +452,8 @@ Each stage includes: goals, deliverables, and "done" criteria.
 - Handle self-signed certificate warnings on iPads
 - Improved stroke smoothing with Perfect Freehand library
 - Touch/pointer event handling optimized for Apple Pencil
+- Touch-optimized toolbar for all drawing tools
+- Pressure sensitivity for pen thickness
 
 **Setup Steps**
 1. Find your PC's local IP: `ipconfig` (look for IPv4 address like 192.168.1.x)
@@ -354,20 +466,23 @@ Each stage includes: goals, deliverables, and "done" criteria.
 - QR code generation on teacher page (using qrcode.react)
 - Improved stroke smoothing (Perfect Freehand integration)
 - Mobile-optimized UI (landscape orientation lock, responsive canvas)
+- Touch-optimized toolbar for iPadOS
 - Connection status indicator on student UI
 - Basic reconnection handling
+- Pressure sensitivity working with Apple Pencil
 
 **Done Criteria**
 - You can run the app on your PC
 - Scan QR on multiple iPads (accept certificate warning once)
 - Write with Apple Pencil smoothly (pressure sensitivity works)
+- All drawing tools (colors, shapes, eraser, undo) work on iPad
 - Teacher sees all iPad tiles updating in real-time
 - Latency feels acceptable (<500ms on home Wi-Fi)
 - Reconnection works if iPad briefly loses Wi-Fi
 
 ---
 
-### Stage 3 — Classroom Controls + Text Input
+### Stage 5 — Classroom Controls + Text Input
 **Goals**
 - Add controls that make it classroom-ready
 - Make it safe and manageable (kick, rotate QR)
@@ -412,7 +527,108 @@ Each stage includes: goals, deliverables, and "done" criteria.
 
 ---
 
-### Stage 4 — Robustness and Scale Testing
+### Stage 4 — Drawing Tools and Enhancements
+**Goals**
+- Add essential drawing tools for classroom use
+- Improve student drawing experience with color and thickness options
+- Add undo/redo functionality
+- Provide eraser tool
+
+**Scope Additions**
+- **Student drawing tools**:
+  - **Color picker**: Palette of 8-12 colors (black, red, blue, green, orange, purple, etc.)
+  - **Pen thickness selector**: 3-5 thickness options (thin, medium, thick, very thick)
+  - **Eraser tool**: Toggle between pen and eraser mode
+  - **Undo/redo**: Undo last stroke, redo undone strokes (limited history, e.g., last 20 strokes)
+  - **Clear button**: Student can clear their own board (with confirmation)
+- **UI improvements**:
+  - Compact toolbar at top or side of canvas
+  - Visual feedback for selected tool/color/thickness
+  - Touch-optimized buttons for iPad use
+- **Teacher dashboard updates**:
+  - Show current tool/color in student tiles (optional indicator)
+  - Undo/redo actions sync to teacher view
+  - Erased content removed from teacher view
+
+**Deliverables**
+- Color picker component with preset palette
+- Thickness selector UI (buttons or slider)
+- Eraser mode toggle
+- Undo/redo stack implementation (client-side)
+- Updated stroke messages to include color and thickness
+- Clear button with confirmation dialog
+- Toolbar UI component for student app
+
+**Done Criteria**
+- Students can select from multiple colors and see color change immediately
+- Pen thickness changes are visible in drawn strokes
+- Eraser removes strokes (or draws in background color)
+- Undo removes last stroke, redo restores it
+- All drawing tool changes sync correctly to teacher dashboard
+- Toolbar is intuitive and doesn't obstruct drawing area
+
+---
+
+### Stage 5 — Shape Tools and Graph Aids
+**Goals**
+- Add geometric shape tools for classroom use (math, science, diagrams)
+- Provide graph axes and grid backgrounds for quantitative work
+- Enable structured drawing for geometry and data visualization
+
+**Scope Additions**
+- **Shape drawing tools**:
+  - **Line tool**: Click two points to draw straight line
+  - **Rectangle tool**: Click and drag to draw rectangle
+  - **Square tool**: Click and drag to draw square (locked aspect ratio)
+  - **Triangle tool**: Click three points to draw triangle
+  - **Circle/Ellipse tool**: Click center and drag to set radius
+  - **Arrow tool**: Line with arrowhead (useful for annotations)
+- **Graph and grid aids**:
+  - **Grid toggle**: Show/hide background grid (square or dot grid)
+  - **Axes tool**: Draw x/y axes with origin at center OR bottom-left
+    - Configurable scale and labels
+    - Snap-to-grid option
+  - **Ruler overlay** (optional): Temporary measurement guide
+- **Shape properties**:
+  - Filled vs outline shapes (toggle)
+  - Dashed/dotted line styles
+  - Use current color and thickness settings
+- **UI additions**:
+  - Shape palette in toolbar
+  - Mode indicator (freehand / line / rectangle / etc.)
+  - Grid settings panel
+
+**Deliverables**
+- Shape tool implementations for each geometric shape
+- Axes drawing tool with configurable origin
+- Grid background toggle with settings
+- Shape drawing UI (tool palette)
+- Line style options (solid, dashed, dotted)
+- Fill/outline toggle for shapes
+- Updated message contracts for shape data
+
+**Done Criteria**
+- Students can draw basic geometric shapes accurately
+- Axes tool creates proper coordinate systems
+- Grid background aids drawing without cluttering view
+- Shapes render correctly on teacher dashboard
+- All tools work smoothly with touch/Apple Pencil input
+- Shape tools are useful for math and science lessons
+
+**Suggested Additions** (optional, for future consideration):
+- **Highlighter tool**: Semi-transparent pen for emphasis
+- **Text tool**: Add text labels to drawings (may overlap with Stage 3 text input)
+- **Select/move tool**: Select and reposition drawn elements
+- **Snap-to-grid**: Shapes align to grid lines automatically
+- **Angle measurement**: Show angle between lines
+- **Protractor overlay**: Temporary angle guide
+- **Color fill**: Fill closed shapes with color
+
+---
+
+---
+
+### Stage 6 — Robustness and Scale Testing
 **Goals**
 - Ensure the system holds up at class size (28 students)
 - Ensure it can support ~10 rooms in reasonable conditions (home simulation)
@@ -450,7 +666,7 @@ Each stage includes: goals, deliverables, and "done" criteria.
 
 ---
 
-### Stage 5 — IIS Deployment Preparation
+### Stage 7 — IIS Deployment Preparation
 **Goals**
 - Package the working local app for IIS hosting
 - Create deployment documentation for IT team
@@ -481,7 +697,7 @@ Each stage includes: goals, deliverables, and "done" criteria.
 
 ---
 
-### Stage 6 — Production IIS Deployment (On-Prem School Server)
+### Stage 8 — Production IIS Deployment (On-Prem School Server)
 **Goals**
 - Deploy to school's on-prem Windows Server
 - Define required firewall/DNS/cert changes for IT
@@ -525,7 +741,7 @@ Each stage includes: goals, deliverables, and "done" criteria.
 
 ---
 
-### Stage 7 — School Network Pilot (Real Classroom)
+### Stage 9 — School Network Pilot (Real Classroom)
 **Goals**
 - Confirm student Wi-Fi can reach the server
 - Confirm client isolation does not matter (it should not)
@@ -549,7 +765,7 @@ Each stage includes: goals, deliverables, and "done" criteria.
 
 ---
 
-### Stage 8 — Authentication with Microsoft (Later Phase)
+### Stage 10 — Authentication with Microsoft (Later Phase)
 **Goals**
 - Add optional sign-in for teachers first, then students
 - Move from anonymous to named tiles and rosters
@@ -573,7 +789,7 @@ Each stage includes: goals, deliverables, and "done" criteria.
 
 ---
 
-### Stage 9 — Exports and Retention (Future)
+### Stage 11 — Exports and Retention (Future)
 **Goals**
 - Save session snapshots and export boards (PNG/PDF)
 - Define retention controls and safeguarding posture
@@ -814,15 +1030,16 @@ See **`docs/stage0-message-contracts.md`** for full TypeScript interface definit
 **Mitigation**:
 - Host in a whitelisted zone (DMZ or accessible from student VLAN)
 - Allow TCP 443 from student VLAN to server hostname
-- Provide a simple connectivity test page (Stage 7 network diagnostics)
-- Work with IT during pilot (Stage 7) to resolve any firewall issues
+- Provide a simple connectivity test page (Stage 9 network diagnostics)
+- Work with IT during pilot (Stage 9) to resolve any firewall issues
 
 ### Risk: iPad Safari Pencil Issues
 **Mitigation**:
-- Validate early in Stage 2 (home testing with real iPads)
+- Validate early in Stage 4 (home testing with real iPads)
 - Use Pointer Events API (excellent support in iPadOS 18)
 - Handle palm rejection sensibly (ignore touch when pen is active)
 - Test on multiple iPad models if possible (9.7", 11", 12.9")
+- Benefit: Stages 2-3 will have all drawing tools ready for comprehensive iPad testing
 
 ### Risk: Wi-Fi Contention in Busy Lessons
 **Mitigation**:
@@ -840,15 +1057,15 @@ See **`docs/stage0-message-contracts.md`** for full TypeScript interface definit
 
 ### Risk: iPad HTTPS Certificate Warnings (Local Testing)
 **Mitigation**:
-- **Stage 2 (home)**: Accept self-signed cert warnings manually on each iPad (one-time)
-- **Stage 6 (production)**: Use school's internal CA or request proper certificate from IT
+- **Stage 4 (home iPad testing)**: Accept self-signed cert warnings manually on each iPad (one-time)
+- **Stage 8 (production)**: Use school's internal CA or request proper certificate from IT
 - Document the process for students/teachers
 
-### Risk: Windows Firewall Blocks iPad Connections (Stage 2)
+### Risk: Windows Firewall Blocks iPad Connections (Stage 4)
 **Mitigation**:
 - Add inbound firewall rule for port 5001 during setup
 - Test connectivity with iPad Safari to `https://[PC_IP]:5001` before full testing
-- Document firewall setup in Stage 2 deliverables
+- Document firewall setup in Stage 4 deliverables
 
 ### Risk: Concurrent Teacher Sessions (Teacher Refreshes Browser)
 **Mitigation**:
@@ -866,20 +1083,25 @@ See **`docs/stage0-message-contracts.md`** for full TypeScript interface definit
 
 ## 14. Definition of MVP
 
-**MVP is complete when**:
+**Core MVP is complete when**:
 - A teacher can create a room and show a QR code
 - Students can join on iPads and draw with Apple Pencil OR type text
 - Teacher sees live thumbnails for all students (draw or type mode)
 - Teacher controls work: lock, freeze, clear all, clear one, kick, rotate QR token, spotlight
-- The system runs on a single server process at home (Stages 1-4)
-- The system can be deployed to IIS for school pilot (Stages 5-6)
+- The system runs on a single server process at home (Stages 1-5)
+- The system can be deployed to IIS for school pilot (Stages 7-8)
 - Basic error handling and reconnection work reliably
+
+**Feature-Rich Demo Prototype (Stages 1-3)** includes:
+- All drawing tools: colors, thickness, eraser, undo/redo
+- Shape tools: line, rectangle, square, triangle, circle, arrow
+- Graph aids: grid background, axes (center or bottom-left origin)
+- Runs on localhost for school demonstration
 
 **MVP does NOT include**:
 - Authentication (anonymous join only)
 - Persistence (rooms deleted on server restart or expiration)
 - Exports (no saving boards to files)
-- Advanced features (undo, redo, colors, erasers, shapes, etc.)
 
 ---
 
@@ -899,11 +1121,17 @@ The following documents have been created in the `docs/` folder to guide impleme
 ## 16. Next Steps
 
 1. ✅ **Stage 0 complete**: Documentation and project structure ready
-2. **Stage 1**: Implement local MVP (Kestrel, SignalR, React, basic drawing)
-3. **Stage 2**: Test on iPads at home (QR codes, Apple Pencil, networking)
-4. **Stage 3**: Add classroom controls and text input mode
-5. **Stage 4**: Scale testing and optimization
-6. **Stage 5**: Package for IIS deployment
-7. **Stage 6**: Deploy to school server and pilot in classroom
+2. ✅ **Stage 1 complete**: Local MVP implemented (Kestrel, SignalR, React, basic drawing)
+3. **Stage 2 (NEXT)**: Add drawing tools (colors, thickness, eraser, undo/redo) - LOCAL DEMO
+4. **Stage 3**: Add shape tools and graph aids (geometric shapes, axes, grids) - LOCAL DEMO
+5. **Stage 4**: Test on iPads at home (QR codes, Apple Pencil, networking, touch-optimized tools)
+6. **Stage 5**: Add classroom controls and text input mode
+7. **Stage 6**: Scale testing and optimization (28 students, 10 rooms)
+8. **Stage 7**: Package for IIS deployment
+9. **Stage 8**: Deploy to school server
+10. **Stage 9**: Pilot in classroom
+11. **Stage 10+**: Authentication, exports, and advanced features
 
-**Ready to begin Stage 1 implementation!**
+**Current Status**: Stage 1 MVP is working! Multiple students can connect and draw in real-time.
+
+**Next Priority**: Stage 2-3 will add drawing tools and shapes for a feature-rich local demo to show school viability, then Stage 4 will test on iPads.
