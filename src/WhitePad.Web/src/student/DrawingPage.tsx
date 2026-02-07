@@ -1,7 +1,8 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { HubConnection } from '@microsoft/signalr';
 import { StrokeBatcher } from '../shared/utils/strokeBatching';
-import { StrokePoint } from '../shared/types/messages';
+import { StrokePoint, StrokeBatch } from '../shared/types/messages';
+import Toolbar from './Toolbar';
 
 interface DrawingPageProps {
   roomId: string;
@@ -10,10 +11,27 @@ interface DrawingPageProps {
   connection: HubConnection;
 }
 
+interface StoredStroke {
+  strokeId: string;
+  batches: StrokeBatch[];
+  color: string;
+  lineWidth: number;
+}
+
 function DrawingPage({ roomId, studentId, displayName, connection }: DrawingPageProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const batcherRef = useRef<StrokeBatcher | null>(null);
   const isDrawingRef = useRef(false);
+
+  // Drawing state
+  const [currentColor, setCurrentColor] = useState('#000000');
+  const [currentThickness, setCurrentThickness] = useState(2);
+  const [isErasing, setIsErasing] = useState(false);
+
+  // Undo/redo state
+  const strokesRef = useRef<Map<string, StoredStroke>>(new Map());
+  const [strokeHistory, setStrokeHistory] = useState<string[]>([]);
+  const [undoneStrokes, setUndoneStrokes] = useState<string[]>([]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -21,8 +39,12 @@ function DrawingPage({ roomId, studentId, displayName, connection }: DrawingPage
 
     // Set canvas size to window size
     const resizeCanvas = () => {
+      const toolbarHeight = 70; // Approximate toolbar height
       canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+      canvas.height = window.innerHeight - toolbarHeight;
+
+      // Redraw all strokes after resize
+      redrawCanvas();
     };
 
     resizeCanvas();
@@ -32,6 +54,47 @@ function DrawingPage({ roomId, studentId, displayName, connection }: DrawingPage
       window.removeEventListener('resize', resizeCanvas);
     };
   }, []);
+
+  const redrawCanvas = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Redraw all strokes in history order
+    strokeHistory.forEach(strokeId => {
+      const stroke = strokesRef.current.get(strokeId);
+      if (!stroke) return;
+
+      ctx.strokeStyle = stroke.color;
+      ctx.lineWidth = stroke.lineWidth;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      // Draw all points from all batches
+      const allPoints: StrokePoint[] = [];
+      stroke.batches.forEach(batch => {
+        allPoints.push(...batch.points);
+      });
+
+      if (allPoints.length === 0) return;
+
+      ctx.beginPath();
+      const firstPoint = allPoints[0];
+      ctx.moveTo(firstPoint.x * canvas.width, firstPoint.y * canvas.height);
+
+      for (let i = 1; i < allPoints.length; i++) {
+        const point = allPoints[i];
+        ctx.lineTo(point.x * canvas.width, point.y * canvas.height);
+      }
+
+      ctx.stroke();
+    });
+  };
 
   const getNormalizedPoint = (clientX: number, clientY: number, pressure: number): StrokePoint => {
     const canvas = canvasRef.current!;
@@ -71,14 +134,42 @@ function DrawingPage({ roomId, studentId, displayName, connection }: DrawingPage
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    ctx.strokeStyle = '#000000';
-    ctx.lineWidth = 2;
+    // Use white color for eraser, current color for pen
+    const drawColor = isErasing ? '#FFFFFF' : currentColor;
+    ctx.strokeStyle = drawColor;
+    ctx.lineWidth = currentThickness;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
     const strokeId = `${studentId}-${Date.now()}`;
+
+    // Store stroke for undo/redo
+    const newStroke: StoredStroke = {
+      strokeId,
+      batches: [],
+      color: drawColor,
+      lineWidth: currentThickness,
+    };
+    strokesRef.current.set(strokeId, newStroke);
+    setStrokeHistory(prev => [...prev, strokeId]);
+    setUndoneStrokes([]); // Clear redo stack when new stroke is made
+
     batcherRef.current = new StrokeBatcher(strokeId, (batch) => {
-      connection.invoke('SendStrokeBatch', batch).catch(err => {
+      // Add color and lineWidth to the batch
+      const batchWithStyle: StrokeBatch = {
+        ...batch,
+        color: drawColor,
+        lineWidth: currentThickness,
+      };
+
+      // Store batch locally
+      const stroke = strokesRef.current.get(strokeId);
+      if (stroke) {
+        stroke.batches.push(batchWithStyle);
+      }
+
+      // Send to server
+      connection.invoke('SendStrokeBatch', batchWithStyle).catch(err => {
         console.error('Failed to send stroke batch:', err);
       });
     });
@@ -120,11 +211,89 @@ function DrawingPage({ roomId, studentId, displayName, connection }: DrawingPage
     isDrawingRef.current = false;
   };
 
+  // Toolbar event handlers
+  const handleColorChange = (color: string) => {
+    setCurrentColor(color);
+    if (isErasing) {
+      setIsErasing(false);
+    }
+  };
+
+  const handleThicknessChange = (thickness: number) => {
+    setCurrentThickness(thickness);
+  };
+
+  const handleToggleEraser = () => {
+    setIsErasing(!isErasing);
+  };
+
+  const handleUndo = () => {
+    if (strokeHistory.length === 0) return;
+
+    const lastStrokeId = strokeHistory[strokeHistory.length - 1];
+    setStrokeHistory(prev => prev.slice(0, -1));
+    setUndoneStrokes(prev => [...prev, lastStrokeId]);
+
+    redrawCanvas();
+  };
+
+  const handleRedo = () => {
+    if (undoneStrokes.length === 0) return;
+
+    const strokeToRedo = undoneStrokes[undoneStrokes.length - 1];
+    setUndoneStrokes(prev => prev.slice(0, -1));
+    setStrokeHistory(prev => [...prev, strokeToRedo]);
+
+    redrawCanvas();
+  };
+
+  const handleClear = () => {
+    strokesRef.current.clear();
+    setStrokeHistory([]);
+    setUndoneStrokes([]);
+
+    const canvas = canvasRef.current;
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+    }
+  };
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === 'z' && !e.shiftKey) {
+          e.preventDefault();
+          handleUndo();
+        } else if (e.key === 'y' || (e.key === 'z' && e.shiftKey)) {
+          e.preventDefault();
+          handleRedo();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [strokeHistory, undoneStrokes]);
+
   return (
     <div className="drawing-container">
-      <div className="student-info">
-        {displayName} - Room: {roomId}
-      </div>
+      <Toolbar
+        currentColor={currentColor}
+        currentThickness={currentThickness}
+        isErasing={isErasing}
+        onColorChange={handleColorChange}
+        onThicknessChange={handleThicknessChange}
+        onToggleEraser={handleToggleEraser}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+        onClear={handleClear}
+        canUndo={strokeHistory.length > 0}
+        canRedo={undoneStrokes.length > 0}
+      />
       <canvas
         ref={canvasRef}
         className="drawing-canvas"

@@ -350,14 +350,18 @@ Each stage includes: goals, deliverables, and "done" criteria.
   - **Eraser tool**: Toggle between pen and eraser mode
   - **Undo/redo**: Undo last stroke, redo undone strokes (limited history, e.g., last 20 strokes)
   - **Clear button**: Student can clear their own board (with confirmation)
+  - **Confidence traffic light**: Red/Amber/Green selector for student confidence level
 - **UI improvements**:
   - Compact toolbar at top or side of canvas
   - Visual feedback for selected tool/color/thickness
   - Keyboard shortcuts for quick tool switching
+  - Confidence indicator (colored circle) visible to student
 - **Teacher dashboard updates**:
   - Show current tool/color in student tiles (optional indicator)
   - Undo/redo actions sync to teacher view
   - Erased content removed from teacher view
+  - **Confidence indicator**: Small colored circle (red/amber/green) in bottom-right corner of each student tile
+  - **Confidence summary bar**: Top of teacher dashboard shows proportion of students at each confidence level (e.g., "🔴 3  🟡 8  🟢 12")
 
 **Deliverables**
 - Color picker component with preset palette
@@ -367,6 +371,11 @@ Each stage includes: goals, deliverables, and "done" criteria.
 - Updated stroke messages to include color and thickness
 - Clear button with confirmation dialog
 - Toolbar UI component for student app
+- Confidence traffic light selector (3 buttons: red/amber/green)
+- Confidence indicator on student tiles (bottom-right corner)
+- Confidence summary component for teacher dashboard header
+- Backend model for student confidence state
+- SignalR messages for confidence changes
 
 **Done Criteria**
 - Students can select from multiple colors and see color change immediately
@@ -375,7 +384,11 @@ Each stage includes: goals, deliverables, and "done" criteria.
 - Undo removes last stroke, redo restores it
 - All drawing tool changes sync correctly to teacher dashboard
 - Toolbar is intuitive and doesn't obstruct drawing area
-- **Demo-ready**: Can show school a feature-rich whiteboard on localhost
+- Students can select confidence level (red/amber/green)
+- Teacher sees confidence indicator on each student tile
+- Teacher dashboard shows overall confidence summary (count per level)
+- Confidence changes update in real-time (<200ms)
+- **Demo-ready**: Can show school a feature-rich whiteboard on localhost with formative assessment tools
 
 ---
 

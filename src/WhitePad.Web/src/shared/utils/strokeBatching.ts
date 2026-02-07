@@ -23,9 +23,8 @@ export class StrokeBatcher {
       this.onBatch({
         strokeId: this.strokeId,
         points: [...this.points],
-        color: '#000000',
-        lineWidth: 2,
         isComplete,
+        // color and lineWidth will be added by the caller
       });
       this.points = [];
     }
