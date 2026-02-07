@@ -7,7 +7,7 @@ public interface IRoomStateManager
     Task<Room> CreateRoomAsync();
     Task<Room?> GetRoomAsync(string roomId);
     Task<bool> ValidateJoinTokenAsync(string roomId, string joinToken);
-    Task<Student> AddStudentAsync(string roomId, string connectionId);
+    Task<Student> AddStudentAsync(string roomId, string connectionId, string? displayName = null);
     Task RemoveStudentAsync(string roomId, string studentId);
     Task<Student?> GetStudentByConnectionIdAsync(string connectionId);
     Task UpdateTeacherSessionAsync(string roomId, string sessionId);

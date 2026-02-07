@@ -61,9 +61,9 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
     }
 
     // Student joins room
-    public async Task<JoinRoomResponse> JoinRoomAsStudent(string roomId, string joinToken)
+    public async Task<JoinRoomResponse> JoinRoomAsStudent(string roomId, string joinToken, string? displayName = null)
     {
-        _logger.LogInformation("Student attempting to join room: {RoomId}", roomId);
+        _logger.LogInformation("Student attempting to join room: {RoomId} with name: {DisplayName}", roomId, displayName ?? "auto-generated");
 
         // Validate room and token
         var room = await _roomStateManager.GetRoomAsync(roomId);
@@ -83,11 +83,11 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
             return new JoinRoomResponse { Success = false, Error = $"Room is full (max {room.Settings.MaxStudents} students)" };
         }
 
-        // Add student to room
-        var student = await _roomStateManager.AddStudentAsync(roomId, Context.ConnectionId);
+        // Add student to room with custom name if provided
+        var student = await _roomStateManager.AddStudentAsync(roomId, Context.ConnectionId, displayName);
         await Groups.AddToGroupAsync(Context.ConnectionId, $"room:{roomId}:students");
 
-        _logger.LogInformation("Student joined: {StudentId} in room {RoomId}", student.StudentId, roomId);
+        _logger.LogInformation("Student joined: {StudentId} ({DisplayName}) in room {RoomId}", student.StudentId, student.DisplayName, roomId);
 
         // Notify teacher
         await Clients.Group($"room:{roomId}:teacher").ParticipantJoined(new ParticipantJoined
@@ -246,28 +246,42 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
     // Handle disconnect
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
+        _logger.LogInformation("Connection disconnected: {ConnectionId}", Context.ConnectionId);
+
         var student = await _roomStateManager.GetStudentByConnectionIdAsync(Context.ConnectionId);
 
-        if (student != null)
+        if (student == null)
         {
-            // Find and remove from room
-            foreach (var room in await GetAllRoomsAsync())
+            _logger.LogInformation("No student found for connection {ConnectionId}, might be teacher", Context.ConnectionId);
+            await base.OnDisconnectedAsync(exception);
+            return;
+        }
+
+        _logger.LogInformation("Found student {StudentId} ({DisplayName}) for disconnection", student.StudentId, student.DisplayName);
+
+        // Find and remove from room
+        var rooms = await GetAllRoomsAsync();
+        foreach (var room in rooms)
+        {
+            if (room.Participants.Any(s => s.StudentId == student.StudentId))
             {
-                if (room.Participants.Any(s => s.StudentId == student.StudentId))
+                _logger.LogInformation("Removing student {StudentId} from room {RoomId}", student.StudentId, room.RoomId);
+
+                await _roomStateManager.RemoveStudentAsync(room.RoomId, student.StudentId);
+
+                // Notify teacher
+                var leftMessage = new ParticipantLeft
                 {
-                    await _roomStateManager.RemoveStudentAsync(room.RoomId, student.StudentId);
+                    StudentId = student.StudentId,
+                    Reason = "disconnect",
+                    LeftAt = DateTime.UtcNow
+                };
 
-                    // Notify teacher
-                    await Clients.Group($"room:{room.RoomId}:teacher").ParticipantLeft(new ParticipantLeft
-                    {
-                        StudentId = student.StudentId,
-                        Reason = "disconnect",
-                        LeftAt = DateTime.UtcNow
-                    });
+                await Clients.Group($"room:{room.RoomId}:teacher").ParticipantLeft(leftMessage);
 
-                    _logger.LogInformation("Student disconnected: {StudentId} from room {RoomId}", student.StudentId, room.RoomId);
-                    break;
-                }
+                _logger.LogInformation("Sent ParticipantLeft notification for student {StudentId} to group room:{RoomId}:teacher",
+                    student.StudentId, room.RoomId);
+                break;
             }
         }
 

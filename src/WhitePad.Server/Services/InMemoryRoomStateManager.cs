@@ -41,16 +41,22 @@ public class InMemoryRoomStateManager : IRoomStateManager
         return Task.FromResult(room.JoinToken == joinToken);
     }
 
-    public Task<Student> AddStudentAsync(string roomId, string connectionId)
+    public Task<Student> AddStudentAsync(string roomId, string connectionId, string? displayName = null)
     {
         if (!_rooms.TryGetValue(roomId, out var room))
             throw new InvalidOperationException("Room not found");
 
         var studentNumber = ++room.StudentCounter;
+
+        // Use provided name or generate default
+        var finalDisplayName = string.IsNullOrWhiteSpace(displayName)
+            ? $"Student {studentNumber}"
+            : displayName.Trim();
+
         var student = new Student
         {
             StudentId = Guid.NewGuid().ToString(),
-            DisplayName = $"Student {studentNumber}",
+            DisplayName = finalDisplayName,
             ConnectionId = connectionId,
             ConnectedAt = DateTime.UtcNow,
             LastSeenAt = DateTime.UtcNow

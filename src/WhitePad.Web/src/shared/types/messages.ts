@@ -19,6 +19,7 @@ export interface StrokeBatch {
 export interface JoinRoomRequest {
   roomId: string;
   joinToken: string;
+  displayName?: string;
 }
 
 export interface JoinRoomResponse {
