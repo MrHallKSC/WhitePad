@@ -351,6 +351,7 @@ function DrawingPage({ roomId, studentId, displayName, connection }: DrawingPage
   return (
     <div className="drawing-container">
       <Toolbar
+        displayName={displayName}
         currentColor={currentColor}
         currentThickness={currentThickness}
         currentTool={currentTool}
