@@ -1,14 +1,18 @@
 import { useState } from 'react';
 
+export type ToolType = 'pen' | 'eraser' | 'line' | 'rectangle' | 'triangle' | 'circle' | 'axes';
+
 interface ToolbarProps {
   currentColor: string;
   currentThickness: number;
-  isErasing: boolean;
+  currentTool: ToolType;
   currentConfidence: 'none' | 'red' | 'amber' | 'green';
+  showGrid: boolean;
   onColorChange: (color: string) => void;
   onThicknessChange: (thickness: number) => void;
-  onToggleEraser: () => void;
+  onToolChange: (tool: ToolType) => void;
   onConfidenceChange: (level: 'none' | 'red' | 'amber' | 'green') => void;
+  onToggleGrid: () => void;
   onUndo: () => void;
   onRedo: () => void;
   onClear: () => void;
@@ -42,19 +46,24 @@ const THICKNESSES = [
 function Toolbar({
   currentColor,
   currentThickness,
-  isErasing,
+  currentTool,
   currentConfidence,
+  showGrid,
   onColorChange,
   onThicknessChange,
-  onToggleEraser,
+  onToolChange,
   onConfidenceChange,
+  onToggleGrid,
   onUndo,
   onRedo,
   onClear,
   canUndo,
   canRedo,
 }: ToolbarProps) {
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [colorsExpanded, setColorsExpanded] = useState(true);
+  const [thicknessExpanded, setThicknessExpanded] = useState(true);
 
   const handleClearClick = () => {
     setShowClearConfirm(true);
@@ -69,114 +78,214 @@ function Toolbar({
     setShowClearConfirm(false);
   };
 
+  const isErasing = currentTool === 'eraser';
+
   return (
-    <div className="toolbar">
-      {/* Color Picker */}
-      <div className="toolbar-section">
-        <label className="toolbar-label">Color:</label>
-        <div className="color-picker">
-          {COLORS.map((color) => (
-            <button
-              key={color.hex}
-              className={`color-button ${
-                currentColor === color.hex && !isErasing ? 'selected' : ''
-              }`}
-              style={{ backgroundColor: color.hex }}
-              onClick={() => onColorChange(color.hex)}
-              title={color.name}
-              disabled={isErasing}
-            />
-          ))}
-        </div>
-      </div>
+    <>
+      <div className={`toolbar vertical ${isCollapsed ? 'collapsed' : ''}`}>
+        {/* Collapse Toggle */}
+        <button
+          className="toolbar-collapse-btn"
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          title={isCollapsed ? 'Expand Toolbar' : 'Collapse Toolbar'}
+        >
+          {isCollapsed ? '▶' : '◀'}
+        </button>
 
-      {/* Thickness Selector */}
-      <div className="toolbar-section">
-        <label className="toolbar-label">Thickness:</label>
-        <div className="thickness-selector">
-          {THICKNESSES.map((thickness) => (
+        {/* Drawing Tools Section */}
+        <div className="toolbar-section tools-section">
+          {!isCollapsed && <label className="toolbar-section-label">TOOLS</label>}
+          <button
+            className={`tool-btn ${currentTool === 'pen' ? 'active' : ''}`}
+            onClick={() => onToolChange('pen')}
+            title="Pen Tool"
+          >
+            <span className="tool-icon">✏️</span>
+            {!isCollapsed && <span className="tool-label">Pen</span>}
+          </button>
+          <button
+            className={`tool-btn ${currentTool === 'eraser' ? 'active' : ''}`}
+            onClick={() => onToolChange('eraser')}
+            title="Eraser Tool"
+          >
+            <span className="tool-icon">🧹</span>
+            {!isCollapsed && <span className="tool-label">Eraser</span>}
+          </button>
+          <button
+            className={`tool-btn ${currentTool === 'line' ? 'active' : ''}`}
+            onClick={() => onToolChange('line')}
+            title="Line Tool"
+          >
+            <span className="tool-icon">📏</span>
+            {!isCollapsed && <span className="tool-label">Line</span>}
+          </button>
+          <button
+            className={`tool-btn ${currentTool === 'rectangle' ? 'active' : ''}`}
+            onClick={() => onToolChange('rectangle')}
+            title="Rectangle Tool"
+          >
+            <span className="tool-icon">▭</span>
+            {!isCollapsed && <span className="tool-label">Rectangle</span>}
+          </button>
+          <button
+            className={`tool-btn ${currentTool === 'triangle' ? 'active' : ''}`}
+            onClick={() => onToolChange('triangle')}
+            title="Triangle Tool"
+          >
+            <span className="tool-icon">△</span>
+            {!isCollapsed && <span className="tool-label">Triangle</span>}
+          </button>
+          <button
+            className={`tool-btn ${currentTool === 'circle' ? 'active' : ''}`}
+            onClick={() => onToolChange('circle')}
+            title="Circle Tool"
+          >
+            <span className="tool-icon">○</span>
+            {!isCollapsed && <span className="tool-label">Circle</span>}
+          </button>
+          <button
+            className={`tool-btn ${currentTool === 'axes' ? 'active' : ''}`}
+            onClick={() => onToolChange('axes')}
+            title="Axes Tool"
+          >
+            <span className="tool-icon">📐</span>
+            {!isCollapsed && <span className="tool-label">Axes</span>}
+          </button>
+          <button
+            className={`tool-btn ${showGrid ? 'active' : ''}`}
+            onClick={onToggleGrid}
+            title="Toggle Grid"
+          >
+            <span className="tool-icon">#</span>
+            {!isCollapsed && <span className="tool-label">Grid</span>}
+          </button>
+        </div>
+
+        {!isCollapsed && (
+          <>
+            {/* Colors Section */}
+            <div className="toolbar-section collapsible-section">
+              <button
+                type="button"
+                className="toolbar-section-label clickable"
+                onClick={() => setColorsExpanded(!colorsExpanded)}
+              >
+                COLORS {colorsExpanded ? '▼' : '▶'}
+              </button>
+              {colorsExpanded && (
+                <div className="color-picker-grid">
+                  {COLORS.map((color) => (
+                    <button
+                      key={color.hex}
+                      className={`color-button ${
+                        currentColor === color.hex && !isErasing ? 'selected' : ''
+                      }`}
+                      style={{ backgroundColor: color.hex }}
+                      onClick={() => onColorChange(color.hex)}
+                      title={color.name}
+                      disabled={isErasing}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Thickness Section */}
+            <div className="toolbar-section collapsible-section">
+              <button
+                type="button"
+                className="toolbar-section-label clickable"
+                onClick={() => setThicknessExpanded(!thicknessExpanded)}
+              >
+                THICKNESS {thicknessExpanded ? '▼' : '▶'}
+              </button>
+              {thicknessExpanded && (
+                <div className="thickness-selector-vertical">
+                  {THICKNESSES.map((thickness) => (
+                    <button
+                      key={thickness.value}
+                      className={`thickness-button ${
+                        currentThickness === thickness.value ? 'selected' : ''
+                      }`}
+                      onClick={() => onThicknessChange(thickness.value)}
+                      title={thickness.name}
+                    >
+                      <div
+                        className="thickness-preview"
+                        style={{
+                          width: `${thickness.value * 2}px`,
+                          height: `${thickness.value * 2}px`,
+                        }}
+                      />
+                      <span className="thickness-label">{thickness.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* Actions Section */}
+        <div className="toolbar-section actions-section">
+          {!isCollapsed && <label className="toolbar-section-label">ACTIONS</label>}
+          <button
+            className="action-btn"
+            onClick={onUndo}
+            disabled={!canUndo}
+            title="Undo (Ctrl+Z)"
+          >
+            <span className="action-icon">↶</span>
+            {!isCollapsed && <span className="action-label">Undo</span>}
+          </button>
+          <button
+            className="action-btn"
+            onClick={onRedo}
+            disabled={!canRedo}
+            title="Redo (Ctrl+Y)"
+          >
+            <span className="action-icon">↷</span>
+            {!isCollapsed && <span className="action-label">Redo</span>}
+          </button>
+          <button
+            className="action-btn danger"
+            onClick={handleClearClick}
+            title="Clear Board"
+          >
+            <span className="action-icon">🗑️</span>
+            {!isCollapsed && <span className="action-label">Clear</span>}
+          </button>
+        </div>
+
+        {/* Confidence Section */}
+        <div className="toolbar-section confidence-section">
+          {!isCollapsed && <label className="toolbar-section-label">CONFIDENCE</label>}
+          <div className={`confidence-selector ${isCollapsed ? 'vertical' : 'vertical'}`}>
             <button
-              key={thickness.value}
-              className={`thickness-button ${
-                currentThickness === thickness.value ? 'selected' : ''
-              }`}
-              onClick={() => onThicknessChange(thickness.value)}
-              title={thickness.name}
+              type="button"
+              className={`confidence-button red ${currentConfidence === 'red' ? 'selected' : ''}`}
+              onClick={() => onConfidenceChange(currentConfidence === 'red' ? 'none' : 'red')}
+              title="Need Help"
             >
-              <div
-                className="thickness-preview"
-                style={{
-                  width: `${thickness.value * 2}px`,
-                  height: `${thickness.value * 2}px`,
-                }}
-              />
+              🔴
             </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Tool Buttons */}
-      <div className="toolbar-section">
-        <button
-          className={`tool-button ${isErasing ? 'active' : ''}`}
-          onClick={onToggleEraser}
-          title={isErasing ? 'Switch to Pen' : 'Switch to Eraser'}
-        >
-          {isErasing ? '✏️ Pen' : '🧹 Eraser'}
-        </button>
-
-        <button
-          className="tool-button"
-          onClick={onUndo}
-          disabled={!canUndo}
-          title="Undo (Ctrl+Z)"
-        >
-          ↶ Undo
-        </button>
-
-        <button
-          className="tool-button"
-          onClick={onRedo}
-          disabled={!canRedo}
-          title="Redo (Ctrl+Y)"
-        >
-          ↷ Redo
-        </button>
-
-        <button
-          className="tool-button danger"
-          onClick={handleClearClick}
-          title="Clear Board"
-        >
-          🗑️ Clear
-        </button>
-      </div>
-
-      {/* Confidence Selector */}
-      <div className="toolbar-section">
-        <label className="toolbar-label">How confident are you?</label>
-        <div className="confidence-selector">
-          <button
-            className={`confidence-button red ${currentConfidence === 'red' ? 'selected' : ''}`}
-            onClick={() => onConfidenceChange(currentConfidence === 'red' ? 'none' : 'red')}
-            title="Need Help"
-          >
-            🔴
-          </button>
-          <button
-            className={`confidence-button amber ${currentConfidence === 'amber' ? 'selected' : ''}`}
-            onClick={() => onConfidenceChange(currentConfidence === 'amber' ? 'none' : 'amber')}
-            title="Unsure"
-          >
-            🟡
-          </button>
-          <button
-            className={`confidence-button green ${currentConfidence === 'green' ? 'selected' : ''}`}
-            onClick={() => onConfidenceChange(currentConfidence === 'green' ? 'none' : 'green')}
-            title="Got It!"
-          >
-            🟢
-          </button>
+            <button
+              type="button"
+              className={`confidence-button amber ${currentConfidence === 'amber' ? 'selected' : ''}`}
+              onClick={() => onConfidenceChange(currentConfidence === 'amber' ? 'none' : 'amber')}
+              title="Unsure"
+            >
+              🟡
+            </button>
+            <button
+              type="button"
+              className={`confidence-button green ${currentConfidence === 'green' ? 'selected' : ''}`}
+              onClick={() => onConfidenceChange(currentConfidence === 'green' ? 'none' : 'green')}
+              title="Got It!"
+            >
+              🟢
+            </button>
+          </div>
         </div>
       </div>
 
@@ -197,7 +306,7 @@ function Toolbar({
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 

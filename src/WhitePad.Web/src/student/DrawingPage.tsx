@@ -2,7 +2,7 @@ import { useRef, useEffect, useState } from 'react';
 import { HubConnection } from '@microsoft/signalr';
 import { StrokeBatcher } from '../shared/utils/strokeBatching';
 import { StrokePoint, StrokeBatch, StudentLocked } from '../shared/types/messages';
-import Toolbar from './Toolbar';
+import Toolbar, { ToolType } from './Toolbar';
 
 interface DrawingPageProps {
   roomId: string;
@@ -26,7 +26,8 @@ function DrawingPage({ roomId, studentId, displayName, connection }: DrawingPage
   // Drawing state
   const [currentColor, setCurrentColor] = useState('#000000');
   const [currentThickness, setCurrentThickness] = useState(2);
-  const [isErasing, setIsErasing] = useState(false);
+  const [currentTool, setCurrentTool] = useState<ToolType>('pen');
+  const [showGrid, setShowGrid] = useState(false);
   const [confidenceLevel, setConfidenceLevel] = useState<'none' | 'red' | 'amber' | 'green'>('none');
   const [isLocked, setIsLocked] = useState(false);
 
@@ -160,7 +161,7 @@ function DrawingPage({ roomId, studentId, displayName, connection }: DrawingPage
     if (!ctx) return;
 
     // Use white color for eraser, current color for pen
-    const drawColor = isErasing ? '#FFFFFF' : currentColor;
+    const drawColor = currentTool === 'eraser' ? '#FFFFFF' : currentColor;
     ctx.strokeStyle = drawColor;
     ctx.lineWidth = currentThickness;
     ctx.lineCap = 'round';
@@ -247,8 +248,8 @@ function DrawingPage({ roomId, studentId, displayName, connection }: DrawingPage
   // Toolbar event handlers
   const handleColorChange = (color: string) => {
     setCurrentColor(color);
-    if (isErasing) {
-      setIsErasing(false);
+    if (currentTool === 'eraser') {
+      setCurrentTool('pen');
     }
   };
 
@@ -256,8 +257,12 @@ function DrawingPage({ roomId, studentId, displayName, connection }: DrawingPage
     setCurrentThickness(thickness);
   };
 
-  const handleToggleEraser = () => {
-    setIsErasing(!isErasing);
+  const handleToolChange = (tool: ToolType) => {
+    setCurrentTool(tool);
+  };
+
+  const handleToggleGrid = () => {
+    setShowGrid(!showGrid);
   };
 
   const handleConfidenceChange = (level: 'none' | 'red' | 'amber' | 'green') => {
@@ -348,12 +353,14 @@ function DrawingPage({ roomId, studentId, displayName, connection }: DrawingPage
       <Toolbar
         currentColor={currentColor}
         currentThickness={currentThickness}
-        isErasing={isErasing}
+        currentTool={currentTool}
         currentConfidence={confidenceLevel}
+        showGrid={showGrid}
         onColorChange={handleColorChange}
         onThicknessChange={handleThicknessChange}
-        onToggleEraser={handleToggleEraser}
+        onToolChange={handleToolChange}
         onConfidenceChange={handleConfidenceChange}
+        onToggleGrid={handleToggleGrid}
         onUndo={handleUndo}
         onRedo={handleRedo}
         onClear={handleClear}
@@ -363,7 +370,7 @@ function DrawingPage({ roomId, studentId, displayName, connection }: DrawingPage
       <div className="canvas-wrapper">
         <canvas
           ref={canvasRef}
-          className={`drawing-canvas ${isErasing ? 'erasing' : ''}`}
+          className={`drawing-canvas ${currentTool === 'eraser' ? 'erasing' : ''}`}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
@@ -371,7 +378,7 @@ function DrawingPage({ roomId, studentId, displayName, connection }: DrawingPage
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
         />
-        {isErasing && cursorPosition && (
+        {currentTool === 'eraser' && cursorPosition && (
           <div
             className="eraser-cursor"
             style={{

@@ -13,17 +13,26 @@ WhitePad is a web-based collaborative whiteboard system for classroom use. Stude
 
 ---
 
-## Current Status: Stage 1 ✅ COMPLETE
+## Current Status: Stage 2 ✅ COMPLETE
 
 **What's Working**:
 - ✅ Real-time drawing with <200ms latency
 - ✅ Teacher creates rooms at `/teacher`
-- ✅ Students join via URL at `/join?roomId=xxx&token=xxx`
+- ✅ Students join via URL at `/join?roomId=xxx&token=xxx` with custom names
 - ✅ Multiple students can draw simultaneously
 - ✅ Teacher dashboard shows live grid of student canvases (200x150px tiles)
 - ✅ Basic presence (connect/disconnect)
 - ✅ Stroke batching (50ms windows)
 - ✅ Normalized coordinates (0-1 range for screen independence)
+- ✅ 12-color palette with 5 thickness levels
+- ✅ Eraser tool with visual cursor preview
+- ✅ Unlimited undo/redo with keyboard shortcuts (Ctrl+Z/Y)
+- ✅ Clear board with confirmation dialog
+- ✅ Confidence traffic light system (red/amber/green)
+- ✅ Confidence summary on teacher dashboard with counts and percentages
+- ✅ Lock/unlock individual students or all students
+- ✅ Kick students from room
+- ✅ Visual lock indicators and overlay on student canvas
 
 **Running the Application**:
 ```bash
@@ -52,33 +61,51 @@ dotnet run
 
 ---
 
-## Next Stage: Stage 2 - Drawing Tools (LOCAL DEMO FEATURES)
+## Next Stage: Stage 3 - Shape Tools & UI Improvements
 
-**Goal**: Create a feature-rich local prototype to demonstrate to school before iPad testing.
+**Goal**: Add shape drawing tools for math/science teaching and optimize UI for landscape iPad use.
 
 **Features to Implement**:
-- ✅ Color picker (8-12 colors: black, red, blue, green, orange, purple, brown, yellow)
-- ✅ Pen thickness selector (thin, medium, thick, very thick, extra thick)
-- ✅ Eraser tool (toggle between pen and eraser)
-- ✅ Undo/redo (last 20 strokes)
-- ✅ Clear board button (student-initiated, with confirmation)
-- ✅ Compact toolbar UI (top or side of canvas)
-- 🔄 **Confidence traffic light** (red/amber/green selector for formative assessment)
 
-**New Feature: Confidence Traffic Light**
-- Students can select their confidence level: 🔴 Red (struggling), 🟡 Amber (unsure), 🟢 Green (confident)
-- Small colored circle appears in bottom-right of student tile on teacher dashboard
-- Teacher dashboard shows confidence summary at top: total count per level (e.g., "🔴 3  🟡 8  🟢 12")
-- Real-time updates via SignalR
-- Helps teachers quickly identify students who need support
+### Shape Tools
+- ⏳ **Line tool**: Click two points to draw straight line
+- ⏳ **Rectangle tool**: Click and drag to draw rectangle
+- ⏳ **Triangle tool**: Click three points for triangle
+- ⏳ **Circle tool**: Click center point and drag radius
+- ⏳ **Axes tool**: Pre-defined X/Y axes for math graphing
+- ⏳ **Grid tool**: Toggle grid overlay (optional snap-to-grid)
+
+### UI Improvements for iPad (Landscape Orientation)
+- ⏳ **Floating left sidebar**: Move toolbar from top to left side
+- ⏳ **Collapsible toolbar**: Minimize to icons only for maximum canvas space
+- ⏳ **Tool mode selector**: Switch between freehand and shape modes
+- ⏳ **Shape preview**: Show preview while drawing shape
+- ⏳ **Touch-optimized buttons**: Larger tap targets for iPad use
 
 **Implementation Approach**:
-1. Update `StrokeBatch` model to include `color` and `lineWidth` properties
-2. Create toolbar component for student UI (`src/WhitePad.Web/src/student/Toolbar.tsx`)
-3. Add state management for current tool/color/thickness in `DrawingPage.tsx`
-4. Implement undo/redo stack (client-side, array of stroke IDs)
-5. Update `StudentTile.tsx` to render strokes with color and thickness
-6. Add SignalR messages for tool changes (optional, for teacher visibility)
+1. Create `ShapeTool` type and state management in `DrawingPage.tsx`
+2. Add shape tool selector to `Toolbar.tsx` (Line, Rectangle, Triangle, Circle, Axes, Grid)
+3. Implement shape drawing logic with two-phase interaction:
+   - Phase 1: Capture start point (click)
+   - Phase 2: Show preview and finalize on second click/drag
+4. Convert completed shapes to stroke batches for SignalR transmission
+5. Update `StrokeBatch` to support shape metadata (type, points)
+6. Redesign `Toolbar.tsx` as vertical left sidebar with collapsible sections:
+   - Tools section (Pen, Eraser, Shapes)
+   - Colors section (collapsible)
+   - Thickness section (collapsible)
+   - Actions (Undo, Redo, Clear)
+   - Confidence (at bottom)
+7. Add CSS for landscape iPad optimization (left sidebar layout)
+8. Implement grid overlay with toggle button
+
+**Shape Drawing Flow**:
+- **Line**: Click start point → move mouse → click end point → draw line
+- **Rectangle**: Click corner → drag to opposite corner → release to draw
+- **Triangle**: Click point 1 → click point 2 → click point 3 → draw triangle
+- **Circle**: Click center → drag to set radius → release to draw
+- **Axes**: Single click to place centered axes (configurable size)
+- **Grid**: Toggle button to show/hide grid overlay
 
 ---
 
@@ -421,17 +448,22 @@ ctx.lineWidth = batch.lineWidth;
 
 ---
 
-## Testing Checklist
+## Stage 3 Testing Checklist
 
 Before moving to next stage:
-- [ ] Color picker changes stroke color
-- [ ] Thickness selector changes stroke width
-- [ ] Eraser removes strokes
-- [ ] Undo removes last stroke
-- [ ] Redo restores undone stroke
-- [ ] Clear button clears board (with confirmation)
-- [ ] All changes sync to teacher dashboard
-- [ ] Multiple students with different colors work simultaneously
+- [ ] Line tool draws straight lines between two points
+- [ ] Rectangle tool draws rectangles with click-and-drag
+- [ ] Triangle tool draws triangles from three points
+- [ ] Circle tool draws circles from center and radius
+- [ ] Axes tool places X/Y axes on canvas
+- [ ] Grid overlay toggles on/off
+- [ ] Toolbar displays as vertical left sidebar
+- [ ] Toolbar is collapsible to maximize canvas space
+- [ ] Shape preview shows while drawing
+- [ ] All shapes sync to teacher dashboard
+- [ ] Shapes render with correct color and line width
+- [ ] Undo/redo works with shapes
+- [ ] Multiple students can draw shapes simultaneously
 - [ ] No console errors
 - [ ] Performance remains smooth (<200ms latency)
 
@@ -441,10 +473,12 @@ Before moving to next stage:
 
 - **Full Project Plan**: `docs/WhitePad Project Plan.md`
 - **Stage 1 Completion**: `docs/stage1-completion.md`
+- **Stage 2 Completion**: `docs/stage2-completion.md`
 - **Architecture**: `docs/stage0-architecture.md`
 - **Message Contracts**: `docs/stage0-message-contracts.md`
 - **Wireframes**: `docs/stage0-wireframes.md`
 - **Repo Structure**: `docs/stage0-repo-structure.md`
+- **Confidence Feature**: `docs/confidence-traffic-light-feature.md`
 
 ---
 
@@ -460,9 +494,9 @@ Before moving to next stage:
 
 ## Future Stages
 
-- **Stage 3**: Shape tools (line, rectangle, triangle, circle, axes, grids)
-- **Stage 4**: iPad testing with Apple Pencil
-- **Stage 5**: Classroom controls (lock, freeze, clear, kick, spotlight)
+- **Stage 3**: 🔄 IN PROGRESS - Shape tools and UI improvements
+- **Stage 4**: iPad testing with Apple Pencil, QR codes
+- **Stage 5**: Advanced classroom controls (freeze, spotlight, text mode)
 - **Stage 6**: Scale testing (28 students, 10 rooms)
 - **Stage 7-8**: IIS deployment to school server
 - **Stage 9**: School pilot
@@ -473,11 +507,11 @@ Before moving to next stage:
 ## Current Limitations (By Design)
 
 - No QR codes yet (Stage 4)
-- No teacher controls (Stage 5)
+- No shape tools yet (Stage 3)
 - No text input mode (Stage 5)
-- Single color/thickness (fixing in Stage 2!)
 - No persistence (rooms lost on restart)
 - No authentication (anonymous join only)
+- Toolbar not optimized for landscape iPad yet (Stage 3)
 
 ---
 
