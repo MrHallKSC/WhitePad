@@ -1,0 +1,73 @@
+# .NET / Visual Studio
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+*.vscode/
+.claude/
+
+# Build artifacts
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Bb]uild/
+[Oo]ut/
+publish/
+
+# ASP.NET Core
+*.log
+*.db
+*.sqlite
+
+# Node.js / React
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Environment variables
+.env
+.env.local
+.env.production
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+*.swp
+*.swo
+*~
+.idea/
+*.iml
+
+# Test coverage
+coverage/
+*.coverage
+*.coveragexml
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Package files
+*.nupkg
+*.snupkg
+
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/
