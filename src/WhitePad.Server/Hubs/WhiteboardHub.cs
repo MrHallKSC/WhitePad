@@ -243,6 +243,186 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
         await Clients.Group($"room:{room.RoomId}:teacher").BoardCleared(message);
     }
 
+    // Teacher locks individual student
+    public async Task LockStudent(string roomId, string studentId)
+    {
+        _logger.LogInformation("Teacher locking student {StudentId} in room {RoomId}", studentId, roomId);
+
+        var room = await _roomStateManager.GetRoomAsync(roomId);
+        if (room == null)
+        {
+            _logger.LogWarning("Room not found: {RoomId}", roomId);
+            return;
+        }
+
+        var student = room.Participants.FirstOrDefault(s => s.StudentId == studentId);
+        if (student == null)
+        {
+            _logger.LogWarning("Student not found: {StudentId}", studentId);
+            return;
+        }
+
+        student.IsLocked = true;
+
+        // Notify teacher
+        var message = new StudentLocked
+        {
+            StudentId = studentId,
+            IsLocked = true
+        };
+
+        await Clients.Group($"room:{roomId}:teacher").StudentLocked(message);
+
+        // Notify the specific student
+        if (!string.IsNullOrEmpty(student.ConnectionId))
+        {
+            await Clients.Client(student.ConnectionId).StudentLocked(message);
+        }
+    }
+
+    // Teacher unlocks individual student
+    public async Task UnlockStudent(string roomId, string studentId)
+    {
+        _logger.LogInformation("Teacher unlocking student {StudentId} in room {RoomId}", studentId, roomId);
+
+        var room = await _roomStateManager.GetRoomAsync(roomId);
+        if (room == null)
+        {
+            _logger.LogWarning("Room not found: {RoomId}", roomId);
+            return;
+        }
+
+        var student = room.Participants.FirstOrDefault(s => s.StudentId == studentId);
+        if (student == null)
+        {
+            _logger.LogWarning("Student not found: {StudentId}", studentId);
+            return;
+        }
+
+        student.IsLocked = false;
+
+        // Notify teacher
+        var message = new StudentLocked
+        {
+            StudentId = studentId,
+            IsLocked = false
+        };
+
+        await Clients.Group($"room:{roomId}:teacher").StudentLocked(message);
+
+        // Notify the specific student
+        if (!string.IsNullOrEmpty(student.ConnectionId))
+        {
+            await Clients.Client(student.ConnectionId).StudentLocked(message);
+        }
+    }
+
+    // Teacher locks all students
+    public async Task LockAllStudents(string roomId)
+    {
+        _logger.LogInformation("Teacher locking all students in room {RoomId}", roomId);
+
+        var room = await _roomStateManager.GetRoomAsync(roomId);
+        if (room == null)
+        {
+            _logger.LogWarning("Room not found: {RoomId}", roomId);
+            return;
+        }
+
+        foreach (var student in room.Participants)
+        {
+            student.IsLocked = true;
+
+            var message = new StudentLocked
+            {
+                StudentId = student.StudentId,
+                IsLocked = true
+            };
+
+            // Notify teacher
+            await Clients.Group($"room:{roomId}:teacher").StudentLocked(message);
+
+            // Notify the specific student
+            if (!string.IsNullOrEmpty(student.ConnectionId))
+            {
+                await Clients.Client(student.ConnectionId).StudentLocked(message);
+            }
+        }
+    }
+
+    // Teacher unlocks all students
+    public async Task UnlockAllStudents(string roomId)
+    {
+        _logger.LogInformation("Teacher unlocking all students in room {RoomId}", roomId);
+
+        var room = await _roomStateManager.GetRoomAsync(roomId);
+        if (room == null)
+        {
+            _logger.LogWarning("Room not found: {RoomId}", roomId);
+            return;
+        }
+
+        foreach (var student in room.Participants)
+        {
+            student.IsLocked = false;
+
+            var message = new StudentLocked
+            {
+                StudentId = student.StudentId,
+                IsLocked = false
+            };
+
+            // Notify teacher
+            await Clients.Group($"room:{roomId}:teacher").StudentLocked(message);
+
+            // Notify the specific student
+            if (!string.IsNullOrEmpty(student.ConnectionId))
+            {
+                await Clients.Client(student.ConnectionId).StudentLocked(message);
+            }
+        }
+    }
+
+    // Teacher kicks a student (disconnects them, sends them back to name input)
+    public async Task KickStudent(string roomId, string studentId)
+    {
+        _logger.LogInformation("Teacher kicking student {StudentId} from room {RoomId}", studentId, roomId);
+
+        var room = await _roomStateManager.GetRoomAsync(roomId);
+        if (room == null)
+        {
+            _logger.LogWarning("Room not found: {RoomId}", roomId);
+            return;
+        }
+
+        var student = room.Participants.FirstOrDefault(s => s.StudentId == studentId);
+        if (student == null)
+        {
+            _logger.LogWarning("Student not found: {StudentId}", studentId);
+            return;
+        }
+
+        var connectionId = student.ConnectionId;
+
+        // Remove student from room
+        room.Participants.Remove(student);
+        _logger.LogInformation("Removed student {StudentId} from room {RoomId}", studentId, roomId);
+
+        // Notify teacher that student left
+        var participantLeft = new ParticipantLeft
+        {
+            StudentId = studentId
+        };
+        await Clients.Group($"room:{roomId}:teacher").ParticipantLeft(participantLeft);
+        _logger.LogInformation("Sent ParticipantLeft notification for student {StudentId} to group room:{RoomId}:teacher", studentId, roomId);
+
+        // Notify the student they've been kicked (sends them back to name input)
+        if (!string.IsNullOrEmpty(connectionId))
+        {
+            await Clients.Client(connectionId).Kicked();
+        }
+    }
+
     // Handle disconnect
     public override async Task OnDisconnectedAsync(Exception? exception)
     {

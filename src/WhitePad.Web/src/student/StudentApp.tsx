@@ -10,6 +10,7 @@ function StudentApp() {
   const [connection, setConnection] = useState<HubConnection | null>(null);
   const [studentId, setStudentId] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState<string | null>(null);
+  const [showKickedModal, setShowKickedModal] = useState(false);
   const connectionRef = useRef<HubConnection | null>(null);
 
   const roomId = searchParams.get('roomId');
@@ -38,6 +39,28 @@ function StudentApp() {
     setDisplayName(name);
   }, []);
 
+  const handleKickedModalClose = () => {
+    setShowKickedModal(false);
+    setStudentId(null);
+    setDisplayName(null);
+  };
+
+  // Handle being kicked by teacher
+  useEffect(() => {
+    if (!connection) return;
+
+    const handleKicked = () => {
+      // Show kicked modal
+      setShowKickedModal(true);
+    };
+
+    connection.on('Kicked', handleKicked);
+
+    return () => {
+      connection.off('Kicked', handleKicked);
+    };
+  }, [connection]);
+
   if (!roomId || !joinToken) {
     return (
       <div className="error-message">
@@ -62,12 +85,26 @@ function StudentApp() {
   }
 
   return (
-    <DrawingPage
-      roomId={roomId}
-      studentId={studentId}
-      displayName={displayName}
-      connection={connection}
-    />
+    <>
+      <DrawingPage
+        roomId={roomId}
+        studentId={studentId}
+        displayName={displayName}
+        connection={connection}
+      />
+
+      {showKickedModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h2>You were kicked</h2>
+            <p>The teacher has removed you from the session.</p>
+            <button type="button" className="button primary" onClick={handleKickedModalClose}>
+              Okay
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

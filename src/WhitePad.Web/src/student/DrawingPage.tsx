@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from 'react';
 import { HubConnection } from '@microsoft/signalr';
 import { StrokeBatcher } from '../shared/utils/strokeBatching';
-import { StrokePoint, StrokeBatch } from '../shared/types/messages';
+import { StrokePoint, StrokeBatch, StudentLocked } from '../shared/types/messages';
 import Toolbar from './Toolbar';
 
 interface DrawingPageProps {
@@ -28,6 +28,7 @@ function DrawingPage({ roomId, studentId, displayName, connection }: DrawingPage
   const [currentThickness, setCurrentThickness] = useState(2);
   const [isErasing, setIsErasing] = useState(false);
   const [confidenceLevel, setConfidenceLevel] = useState<'none' | 'red' | 'amber' | 'green'>('none');
+  const [isLocked, setIsLocked] = useState(false);
 
   // Undo/redo state
   const strokesRef = useRef<Map<string, StoredStroke>>(new Map());
@@ -36,6 +37,21 @@ function DrawingPage({ roomId, studentId, displayName, connection }: DrawingPage
 
   // Cursor state for eraser
   const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null);
+
+  // Listen for lock state changes
+  useEffect(() => {
+    const handleStudentLocked = (message: StudentLocked) => {
+      if (message.studentId === studentId) {
+        setIsLocked(message.isLocked);
+      }
+    };
+
+    connection.on('StudentLocked', handleStudentLocked);
+
+    return () => {
+      connection.off('StudentLocked', handleStudentLocked);
+    };
+  }, [connection, studentId]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -132,6 +148,8 @@ function DrawingPage({ roomId, studentId, displayName, connection }: DrawingPage
   };
 
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (isLocked) return; // Prevent drawing when locked
+
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -363,6 +381,14 @@ function DrawingPage({ roomId, studentId, displayName, connection }: DrawingPage
               height: `${currentThickness * 2}px`,
             }}
           />
+        )}
+        {isLocked && (
+          <div className="locked-overlay">
+            <div className="locked-message">
+              <span className="lock-icon">🔒</span>
+              <span className="lock-text">Locked by Teacher - Pens down</span>
+            </div>
+          </div>
         )}
       </div>
     </div>

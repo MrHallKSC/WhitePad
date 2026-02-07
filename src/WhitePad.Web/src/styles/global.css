@@ -72,6 +72,13 @@ body {
   flex-direction: column;
   position: relative;
   align-self: flex-start;
+  transition: all 0.3s ease;
+}
+
+.student-tile.locked {
+  background: rgba(108, 117, 125, 0.15);
+  border-color: #6c757d;
+  box-shadow: inset 0 0 0 2px rgba(108, 117, 125, 0.3);
 }
 
 .student-tile-header {
@@ -563,4 +570,158 @@ body {
   color: #212529;
   min-width: 24px;
   text-align: center;
+}
+
+/* Context Menu for Student Tile */
+.context-menu {
+  position: fixed;
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 10000;
+  min-width: 150px;
+  padding: 4px 0;
+}
+
+.context-menu-item {
+  display: block;
+  width: 100%;
+  padding: 10px 16px;
+  background: white;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  font-size: 14px;
+  color: #212529;
+  transition: background-color 0.15s;
+}
+
+.context-menu-item:hover {
+  background: #f8f9fa;
+}
+
+.context-menu-item:active {
+  background: #e9ecef;
+}
+
+.context-menu-item.kick {
+  color: #dc3545;
+  border-top: 1px solid #dee2e6;
+}
+
+.context-menu-item.kick:hover {
+  background: #dc3545;
+  color: white;
+}
+
+.context-menu-item.kick:active {
+  background: #c82333;
+}
+
+/* Classroom Controls Panel */
+.classroom-controls {
+  background: #f8f9fa;
+  padding: 15px 20px;
+  border-radius: 8px;
+  margin-top: 20px;
+  border: 2px solid #dee2e6;
+}
+
+.classroom-controls h3 {
+  margin: 0 0 12px 0;
+  font-size: 18px;
+  color: #212529;
+}
+
+.control-buttons {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.button.secondary {
+  background: #6c757d;
+  color: white;
+  border: none;
+}
+
+.button.secondary:hover:not(:disabled) {
+  background: #5a6268;
+}
+
+/* Locked Overlay on Student Canvas */
+.locked-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(200, 200, 200, 0.15);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 2000;
+  pointer-events: none;
+}
+
+.locked-message {
+  background: rgba(108, 117, 125, 0.95);
+  padding: 16px 32px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.lock-icon {
+  font-size: 28px;
+}
+
+.lock-text {
+  font-size: 20px;
+  font-weight: 600;
+  color: white;
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+.modal-content {
+  background: white;
+  padding: 30px 40px;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  max-width: 400px;
+  text-align: center;
+}
+
+.modal-content h2 {
+  margin: 0 0 15px 0;
+  color: #dc3545;
+  font-size: 24px;
+}
+
+.modal-content p {
+  margin: 0 0 25px 0;
+  color: #495057;
+  font-size: 16px;
+}
+
+.modal-content .button {
+  min-width: 120px;
 }

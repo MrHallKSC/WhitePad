@@ -7,6 +7,7 @@ public class Student
     public string ConnectionId { get; set; } = string.Empty;
     public string InputMode { get; set; } = "draw"; // "draw" or "type"
     public string ConfidenceLevel { get; set; } = "none"; // "none", "red", "amber", "green"
+    public bool IsLocked { get; set; } = false; // Individual student lock state
     public DateTime ConnectedAt { get; set; }
     public DateTime LastSeenAt { get; set; }
 }

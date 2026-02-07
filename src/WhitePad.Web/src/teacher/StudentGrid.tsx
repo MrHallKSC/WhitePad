@@ -5,9 +5,10 @@ import StudentTile from './StudentTile';
 interface StudentGridProps {
   students: Student[];
   connection: HubConnection | null;
+  roomId: string;
 }
 
-function StudentGrid({ students, connection }: StudentGridProps) {
+function StudentGrid({ students, connection, roomId }: StudentGridProps) {
   if (students.length === 0) {
     return (
       <div className="student-grid">
@@ -23,6 +24,7 @@ function StudentGrid({ students, connection }: StudentGridProps) {
           key={student.studentId}
           student={student}
           connection={connection}
+          roomId={roomId}
         />
       ))}
     </div>

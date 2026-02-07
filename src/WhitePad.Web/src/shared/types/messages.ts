@@ -70,6 +70,11 @@ export interface BoardCleared {
   studentId: string;
 }
 
+export interface StudentLocked {
+  studentId: string;
+  isLocked: boolean;
+}
+
 export interface Student {
   studentId: string;
   displayName: string;
@@ -77,4 +82,5 @@ export interface Student {
   connectedAt: string;
   inputMode: string;
   confidenceLevel?: 'none' | 'red' | 'amber' | 'green';
+  isLocked?: boolean;
 }

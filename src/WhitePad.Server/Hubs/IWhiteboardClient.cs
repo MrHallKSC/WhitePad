@@ -11,4 +11,6 @@ public interface IWhiteboardClient
     Task ConfidenceChanged(ConfidenceChanged message);
     Task StrokeUndone(StrokeUndone message);
     Task BoardCleared(BoardCleared message);
+    Task StudentLocked(StudentLocked message);
+    Task Kicked();
 }

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { HubConnection } from '@microsoft/signalr';
 import { createSignalRConnection } from '../services/signalr';
-import { ParticipantJoined, ParticipantLeft, Student, ConfidenceChanged } from '../shared/types/messages';
+import { ParticipantJoined, ParticipantLeft, Student, ConfidenceChanged, StudentLocked } from '../shared/types/messages';
 import StudentGrid from './StudentGrid';
 import ConfidenceSummary from './ConfidenceSummary';
 
@@ -49,6 +49,16 @@ function RoomDashboard({ roomId, joinToken }: RoomDashboardProps) {
         );
       });
 
+      conn.on('StudentLocked', (message: StudentLocked) => {
+        setStudents(prev =>
+          prev.map(s =>
+            s.studentId === message.studentId
+              ? { ...s, isLocked: message.isLocked }
+              : s
+          )
+        );
+      });
+
       try {
         await conn.start();
         await conn.invoke('JoinRoomAsTeacher', roomId);
@@ -71,6 +81,24 @@ function RoomDashboard({ roomId, joinToken }: RoomDashboardProps) {
 
   const joinUrl = `${window.location.origin}/join?roomId=${roomId}&token=${joinToken}`;
 
+  const handleLockAll = async () => {
+    if (!connection) return;
+    try {
+      await connection.invoke('LockAllStudents', roomId);
+    } catch (err) {
+      console.error('Failed to lock all students:', err);
+    }
+  };
+
+  const handleUnlockAll = async () => {
+    if (!connection) return;
+    try {
+      await connection.invoke('UnlockAllStudents', roomId);
+    } catch (err) {
+      console.error('Failed to unlock all students:', err);
+    }
+  };
+
   return (
     <div className="dashboard-container">
       <div className="dashboard-header">
@@ -87,7 +115,19 @@ function RoomDashboard({ roomId, joinToken }: RoomDashboardProps) {
 
       {error && <p className="error-message">{error}</p>}
 
-      <StudentGrid students={students} connection={connection} />
+      <StudentGrid students={students} connection={connection} roomId={roomId} />
+
+      <div className="classroom-controls">
+        <h3>Classroom Controls</h3>
+        <div className="control-buttons">
+          <button type="button" className="button secondary" onClick={handleLockAll}>
+            🔒 Lock All Students
+          </button>
+          <button type="button" className="button secondary" onClick={handleUnlockAll}>
+            🔓 Unlock All Students
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

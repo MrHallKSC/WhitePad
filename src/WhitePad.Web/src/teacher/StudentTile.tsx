@@ -1,15 +1,101 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { HubConnection } from '@microsoft/signalr';
 import { Student, StrokeBatch, StrokeUndone, BoardCleared } from '../shared/types/messages';
 
 interface StudentTileProps {
   student: Student;
   connection: HubConnection | null;
+  roomId: string;
 }
 
-function StudentTile({ student, connection }: StudentTileProps) {
+interface ContextMenuPosition {
+  x: number;
+  y: number;
+}
+
+function StudentTile({ student, connection, roomId }: StudentTileProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const strokesRef = useRef<Map<string, StrokeBatch>>(new Map());
+  const [contextMenu, setContextMenu] = useState<ContextMenuPosition | null>(null);
+
+  const redrawCanvas = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Redraw all strokes
+    strokesRef.current.forEach((batch) => {
+      if (batch.points.length === 0) return;
+
+      ctx.beginPath();
+      ctx.strokeStyle = batch.color || '#000000';
+      ctx.lineWidth = (batch.lineWidth || 2) * 0.4; // Scale down for smaller teacher view
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      const firstPoint = batch.points[0];
+      ctx.moveTo(firstPoint.x * canvas.width, firstPoint.y * canvas.height);
+
+      for (let i = 1; i < batch.points.length; i++) {
+        const point = batch.points[i];
+        ctx.lineTo(point.x * canvas.width, point.y * canvas.height);
+      }
+
+      ctx.stroke();
+    });
+  };
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+    });
+  };
+
+  const handleCloseContextMenu = () => {
+    setContextMenu(null);
+  };
+
+  const handleLockToggle = async () => {
+    if (!connection) return;
+
+    try {
+      if (student.isLocked) {
+        await connection.invoke('UnlockStudent', roomId, student.studentId);
+      } else {
+        await connection.invoke('LockStudent', roomId, student.studentId);
+      }
+    } catch (err) {
+      console.error('Failed to toggle lock:', err);
+    }
+    setContextMenu(null);
+  };
+
+  const handleKick = async () => {
+    if (!connection) return;
+
+    try {
+      await connection.invoke('KickStudent', roomId, student.studentId);
+    } catch (err) {
+      console.error('Failed to kick student:', err);
+    }
+    setContextMenu(null);
+  };
+
+  // Close context menu when clicking anywhere
+  useEffect(() => {
+    if (contextMenu) {
+      const handleClick = () => handleCloseContextMenu();
+      document.addEventListener('click', handleClick);
+      return () => document.removeEventListener('click', handleClick);
+    }
+  }, [contextMenu]);
 
   useEffect(() => {
     if (!connection) return;
@@ -17,17 +103,8 @@ function StudentTile({ student, connection }: StudentTileProps) {
     const handleStrokeBatch = (batch: StrokeBatch) => {
       if (batch.studentId !== student.studentId) return;
 
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-
-      // Calculate startIndex BEFORE modifying the existing batch
-      const existingBatch = strokesRef.current.get(batch.strokeId);
-      const startIndex = existingBatch ? existingBatch.points.length : 0;
-
       // Store the batch
+      const existingBatch = strokesRef.current.get(batch.strokeId);
       if (existingBatch) {
         existingBatch.points.push(...batch.points);
         existingBatch.isComplete = batch.isComplete;
@@ -35,78 +112,8 @@ function StudentTile({ student, connection }: StudentTileProps) {
         strokesRef.current.set(batch.strokeId, { ...batch, points: [...batch.points] });
       }
 
-      // Render the new points
-      const currentBatch = strokesRef.current.get(batch.strokeId)!;
-
-      ctx.strokeStyle = batch.color;
-      ctx.lineWidth = batch.lineWidth * 0.4; // Scale down for smaller teacher view
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-
-      // Always start a new path
-      ctx.beginPath();
-
-      if (startIndex === 0) {
-        // First batch - start from the first point
-        if (currentBatch.points.length > 0) {
-          const firstPoint = currentBatch.points[0];
-          ctx.moveTo(firstPoint.x * canvas.width, firstPoint.y * canvas.height);
-        }
-        // Draw lines starting from point[1]
-        for (let i = 1; i < currentBatch.points.length; i++) {
-          const point = currentBatch.points[i];
-          ctx.lineTo(point.x * canvas.width, point.y * canvas.height);
-        }
-      } else {
-        // Continuation batch - start from the last point we already drew
-        const lastPoint = currentBatch.points[startIndex - 1];
-        ctx.moveTo(lastPoint.x * canvas.width, lastPoint.y * canvas.height);
-
-        // Draw lines to the new points
-        for (let i = startIndex; i < currentBatch.points.length; i++) {
-          const point = currentBatch.points[i];
-          ctx.lineTo(point.x * canvas.width, point.y * canvas.height);
-        }
-      }
-
-      ctx.stroke();
-
-      // Clean up completed strokes
-      if (batch.isComplete) {
-        // Keep the stroke for potential re-rendering, but could implement cleanup here
-      }
-    };
-
-    const redrawCanvas = () => {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-
-      // Clear canvas
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      // Redraw all strokes
-      strokesRef.current.forEach((batch) => {
-        if (batch.points.length === 0) return;
-
-        ctx.strokeStyle = batch.color;
-        ctx.lineWidth = batch.lineWidth * 0.4; // Scale down for smaller teacher view
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-
-        ctx.beginPath();
-        const firstPoint = batch.points[0];
-        ctx.moveTo(firstPoint.x * canvas.width, firstPoint.y * canvas.height);
-
-        for (let i = 1; i < batch.points.length; i++) {
-          const point = batch.points[i];
-          ctx.lineTo(point.x * canvas.width, point.y * canvas.height);
-        }
-
-        ctx.stroke();
-      });
+      // Redraw entire canvas to ensure consistency
+      redrawCanvas();
     };
 
     const handleStrokeUndone = (message: StrokeUndone) => {
@@ -146,22 +153,85 @@ function StudentTile({ student, connection }: StudentTileProps) {
     };
   }, [connection, student.studentId]);
 
+  // Periodic redraw to handle window dragging and other events that might clear the canvas
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const canvas = canvasRef.current;
+      if (!canvas || strokesRef.current.size === 0) return;
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      // Check if canvas is empty by sampling strategic pixels across the canvas
+      // Sample 25 points in a grid pattern
+      let hasContent = false;
+      for (let y = 0; y < 5; y++) {
+        for (let x = 0; x < 5; x++) {
+          const px = Math.floor((x + 0.5) * canvas.width / 5);
+          const py = Math.floor((y + 0.5) * canvas.height / 5);
+          const imageData = ctx.getImageData(px, py, 1, 1);
+          if (imageData.data[3] > 0) { // Check alpha channel
+            hasContent = true;
+            break;
+          }
+        }
+        if (hasContent) break;
+      }
+
+      // If canvas is empty but we have strokes, redraw
+      if (!hasContent && strokesRef.current.size > 0) {
+        redrawCanvas();
+      }
+    }, 50); // Check every 50ms for faster detection
+
+    return () => clearInterval(interval);
+  }, []);
+
   return (
-    <div className="student-tile">
-      <div className="student-tile-header">{student.displayName}</div>
-      <canvas
-        ref={canvasRef}
-        className="student-canvas"
-        width={200}
-        height={150}
-      />
-      {student.confidenceLevel && student.confidenceLevel !== 'none' && (
-        <div
-          className={`confidence-indicator ${student.confidenceLevel}`}
-          title={`Confidence: ${student.confidenceLevel}`}
+    <>
+      <div
+        className={`student-tile ${student.isLocked ? 'locked' : ''}`}
+        onContextMenu={handleContextMenu}
+      >
+        <div className="student-tile-header">
+          {student.isLocked && '🔒 '}{student.displayName}
+        </div>
+        <canvas
+          ref={canvasRef}
+          className="student-canvas"
+          width={200}
+          height={150}
         />
+        {student.confidenceLevel && student.confidenceLevel !== 'none' && (
+          <div
+            className={`confidence-indicator ${student.confidenceLevel}`}
+            title={`Confidence: ${student.confidenceLevel}`}
+          />
+        )}
+      </div>
+
+      {contextMenu && (
+        <div
+          className="context-menu"
+          style={{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }}
+        >
+          <button
+            type="button"
+            className="context-menu-item"
+            onClick={handleLockToggle}
+          >
+            {student.isLocked ? 'Unlock' : 'Lock'}
+          </button>
+          <button
+            type="button"
+            className="context-menu-item kick"
+            onClick={handleKick}
+          >
+            Kick
+          </button>
+        </div>
       )}
-    </div>
+    </>
   );
 }
 
