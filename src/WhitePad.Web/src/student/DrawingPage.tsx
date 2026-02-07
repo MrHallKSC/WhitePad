@@ -319,6 +319,50 @@ function DrawingPage({ studentId, displayName, connection }: DrawingPageProps) {
           ctx.arc(center.x * canvasWidth, center.y * canvasHeight, radius, 0, Math.PI * 2);
         }
         break;
+
+      case 'axesL':
+        // L-shaped axes with origin at bottom-left
+        if (shape.points.length >= 2) {
+          const origin = shape.points[0];
+          const extent = shape.points[1];
+          const originX = origin.x * canvasWidth;
+          const originY = origin.y * canvasHeight;
+          const extentX = extent.x * canvasWidth;
+          const extentY = extent.y * canvasHeight;
+
+          // Horizontal axis (to the right)
+          ctx.moveTo(originX, originY);
+          ctx.lineTo(extentX, originY);
+
+          // Vertical axis (upward)
+          ctx.moveTo(originX, originY);
+          ctx.lineTo(originX, extentY);
+        }
+        break;
+
+      case 'axesCross':
+        // Cross-shaped axes with origin at center
+        if (shape.points.length >= 2) {
+          const center = shape.points[0];
+          const extent = shape.points[1];
+          const centerX = center.x * canvasWidth;
+          const centerY = center.y * canvasHeight;
+          const extentX = extent.x * canvasWidth;
+          const extentY = extent.y * canvasHeight;
+
+          // Calculate the distance from center to extent
+          const dx = Math.abs(extentX - centerX);
+          const dy = Math.abs(extentY - centerY);
+
+          // Horizontal axis (left and right from center)
+          ctx.moveTo(centerX - dx, centerY);
+          ctx.lineTo(centerX + dx, centerY);
+
+          // Vertical axis (up and down from center)
+          ctx.moveTo(centerX, centerY - dy);
+          ctx.lineTo(centerX, centerY + dy);
+        }
+        break;
     }
 
     ctx.stroke();
@@ -372,7 +416,7 @@ function DrawingPage({ studentId, displayName, connection }: DrawingPageProps) {
     const point = getNormalizedPoint(e.clientX, e.clientY, pressure);
 
     // Handle shape tools
-    if (currentTool === 'line' || currentTool === 'rectangle' || currentTool === 'circle') {
+    if (currentTool === 'line' || currentTool === 'rectangle' || currentTool === 'circle' || currentTool === 'axesL' || currentTool === 'axesCross') {
       const shapeId = `${studentId}-shape-${Date.now()}`;
       const newShape: Shape = {
         shapeId,

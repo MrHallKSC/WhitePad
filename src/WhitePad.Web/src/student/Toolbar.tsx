@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-export type ToolType = 'pen' | 'eraser' | 'line' | 'rectangle' | 'circle' | 'axes';
+export type ToolType = 'pen' | 'eraser' | 'line' | 'rectangle' | 'circle' | 'axesL' | 'axesCross';
 
 interface ToolbarProps {
   displayName: string;
@@ -225,12 +225,21 @@ function Toolbar({
           </button>
           <button
             type="button"
-            className={`tool-btn ${currentTool === 'axes' ? 'active' : ''}`}
-            onClick={() => onToolChange('axes')}
-            title="Axes Tool"
+            className={`tool-btn ${currentTool === 'axesL' ? 'active' : ''}`}
+            onClick={() => onToolChange('axesL')}
+            title="L-shaped Axes (bottom-left origin)"
           >
-            <span className="tool-icon">📐</span>
-            {!isCollapsed && <span className="tool-label">Axes</span>}
+            <span className="tool-icon">⌞</span>
+            {!isCollapsed && <span className="tool-label">L-Axes</span>}
+          </button>
+          <button
+            type="button"
+            className={`tool-btn ${currentTool === 'axesCross' ? 'active' : ''}`}
+            onClick={() => onToolChange('axesCross')}
+            title="Cross Axes (center origin)"
+          >
+            <span className="tool-icon">✛</span>
+            {!isCollapsed && <span className="tool-label">+-Axes</span>}
           </button>
           <button
             type="button"

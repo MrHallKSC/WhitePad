@@ -26,14 +26,13 @@ Students can:
 
 ## Project Status
 
-**Current Stage**: Stage 0 - Project Setup ✅
+**Current Stage**: Stage 3 - Shape Tools 🔄
 
-- [x] Project plan and specification
-- [x] Architecture documentation
-- [x] Message contracts defined
-- [x] UI wireframes
-- [x] Repository structure created
-- [ ] Stage 1 - Local MVP implementation (next)
+- [x] **Stage 0** - Project Setup (Complete)
+- [x] **Stage 1** - Local MVP with real-time drawing (Complete)
+- [x] **Stage 2** - Drawing tools: colors, thickness, eraser, undo/redo, confidence traffic light (Complete)
+- [x] **Stage 3** - Shape tools: line, rectangle, circle, axes (L & cross), clear board controls (Complete)
+- [ ] **Stage 4** - iPad testing with Apple Pencil on home Wi-Fi (Next)
 
 ## Quick Start (for Development)
 
@@ -156,20 +155,38 @@ Comprehensive documentation is available in the `docs/` folder:
 - Repository structure
 - Technology stack decisions
 
-### 🔄 Stage 1 - Local MVP (Next)
+### ✅ Stage 1 - Local MVP (COMPLETE)
 - SignalR hub implementation
-- Basic drawing canvas
+- Real-time stroke streaming (<200ms latency)
 - Room creation and joining
-- Real-time stroke streaming (localhost only)
+- Basic drawing canvas with pointer events
+- Multi-student support (tested with 10+ students)
 
-### Stage 2 - iPad Testing
+### ✅ Stage 2 - Drawing Tools (COMPLETE)
+- Color picker (8+ colors)
+- Pen thickness selector (5 options)
+- Eraser tool
+- Undo/redo functionality
+- Clear board (student-initiated)
+- Confidence traffic light (red/amber/green for formative assessment)
+
+### ✅ Stage 3 - Shape Tools (COMPLETE)
+- Line tool (drag-to-draw)
+- Rectangle tool
+- Circle tool
+- Axes tools (L-shaped and cross-shaped)
+- Teacher controls: Clear All Boards, Clear Student Board (context menu)
+- All shapes sync to teacher dashboard in real-time
+
+### 🔄 Stage 4 - iPad Testing (NEXT)
 - QR code generation
-- Apple Pencil support
+- Apple Pencil pressure sensitivity testing
 - Home Wi-Fi networking
 - Self-signed certificate handling
+- Touch-optimized UI for iPadOS
 
-### Stage 3 - Classroom Controls
-- Lock/freeze/clear commands
+### Stage 5 - Classroom Controls
+- Lock/freeze room controls
 - Kick and token rotation
 - Text input mode (accessibility)
 - Spotlight view
@@ -193,20 +210,28 @@ Comprehensive documentation is available in the `docs/` folder:
 
 ## Key Features
 
-### MVP Features
-- ✅ Real-time drawing with Apple Pencil (pressure-sensitive)
-- ✅ Text input mode (accessibility alternative)
-- ✅ Teacher dashboard with 28 student tiles
-- ✅ Room controls: lock, freeze, clear, kick, spotlight
-- ✅ QR code joining (no login required)
-- ✅ Auto-reconnection on network drop
+### Implemented Features
+- ✅ Real-time drawing with <200ms latency
+- ✅ Teacher dashboard with live student tile grid
+- ✅ Room creation and student joining via URL
+- ✅ **Drawing tools**: 8+ colors, 5 thickness levels, eraser
+- ✅ **Shape tools**: line, rectangle, circle, axes (L-shaped and cross)
+- ✅ **Undo/redo**: Last 20 strokes
+- ✅ **Clear controls**: Student clear (with confirmation), teacher clear individual/all boards
+- ✅ **Confidence traffic light**: Red/Amber/Green formative assessment indicator
+
+### In Progress
+- 🔄 QR code generation for easy student access
+- 🔄 iPad testing with Apple Pencil (pressure sensitivity)
+- 🔄 Touch-optimized UI for iPadOS
 
 ### Future Features
+- Text input mode (accessibility alternative)
+- Lock/freeze/spotlight room controls
+- Kick and token rotation
 - Microsoft 365 authentication
 - Export boards as PNG/PDF
 - Persistent room storage
-- Multiple pen colors and tools
-- Undo/redo functionality
 
 ## Testing
 
@@ -265,6 +290,6 @@ For issues or questions:
 
 ---
 
-**Status**: Stage 0 Complete - Ready for Stage 1 Implementation
+**Status**: Stage 3 Complete - Shape Tools Working | Next: iPad Testing on Home Wi-Fi
 
 **Last Updated**: February 2026

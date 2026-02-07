@@ -13,7 +13,7 @@ WhitePad is a web-based collaborative whiteboard system for classroom use. Stude
 
 ---
 
-## Current Status: Stage 2 ✅ COMPLETE
+## Current Status: Stage 3 ✅ COMPLETE
 
 **What's Working**:
 - ✅ Real-time drawing with <200ms latency
@@ -27,12 +27,16 @@ WhitePad is a web-based collaborative whiteboard system for classroom use. Stude
 - ✅ 12-color palette with 5 thickness levels
 - ✅ Eraser tool with visual cursor preview
 - ✅ Unlimited undo/redo with keyboard shortcuts (Ctrl+Z/Y)
-- ✅ Clear board with confirmation dialog
+- ✅ Clear board with confirmation dialog (student-initiated)
 - ✅ Confidence traffic light system (red/amber/green)
 - ✅ Confidence summary on teacher dashboard with counts and percentages
 - ✅ Lock/unlock individual students or all students
 - ✅ Kick students from room
 - ✅ Visual lock indicators and overlay on student canvas
+- ✅ **Shape tools**: Line, rectangle, circle with drag-to-draw interaction
+- ✅ **Axes tools**: L-shaped (bottom-left origin) and cross-shaped (center origin)
+- ✅ **Teacher clear controls**: Clear individual student board (context menu), Clear All Boards button
+- ✅ All shapes sync to teacher dashboard in real-time with color and thickness
 
 **Running the Application**:
 ```bash
@@ -61,43 +65,41 @@ dotnet run
 
 ---
 
-## Next Stage: Stage 3 - Shape Tools & UI Improvements
+## Next Stage: Stage 4 - iPad Testing on Home Wi-Fi
 
-**Goal**: Add shape drawing tools for math/science teaching and optimize UI for landscape iPad use.
+**Goal**: Validate Apple Pencil input and all drawing tools on real iPads before school deployment.
 
 **Features to Implement**:
+- ⏳ **QR code generation**: Generate QR codes on teacher page for easy student access
+- ⏳ **Network configuration**: Configure Kestrel to bind to local network IP (192.168.1.x)
+- ⏳ **Mobile UI optimization**: Landscape orientation lock, responsive canvas sizing
+- ⏳ **Perfect Freehand integration**: Smooth stroke rendering with pressure sensitivity
+- ⏳ **Apple Pencil support**: Pressure sensitivity affects thickness, palm rejection
+- ⏳ **Touch-optimized toolbar**: Larger buttons, touch-friendly spacing
+- ⏳ **Connection status**: Visual indicator for connected/reconnecting/disconnected states
+- ⏳ **Reconnection handling**: Auto-reconnect on brief network drops
 
-### Shape Tools
-- ⏳ **Line tool**: Click two points to draw straight line
-- ⏳ **Rectangle tool**: Click and drag to draw rectangle
-- ⏳ **Triangle tool**: Click three points for triangle
-- ⏳ **Circle tool**: Click center point and drag radius
-- ⏳ **Axes tool**: Pre-defined X/Y axes for math graphing
-- ⏳ **Grid tool**: Toggle grid overlay (optional snap-to-grid)
+**Testing Goals**:
+- Validate all drawing tools work smoothly with Apple Pencil (colors, shapes, eraser, undo)
+- Confirm pressure sensitivity affects stroke thickness appropriately
+- Test latency on home Wi-Fi (<500ms acceptable)
+- Verify touch UI is usable on iPad screen (not just mouse/trackpad)
+- Test with multiple iPads simultaneously (5-10 devices)
+- Handle self-signed certificate warnings gracefully
 
-### UI Improvements for iPad (Landscape Orientation)
-- ⏳ **Floating left sidebar**: Move toolbar from top to left side
-- ⏳ **Collapsible toolbar**: Minimize to icons only for maximum canvas space
-- ⏳ **Tool mode selector**: Switch between freehand and shape modes
-- ⏳ **Shape preview**: Show preview while drawing shape
-- ⏳ **Touch-optimized buttons**: Larger tap targets for iPad use
+**Setup Steps**:
+1. Find PC's local IP address: `ipconfig` (e.g., 192.168.1.100)
+2. Update `appsettings.json` Kestrel configuration to bind to `0.0.0.0:5001`
+3. Add Windows Firewall inbound rule for TCP port 5001
+4. Generate QR codes pointing to `https://[PC_IP]:5001/join?roomId=xxx&token=xxx`
+5. iPads scan QR and manually accept certificate warning (one-time per device)
 
-**Implementation Approach**:
-1. Create `ShapeTool` type and state management in `DrawingPage.tsx`
-2. Add shape tool selector to `Toolbar.tsx` (Line, Rectangle, Triangle, Circle, Axes, Grid)
-3. Implement shape drawing logic with two-phase interaction:
-   - Phase 1: Capture start point (click)
-   - Phase 2: Show preview and finalize on second click/drag
-4. Convert completed shapes to stroke batches for SignalR transmission
-5. Update `StrokeBatch` to support shape metadata (type, points)
-6. Redesign `Toolbar.tsx` as vertical left sidebar with collapsible sections:
-   - Tools section (Pen, Eraser, Shapes)
-   - Colors section (collapsible)
-   - Thickness section (collapsible)
-   - Actions (Undo, Redo, Clear)
-   - Confidence (at bottom)
-7. Add CSS for landscape iPad optimization (left sidebar layout)
-8. Implement grid overlay with toggle button
+**Success Criteria**:
+- All drawing tools (pen, shapes, eraser, undo) work smoothly on iPad with Apple Pencil
+- Shape tools (line, rectangle, circle, axes) are precise and usable with touch
+- Latency remains acceptable on Wi-Fi (<500ms)
+- Multiple iPads can draw simultaneously without performance issues
+- Toolbar is touch-friendly and doesn't obstruct canvas
 
 **Shape Drawing Flow**:
 - **Line**: Click start point → move mouse → click end point → draw line
