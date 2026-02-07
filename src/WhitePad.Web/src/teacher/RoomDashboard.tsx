@@ -99,6 +99,16 @@ function RoomDashboard({ roomId, joinToken }: RoomDashboardProps) {
     }
   };
 
+  const handleClearAll = async () => {
+    if (!connection) return;
+    if (!confirm('Clear all student boards? This cannot be undone.')) return;
+    try {
+      await connection.invoke('ClearAllBoards', roomId);
+    } catch (err) {
+      console.error('Failed to clear all boards:', err);
+    }
+  };
+
   return (
     <div className="dashboard-container">
       <div className="dashboard-header">
@@ -125,6 +135,9 @@ function RoomDashboard({ roomId, joinToken }: RoomDashboardProps) {
           </button>
           <button type="button" className="button secondary" onClick={handleUnlockAll}>
             🔓 Unlock All Students
+          </button>
+          <button type="button" className="button danger" onClick={handleClearAll}>
+            🗑️ Clear All Boards
           </button>
         </div>
       </div>

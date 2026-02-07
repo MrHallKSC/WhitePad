@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from 'react';
 import { HubConnection } from '@microsoft/signalr';
 import { StrokeBatcher } from '../shared/utils/strokeBatching';
-import { StrokePoint, StrokeBatch, StudentLocked } from '../shared/types/messages';
+import { StrokePoint, StrokeBatch, StudentLocked, Shape } from '../shared/types/messages';
 import Toolbar, { ToolType } from './Toolbar';
 
 interface DrawingPageProps {
@@ -40,6 +40,10 @@ function DrawingPage({ studentId, displayName, connection }: DrawingPageProps) {
   // Cursor state for eraser
   const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null);
 
+  // Shape state
+  const shapesRef = useRef<Map<string, Shape>>(new Map());
+  const [shapeInProgress, setShapeInProgress] = useState<Shape | null>(null);
+
   // Keep strokeHistoryRef in sync with strokeHistory
   useEffect(() => {
     strokeHistoryRef.current = strokeHistory;
@@ -57,6 +61,34 @@ function DrawingPage({ studentId, displayName, connection }: DrawingPageProps) {
 
     return () => {
       connection.off('StudentLocked', handleStudentLocked);
+    };
+  }, [connection, studentId]);
+
+  // Listen for teacher-initiated board clear
+  useEffect(() => {
+    const handleBoardCleared = (message: { studentId: string }) => {
+      if (message.studentId === studentId) {
+        // Clear local state
+        strokesRef.current.clear();
+        shapesRef.current.clear();
+        setStrokeHistory([]);
+        setUndoneStrokes([]);
+
+        // Clear canvas
+        const canvas = canvasRef.current;
+        if (canvas) {
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+          }
+        }
+      }
+    };
+
+    connection.on('BoardCleared', handleBoardCleared);
+
+    return () => {
+      connection.off('BoardCleared', handleBoardCleared);
     };
   }, [connection, studentId]);
 
@@ -191,45 +223,109 @@ function DrawingPage({ studentId, displayName, connection }: DrawingPageProps) {
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Redraw all strokes in history order
+    // Redraw all strokes and shapes in history order
     let drawnCount = 0;
-    idsToRender.forEach(strokeId => {
-      const stroke = strokesRef.current.get(strokeId);
-      if (!stroke) {
-        console.log('[REDRAW] Stroke not found in map:', strokeId);
+    idsToRender.forEach(id => {
+      // Try to find as stroke first
+      const stroke = strokesRef.current.get(id);
+      if (stroke) {
+        ctx.strokeStyle = stroke.color;
+        ctx.lineWidth = stroke.lineWidth;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        // Draw all points from all batches
+        const allPoints: StrokePoint[] = [];
+        stroke.batches.forEach(batch => {
+          allPoints.push(...batch.points);
+        });
+
+        if (allPoints.length === 0) {
+          console.log('[REDRAW] Stroke has no points:', id);
+          return;
+        }
+
+        ctx.beginPath();
+        const firstPoint = allPoints[0];
+        ctx.moveTo(firstPoint.x * canvas.width, firstPoint.y * canvas.height);
+
+        for (let i = 1; i < allPoints.length; i++) {
+          const point = allPoints[i];
+          ctx.lineTo(point.x * canvas.width, point.y * canvas.height);
+        }
+
+        ctx.stroke();
+        drawnCount++;
         return;
       }
 
-      ctx.strokeStyle = stroke.color;
-      ctx.lineWidth = stroke.lineWidth;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-
-      // Draw all points from all batches
-      const allPoints: StrokePoint[] = [];
-      stroke.batches.forEach(batch => {
-        allPoints.push(...batch.points);
-      });
-
-      if (allPoints.length === 0) {
-        console.log('[REDRAW] Stroke has no points:', strokeId);
+      // Try to find as shape
+      const shape = shapesRef.current.get(id);
+      if (shape) {
+        renderShape(ctx, shape, canvas.width, canvas.height, false);
+        drawnCount++;
         return;
       }
 
-      ctx.beginPath();
-      const firstPoint = allPoints[0];
-      ctx.moveTo(firstPoint.x * canvas.width, firstPoint.y * canvas.height);
-
-      for (let i = 1; i < allPoints.length; i++) {
-        const point = allPoints[i];
-        ctx.lineTo(point.x * canvas.width, point.y * canvas.height);
-      }
-
-      ctx.stroke();
-      drawnCount++;
+      console.log('[REDRAW] Item not found in maps:', id);
     });
 
     console.log('[REDRAW] Completed. Drew', drawnCount, 'strokes');
+  };
+
+  const renderShape = (ctx: CanvasRenderingContext2D, shape: Shape, canvasWidth: number, canvasHeight: number, isDashed: boolean = false) => {
+    if (shape.points.length === 0) return;
+
+    ctx.strokeStyle = shape.color;
+    ctx.lineWidth = shape.lineWidth;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    if (isDashed) {
+      ctx.setLineDash([5, 5]);
+    }
+
+    ctx.beginPath();
+
+    switch (shape.type) {
+      case 'line':
+        if (shape.points.length >= 2) {
+          const start = shape.points[0];
+          const end = shape.points[1];
+          ctx.moveTo(start.x * canvasWidth, start.y * canvasHeight);
+          ctx.lineTo(end.x * canvasWidth, end.y * canvasHeight);
+        }
+        break;
+
+      case 'rectangle':
+        if (shape.points.length >= 2) {
+          const start = shape.points[0];
+          const end = shape.points[1];
+          const x = Math.min(start.x, end.x) * canvasWidth;
+          const y = Math.min(start.y, end.y) * canvasHeight;
+          const width = Math.abs(end.x - start.x) * canvasWidth;
+          const height = Math.abs(end.y - start.y) * canvasHeight;
+          ctx.rect(x, y, width, height);
+        }
+        break;
+
+      case 'circle':
+        if (shape.points.length >= 2) {
+          const center = shape.points[0];
+          const edge = shape.points[1];
+          const dx = (edge.x - center.x) * canvasWidth;
+          const dy = (edge.y - center.y) * canvasHeight;
+          const radius = Math.sqrt(dx * dx + dy * dy);
+          ctx.arc(center.x * canvasWidth, center.y * canvasHeight, radius, 0, Math.PI * 2);
+        }
+        break;
+    }
+
+    ctx.stroke();
+
+    if (isDashed) {
+      ctx.setLineDash([]);
+    }
   };
 
   const getNormalizedPoint = (clientX: number, clientY: number, pressure: number): StrokePoint => {
@@ -271,6 +367,25 @@ function DrawingPage({ studentId, displayName, connection }: DrawingPageProps) {
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+
+    const pressure = e.pressure || 0.5;
+    const point = getNormalizedPoint(e.clientX, e.clientY, pressure);
+
+    // Handle shape tools
+    if (currentTool === 'line' || currentTool === 'rectangle' || currentTool === 'circle') {
+      const shapeId = `${studentId}-shape-${Date.now()}`;
+      const newShape: Shape = {
+        shapeId,
+        studentId,
+        type: currentTool,
+        points: [point],
+        color: currentColor,
+        lineWidth: currentThickness,
+        isComplete: false,
+      };
+      setShapeInProgress(newShape);
+      return;
+    }
 
     // Use white color for eraser, current color for pen
     const drawColor = currentTool === 'eraser' ? '#FFFFFF' : currentColor;
@@ -315,9 +430,6 @@ function DrawingPage({ studentId, displayName, connection }: DrawingPageProps) {
       });
     });
 
-    const pressure = e.pressure || 0.5;
-    const point = getNormalizedPoint(e.clientX, e.clientY, pressure);
-
     batcherRef.current.addPoint(point);
     drawPoint(e.clientX - canvas.getBoundingClientRect().left,
              e.clientY - canvas.getBoundingClientRect().top);
@@ -336,10 +448,27 @@ function DrawingPage({ studentId, displayName, connection }: DrawingPageProps) {
       y: e.clientY - rect.top,
     });
 
-    if (!batcherRef.current) return;
-
     const pressure = e.pressure || 0.5;
     const point = getNormalizedPoint(e.clientX, e.clientY, pressure);
+
+    // Handle shape preview
+    if (shapeInProgress) {
+      const updatedShape = {
+        ...shapeInProgress,
+        points: [shapeInProgress.points[0], point],
+      };
+      setShapeInProgress(updatedShape);
+
+      // Redraw canvas with preview
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        redrawCanvas();
+        renderShape(ctx, updatedShape, canvas.width, canvas.height, true);
+      }
+      return;
+    }
+
+    if (!batcherRef.current) return;
 
     batcherRef.current.addPoint(point);
     drawPoint(e.clientX - rect.left, e.clientY - rect.top);
@@ -351,6 +480,41 @@ function DrawingPage({ studentId, displayName, connection }: DrawingPageProps) {
 
     e.preventDefault();
     canvas.releasePointerCapture(e.pointerId);
+
+    // Handle shape completion
+    if (shapeInProgress) {
+      const pressure = e.pressure || 0.5;
+      const point = getNormalizedPoint(e.clientX, e.clientY, pressure);
+
+      const completedShape: Shape = {
+        ...shapeInProgress,
+        points: [shapeInProgress.points[0], point],
+        isComplete: true,
+      };
+
+      // Store in shapes
+      shapesRef.current.set(completedShape.shapeId, completedShape);
+
+      // Add to history for undo/redo
+      setStrokeHistory(prev => [...prev, completedShape.shapeId]);
+      setUndoneStrokes([]); // Clear redo stack
+
+      // Send to server
+      connection.invoke('SendShape', completedShape).catch(err => {
+        console.error('Failed to send shape:', err);
+      });
+
+      setShapeInProgress(null);
+
+      // Redraw canvas and manually render the new shape (since state hasn't updated yet)
+      redrawCanvas();
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        renderShape(ctx, completedShape, canvas.width, canvas.height, false);
+      }
+
+      return;
+    }
 
     if (batcherRef.current) {
       batcherRef.current.flush(true);
@@ -420,6 +584,7 @@ function DrawingPage({ studentId, displayName, connection }: DrawingPageProps) {
 
   const handleClear = () => {
     strokesRef.current.clear();
+    shapesRef.current.clear();
     setStrokeHistory([]);
     setUndoneStrokes([]);
 

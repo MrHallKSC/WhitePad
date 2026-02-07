@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState } from 'react';
 import { HubConnection } from '@microsoft/signalr';
-import { Student, StrokeBatch, StrokeUndone, BoardCleared } from '../shared/types/messages';
+import { Student, StrokeBatch, StrokeUndone, BoardCleared, ShapeDrawn, Shape } from '../shared/types/messages';
 
 interface StudentTileProps {
   student: Student;
@@ -16,7 +16,55 @@ interface ContextMenuPosition {
 function StudentTile({ student, connection, roomId }: StudentTileProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const strokesRef = useRef<Map<string, StrokeBatch>>(new Map());
+  const shapesRef = useRef<Map<string, Shape>>(new Map());
   const [contextMenu, setContextMenu] = useState<ContextMenuPosition | null>(null);
+
+  const renderShape = (ctx: CanvasRenderingContext2D, shape: Shape, canvasWidth: number, canvasHeight: number) => {
+    if (shape.points.length === 0) return;
+
+    ctx.strokeStyle = shape.color;
+    ctx.lineWidth = (shape.lineWidth || 2) * 0.4; // Scale down for smaller teacher view
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    ctx.beginPath();
+
+    switch (shape.type) {
+      case 'line':
+        if (shape.points.length >= 2) {
+          const start = shape.points[0];
+          const end = shape.points[1];
+          ctx.moveTo(start.x * canvasWidth, start.y * canvasHeight);
+          ctx.lineTo(end.x * canvasWidth, end.y * canvasHeight);
+        }
+        break;
+
+      case 'rectangle':
+        if (shape.points.length >= 2) {
+          const start = shape.points[0];
+          const end = shape.points[1];
+          const x = Math.min(start.x, end.x) * canvasWidth;
+          const y = Math.min(start.y, end.y) * canvasHeight;
+          const width = Math.abs(end.x - start.x) * canvasWidth;
+          const height = Math.abs(end.y - start.y) * canvasHeight;
+          ctx.rect(x, y, width, height);
+        }
+        break;
+
+      case 'circle':
+        if (shape.points.length >= 2) {
+          const center = shape.points[0];
+          const edge = shape.points[1];
+          const dx = (edge.x - center.x) * canvasWidth;
+          const dy = (edge.y - center.y) * canvasHeight;
+          const radius = Math.sqrt(dx * dx + dy * dy);
+          ctx.arc(center.x * canvasWidth, center.y * canvasHeight, radius, 0, Math.PI * 2);
+        }
+        break;
+    }
+
+    ctx.stroke();
+  };
 
   const redrawCanvas = () => {
     const canvas = canvasRef.current;
@@ -47,6 +95,11 @@ function StudentTile({ student, connection, roomId }: StudentTileProps) {
       }
 
       ctx.stroke();
+    });
+
+    // Redraw all shapes
+    shapesRef.current.forEach((shape) => {
+      renderShape(ctx, shape, canvas.width, canvas.height);
     });
   };
 
@@ -84,6 +137,22 @@ function StudentTile({ student, connection, roomId }: StudentTileProps) {
       await connection.invoke('KickStudent', roomId, student.studentId);
     } catch (err) {
       console.error('Failed to kick student:', err);
+    }
+    setContextMenu(null);
+  };
+
+  const handleClear = async () => {
+    if (!connection) return;
+
+    if (!confirm(`Clear ${student.displayName}'s board? This cannot be undone.`)) {
+      setContextMenu(null);
+      return;
+    }
+
+    try {
+      await connection.invoke('ClearStudentBoard', roomId, student.studentId);
+    } catch (err) {
+      console.error('Failed to clear student board:', err);
     }
     setContextMenu(null);
   };
@@ -129,8 +198,9 @@ function StudentTile({ student, connection, roomId }: StudentTileProps) {
     const handleBoardCleared = (message: BoardCleared) => {
       if (message.studentId !== student.studentId) return;
 
-      // Clear all strokes for this student
+      // Clear all strokes and shapes for this student
       strokesRef.current.clear();
+      shapesRef.current.clear();
 
       // Clear the canvas
       const canvas = canvasRef.current;
@@ -142,14 +212,35 @@ function StudentTile({ student, connection, roomId }: StudentTileProps) {
       }
     };
 
+    const handleShapeDrawn = (shapeDrawn: ShapeDrawn) => {
+      if (shapeDrawn.studentId !== student.studentId) return;
+
+      // Store the shape
+      const shape: Shape = {
+        shapeId: shapeDrawn.shapeId,
+        studentId: shapeDrawn.studentId,
+        type: shapeDrawn.type,
+        points: [...shapeDrawn.points],
+        color: shapeDrawn.color,
+        lineWidth: shapeDrawn.lineWidth,
+        isComplete: shapeDrawn.isComplete,
+      };
+      shapesRef.current.set(shape.shapeId, shape);
+
+      // Redraw entire canvas to include the new shape
+      redrawCanvas();
+    };
+
     connection.on('ReceiveStrokeBatch', handleStrokeBatch);
     connection.on('StrokeUndone', handleStrokeUndone);
     connection.on('BoardCleared', handleBoardCleared);
+    connection.on('ReceiveShape', handleShapeDrawn);
 
     return () => {
       connection.off('ReceiveStrokeBatch', handleStrokeBatch);
       connection.off('StrokeUndone', handleStrokeUndone);
       connection.off('BoardCleared', handleBoardCleared);
+      connection.off('ReceiveShape', handleShapeDrawn);
     };
   }, [connection, student.studentId]);
 
@@ -221,6 +312,13 @@ function StudentTile({ student, connection, roomId }: StudentTileProps) {
             onClick={handleLockToggle}
           >
             {student.isLocked ? 'Unlock' : 'Lock'}
+          </button>
+          <button
+            type="button"
+            className="context-menu-item"
+            onClick={handleClear}
+          >
+            Clear Board
           </button>
           <button
             type="button"

@@ -142,6 +142,53 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
         await Clients.Group($"room:{roomId}:teacher").ReceiveStrokeBatch(batch);
     }
 
+    // Student sends shape
+    public async Task SendShape(Shape shape)
+    {
+        // Get student info from connection
+        var student = await _roomStateManager.GetStudentByConnectionIdAsync(Context.ConnectionId);
+        if (student == null)
+        {
+            _logger.LogWarning("Unknown student tried to send shape: {ConnectionId}", Context.ConnectionId);
+            return;
+        }
+
+        // Set student ID on shape (security - don't trust client)
+        shape.StudentId = student.StudentId;
+
+        // Find which room this student is in
+        string? roomId = null;
+        foreach (var room in await GetAllRoomsAsync())
+        {
+            if (room.Participants.Any(s => s.StudentId == student.StudentId))
+            {
+                roomId = room.RoomId;
+                break;
+            }
+        }
+
+        if (roomId == null)
+        {
+            _logger.LogWarning("Student {StudentId} not in any room", student.StudentId);
+            return;
+        }
+
+        // Create ShapeDrawn message
+        var shapeDrawn = new ShapeDrawn
+        {
+            ShapeId = shape.ShapeId,
+            StudentId = shape.StudentId,
+            Type = shape.Type,
+            Points = shape.Points,
+            Color = shape.Color,
+            LineWidth = shape.LineWidth,
+            IsComplete = shape.IsComplete
+        };
+
+        // Send to teacher only
+        await Clients.Group($"room:{roomId}:teacher").ReceiveShape(shapeDrawn);
+    }
+
     // Student sets confidence level
     public async Task SetConfidence(string confidenceLevel)
     {
@@ -421,6 +468,73 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
         {
             await Clients.Client(connectionId).Kicked();
         }
+    }
+
+    // Teacher clears a specific student's board
+    public async Task ClearStudentBoard(string roomId, string studentId)
+    {
+        _logger.LogInformation("Teacher clearing board for student {StudentId} in room {RoomId}", studentId, roomId);
+
+        var room = await _roomStateManager.GetRoomAsync(roomId);
+        if (room == null)
+        {
+            _logger.LogWarning("Room not found: {RoomId}", roomId);
+            return;
+        }
+
+        var student = room.Participants.FirstOrDefault(s => s.StudentId == studentId);
+        if (student == null)
+        {
+            _logger.LogWarning("Student not found: {StudentId}", studentId);
+            return;
+        }
+
+        var boardCleared = new BoardCleared
+        {
+            StudentId = studentId
+        };
+
+        // Notify the student to clear their board
+        if (!string.IsNullOrEmpty(student.ConnectionId))
+        {
+            await Clients.Client(student.ConnectionId).BoardCleared(boardCleared);
+        }
+
+        // Notify teacher to clear this student's tile
+        await Clients.Group($"room:{roomId}:teacher").BoardCleared(boardCleared);
+        _logger.LogInformation("Sent BoardCleared notification for student {StudentId}", studentId);
+    }
+
+    // Teacher clears all student boards in the room
+    public async Task ClearAllBoards(string roomId)
+    {
+        _logger.LogInformation("Teacher clearing all boards in room {RoomId}", roomId);
+
+        var room = await _roomStateManager.GetRoomAsync(roomId);
+        if (room == null)
+        {
+            _logger.LogWarning("Room not found: {RoomId}", roomId);
+            return;
+        }
+
+        foreach (var student in room.Participants)
+        {
+            var boardCleared = new BoardCleared
+            {
+                StudentId = student.StudentId
+            };
+
+            // Notify the student to clear their board
+            if (!string.IsNullOrEmpty(student.ConnectionId))
+            {
+                await Clients.Client(student.ConnectionId).BoardCleared(boardCleared);
+            }
+
+            // Notify teacher to clear this student's tile
+            await Clients.Group($"room:{roomId}:teacher").BoardCleared(boardCleared);
+        }
+
+        _logger.LogInformation("Sent BoardCleared notifications for all students in room {RoomId}", roomId);
     }
 
     // Handle disconnect

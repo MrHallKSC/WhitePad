@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-export type ToolType = 'pen' | 'eraser' | 'line' | 'rectangle' | 'triangle' | 'circle' | 'axes';
+export type ToolType = 'pen' | 'eraser' | 'line' | 'rectangle' | 'circle' | 'axes';
 
 interface ToolbarProps {
   displayName: string;
@@ -213,15 +213,6 @@ function Toolbar({
           >
             <span className="tool-icon">▭</span>
             {!isCollapsed && <span className="tool-label">Rectangle</span>}
-          </button>
-          <button
-            type="button"
-            className={`tool-btn ${currentTool === 'triangle' ? 'active' : ''}`}
-            onClick={() => onToolChange('triangle')}
-            title="Triangle Tool"
-          >
-            <span className="tool-icon">△</span>
-            {!isCollapsed && <span className="tool-label">Triangle</span>}
           </button>
           <button
             type="button"

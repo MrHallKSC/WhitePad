@@ -84,3 +84,23 @@ export interface Student {
   confidenceLevel?: 'none' | 'red' | 'amber' | 'green';
   isLocked?: boolean;
 }
+
+export interface Shape {
+  shapeId: string;
+  studentId: string;
+  type: 'line' | 'rectangle' | 'circle';
+  points: StrokePoint[];
+  color: string;
+  lineWidth: number;
+  isComplete: boolean;
+}
+
+export interface ShapeDrawn {
+  shapeId: string;
+  studentId: string;
+  type: 'line' | 'rectangle' | 'circle';
+  points: StrokePoint[];
+  color: string;
+  lineWidth: number;
+  isComplete: boolean;
+}
