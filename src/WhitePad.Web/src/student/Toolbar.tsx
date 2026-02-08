@@ -1,4 +1,5 @@
 import { useState, memo } from 'react';
+import { createPortal } from 'react-dom';
 
 export type ToolType = 'pen' | 'eraser' | 'line' | 'rectangle' | 'circle' | 'arrow' | 'axesL' | 'axesCross';
 export type BackgroundType = 'none' | 'dotted' | 'lined' | 'squares';
@@ -95,6 +96,7 @@ function Toolbar({
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [activePicker, setActivePicker] = useState<PickerType | null>(null);
   const [pickerPos, setPickerPos] = useState({ top: 0, left: 0 });
+  const portalTarget = typeof document !== 'undefined' ? document.body : null;
 
   const handleCollapseToggle = () => {
     setIsCollapsed(!isCollapsed);
@@ -228,23 +230,26 @@ function Toolbar({
               <span style={{ fontSize: '18px' }}>{getBackgroundIcon(currentBackground)}</span>
             </button>
             {activePicker === 'background' && (
-              <div
-                className="picker-popup vertical"
-                style={{ top: `${pickerPos.top}px`, left: `${pickerPos.left}px` }}
-              >
-                {BACKGROUND_OPTIONS.map((background) => (
-                  <button
-                    type="button"
-                    key={background.value}
-                    className={`background-button ${currentBackground === background.value ? 'selected' : ''}`}
-                    onClick={() => handleBackgroundSelect(background.value)}
-                    title={background.title}
-                  >
-                    <span className="bg-icon">{background.icon}</span>
-                    <span className="bg-label">{background.label}</span>
-                  </button>
-                ))}
-              </div>
+              portalTarget && createPortal(
+                <div
+                  className="picker-popup vertical"
+                  style={{ top: `${pickerPos.top}px`, left: `${pickerPos.left}px` }}
+                >
+                  {BACKGROUND_OPTIONS.map((background) => (
+                    <button
+                      type="button"
+                      key={background.value}
+                      className={`background-button ${currentBackground === background.value ? 'selected' : ''}`}
+                      onClick={() => handleBackgroundSelect(background.value)}
+                      title={background.title}
+                    >
+                      <span className="bg-icon">{background.icon}</span>
+                      <span className="bg-label">{background.label}</span>
+                    </button>
+                  ))}
+                </div>,
+                portalTarget
+              )
             )}
           </div>
         </div>
@@ -266,23 +271,26 @@ function Toolbar({
               />
             </button>
             {activePicker === 'color' && (
-              <div
-                className="picker-popup horizontal"
-                style={{ top: `${pickerPos.top}px`, left: `${pickerPos.left}px` }}
-              >
-                {COLORS.map((color) => (
-                  <button
-                    type="button"
-                    key={color.hex}
-                    className={`color-button ${
-                      currentColor === color.hex ? 'selected' : ''
-                    }`}
-                    style={{ backgroundColor: color.hex }}
-                    onClick={() => handleColorSelect(color.hex)}
-                    title={color.name}
-                  />
-                ))}
-              </div>
+              portalTarget && createPortal(
+                <div
+                  className="picker-popup horizontal"
+                  style={{ top: `${pickerPos.top}px`, left: `${pickerPos.left}px` }}
+                >
+                  {COLORS.map((color) => (
+                    <button
+                      type="button"
+                      key={color.hex}
+                      className={`color-button ${
+                        currentColor === color.hex ? 'selected' : ''
+                      }`}
+                      style={{ backgroundColor: color.hex }}
+                      onClick={() => handleColorSelect(color.hex)}
+                      title={color.name}
+                    />
+                  ))}
+                </div>,
+                portalTarget
+              )
             )}
           </div>
         </div>
@@ -306,30 +314,33 @@ function Toolbar({
               />
             </button>
             {activePicker === 'thickness' && (
-              <div
-                className="picker-popup horizontal"
-                style={{ top: `${pickerPos.top}px`, left: `${pickerPos.left}px` }}
-              >
-                {THICKNESSES.map((thickness) => (
-                  <button
-                    type="button"
-                    key={thickness.value}
-                    className={`thickness-button ${
-                      currentThickness === thickness.value ? 'selected' : ''
-                    }`}
-                    onClick={() => handleThicknessSelect(thickness.value)}
-                    title={thickness.name}
-                  >
-                    <div
-                      className="thickness-preview"
-                      style={{
-                        width: `${thickness.value * 2}px`,
-                        height: `${thickness.value * 2}px`,
-                      }}
-                    />
-                  </button>
-                ))}
-              </div>
+              portalTarget && createPortal(
+                <div
+                  className="picker-popup horizontal"
+                  style={{ top: `${pickerPos.top}px`, left: `${pickerPos.left}px` }}
+                >
+                  {THICKNESSES.map((thickness) => (
+                    <button
+                      type="button"
+                      key={thickness.value}
+                      className={`thickness-button ${
+                        currentThickness === thickness.value ? 'selected' : ''
+                      }`}
+                      onClick={() => handleThicknessSelect(thickness.value)}
+                      title={thickness.name}
+                    >
+                      <div
+                        className="thickness-preview"
+                        style={{
+                          width: `${thickness.value * 2}px`,
+                          height: `${thickness.value * 2}px`,
+                        }}
+                      />
+                    </button>
+                  ))}
+                </div>,
+                portalTarget
+              )
             )}
           </div>
         </div>
@@ -382,22 +393,25 @@ function Toolbar({
                 <span style={{ fontSize: '20px' }}>{getConfidenceIcon(currentConfidence)}</span>
               </button>
               {activePicker === 'confidence' && (
-                <div
-                  className="picker-popup horizontal"
-                  style={{ top: `${pickerPos.top}px`, left: `${pickerPos.left}px` }}
-                >
-                  {CONFIDENCE_OPTIONS.map((option) => (
-                    <button
-                      type="button"
-                      key={option.value}
-                      className={`confidence-button ${option.className} ${currentConfidence === option.value ? 'selected' : ''}`}
-                      onClick={() => handleConfidenceSelect(currentConfidence === option.value ? 'none' : option.value)}
-                      title={option.title}
-                    >
-                      {option.icon}
-                    </button>
-                  ))}
-                </div>
+                portalTarget && createPortal(
+                  <div
+                    className="picker-popup horizontal"
+                    style={{ top: `${pickerPos.top}px`, left: `${pickerPos.left}px` }}
+                  >
+                    {CONFIDENCE_OPTIONS.map((option) => (
+                      <button
+                        type="button"
+                        key={option.value}
+                        className={`confidence-button ${option.className} ${currentConfidence === option.value ? 'selected' : ''}`}
+                        onClick={() => handleConfidenceSelect(currentConfidence === option.value ? 'none' : option.value)}
+                        title={option.title}
+                      >
+                        {option.icon}
+                      </button>
+                    ))}
+                  </div>,
+                  portalTarget
+                )
               )}
             </div>
           ) : (

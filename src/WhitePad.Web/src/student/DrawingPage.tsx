@@ -43,6 +43,7 @@ function DrawingPage({
   const currentStrokeIdRef = useRef<string | null>(null);
   const isDrawingRef = useRef(false);
   const pointerDownInProgressRef = useRef(false); // Prevent re-entrancy
+  const activePointerIdRef = useRef<number | null>(null);
 
   // Drawing state
   const [currentColor, setCurrentColor] = useState('#000000');
@@ -384,6 +385,13 @@ function DrawingPage({
     }
   };
 
+  const isAllowedInputPointer = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (e.pointerType === 'pen') return true;
+    if (e.pointerType === 'touch') return e.isPrimary;
+    if (e.pointerType === 'mouse') return e.button === 0;
+    return false;
+  };
+
   const handlePointerDown = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
     // Prevent re-entrancy - if we're already processing a pointer down, ignore this one
     if (pointerDownInProgressRef.current) {
@@ -397,17 +405,34 @@ function DrawingPage({
       return; // Prevent drawing when locked
     }
 
+    if (!isAllowedInputPointer(e)) {
+      pointerDownInProgressRef.current = false;
+      return;
+    }
+
+    // Palm/multi-touch rejection: keep a single active pointer.
+    if (activePointerIdRef.current !== null) {
+      e.preventDefault();
+      pointerDownInProgressRef.current = false;
+      return;
+    }
+
     const canvas = canvasRef.current;
     if (!canvas) {
       pointerDownInProgressRef.current = false;
       return;
     }
 
+    activePointerIdRef.current = e.pointerId;
     e.preventDefault();
     canvas.setPointerCapture(e.pointerId);
 
     const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    if (!ctx) {
+      activePointerIdRef.current = null;
+      pointerDownInProgressRef.current = false;
+      return;
+    }
 
     const pressure = e.pressure || 0.5;
     const point = getNormalizedPoint(e.clientX, e.clientY, pressure);
@@ -497,6 +522,10 @@ function DrawingPage({
   const handlePointerMove = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
     if (isLockedRef.current) return; // Prevent interaction when locked
 
+    if (activePointerIdRef.current === null || e.pointerId !== activePointerIdRef.current) {
+      return;
+    }
+
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -539,13 +568,17 @@ function DrawingPage({
   }, [shapeInProgress, redrawCanvas]); // shapeInProgress and redrawCanvas as deps
 
   const handlePointerUp = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (isLockedRef.current) return; // Prevent interaction when locked
-
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    if (activePointerIdRef.current === null || e.pointerId !== activePointerIdRef.current) {
+      return;
+    }
+
     e.preventDefault();
-    canvas.releasePointerCapture(e.pointerId);
+    if (canvas.hasPointerCapture(e.pointerId)) {
+      canvas.releasePointerCapture(e.pointerId);
+    }
 
     // Handle shape completion
     if (shapeInProgress) {
@@ -579,6 +612,9 @@ function DrawingPage({
         renderShape(ctx, completedShape, canvas.width, canvas.height);
       }
 
+      activePointerIdRef.current = null;
+      pointerDownInProgressRef.current = false;
+      isDrawingRef.current = false;
       return;
     }
 
@@ -595,6 +631,8 @@ function DrawingPage({
       setUndoneStrokes([]); // Clear redo stack
     }
 
+    activePointerIdRef.current = null;
+    pointerDownInProgressRef.current = false;
     isDrawingRef.current = false;
   }, [shapeInProgress, redrawCanvas]); // shapeInProgress and redrawCanvas as deps
 
