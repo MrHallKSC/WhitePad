@@ -3,6 +3,14 @@
 ## Purpose
 Lock down recent waiting-room, lock-state, viewer-sync, iPad input, and iOS overlay regressions.
 
+## Automated Coverage
+- Frontend unit tests now cover waiting-room and lock-state transitions:
+  - `src/WhitePad.Web/src/student/hooks/waitingRoomStateMachine.test.ts`
+- Run with:
+  - `cd src/WhitePad.Web`
+  - `npm run test`
+- Keep this matrix as manual cross-device coverage; unit tests do not replace iPad Safari validation.
+
 ## Environment Matrix
 - Desktop teacher: Windows + Chrome (latest)
 - Student tablet: iPadOS + Safari (latest)

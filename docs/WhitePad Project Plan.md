@@ -6,20 +6,30 @@ Build a web-based system that replaces physical mini whiteboards with stylus inp
 
 **Primary goal**: Deliver a working MVP you can test at home (server on one machine, iPads on home Wi-Fi), then deploy on-prem on a school IIS-hosted server for in-school use.
 
+## 1.5 Current Delivery Snapshot (February 8, 2026)
+- Stage 0 to Stage 3 are complete.
+- Stage 4 is in progress (cross-device iPad hardening and regression testing).
+- Recently completed Stage 4 hardening:
+  - waiting room two-state flow (toggle, unlock, explicit student join)
+  - classroom lock behavior (read-only overlay instead of waiting-room redirect)
+  - iPad single-pointer/palm rejection improvements
+  - iOS toolbar picker layering fix
+  - regression matrix and first frontend unit tests for waiting-room/lock state transitions
+
 ---
 
 ## 2. Target Users and Devices
 
 ### Students
 - **Device**: School iPad (Safari)
-- **Input**: Apple Pencil (stylus) + finger (optional) OR text input
+- **Input**: Apple Pencil (stylus) + single-finger touch
 - **Access**: Join via QR code and URL
 - **OS**: iPadOS 18 (excellent Pointer Events support, pressure sensitivity)
 
 ### Teachers
 - **Device**: Windows desktop/laptop (Chrome/Edge)
 - **Optional**: iPad teacher use later (same web UI)
-- **Use case**: Run "rooms" for classes, see live work, control flow (lock/freeze/clear/spotlight)
+- **Use case**: Run "rooms" for classes, see live work, and control flow (waiting room, lock/unlock, clear, kick)
 
 ---
 
@@ -54,7 +64,7 @@ dotnet dev-certs https --trust
 ```
 This creates a certificate for `localhost`. For iPad testing, iPads will see a "Not Secure" warning when connecting to your PC's local IP - students will need to manually accept the certificate warning once.
 
-### Network Configuration for iPad Testing (Stage 2)
+### Network Configuration for iPad Testing (Stage 4)
 1. Ensure **Windows Firewall** allows inbound connections on port 5001
 2. Find your PC's local IP address: `ipconfig` (look for IPv4, e.g., 192.168.1.x)
 3. iPads must be on the **same Wi-Fi network** as your development PC
@@ -335,7 +345,7 @@ Each stage includes: goals, deliverables, and "done" criteria.
 
 ---
 
-### Stage 2 — Drawing Tools and Enhancements (Local Demo Features)
+### Stage 2 — Drawing Tools and Enhancements (Local Demo Features) ✅ COMPLETE
 **Goals**
 - Add essential drawing tools for classroom use
 - Create a feature-rich local prototype to demonstrate to school
@@ -392,7 +402,7 @@ Each stage includes: goals, deliverables, and "done" criteria.
 
 ---
 
-### Stage 3 — Shape Tools and Graph Aids (Local Demo Features)
+### Stage 3 — Shape Tools and Graph Aids (Local Demo Features) ✅ COMPLETE
 **Goals**
 - Add geometric shape tools for classroom use (math, science, diagrams)
 - Provide graph axes and grid backgrounds for quantitative work
@@ -450,7 +460,7 @@ Each stage includes: goals, deliverables, and "done" criteria.
 
 ---
 
-### Stage 4 — iPad Testing on Home Wi-Fi
+### Stage 4 — iPad Testing on Home Wi-Fi 🔄 IN PROGRESS
 **Goals**
 - Validate Apple Pencil input on iPadOS 18 / Safari with all drawing tools
 - Confirm networking works across devices (PC to iPad)
@@ -493,9 +503,17 @@ Each stage includes: goals, deliverables, and "done" criteria.
 - Latency feels acceptable (<500ms on home Wi-Fi)
 - Reconnection works if iPad briefly loses Wi-Fi
 
+**Progress update (as of February 8, 2026)**
+- ✅ QR join flow used in real teacher join mode
+- ✅ Waiting room lock/unlock/join state machine implemented
+- ✅ Lock-all now keeps students on their board with read-only overlay
+- ✅ iOS picker z-index/portal issue fixed
+- ✅ iPad multi-touch rejection and `touch-action` hardening
+- ✅ Manual regression matrix + initial Vitest coverage added
+
 ---
 
-### Stage 5 — Classroom Controls + Text Input
+### Stage 5 — Classroom Controls + Text Input (Planned; partial controls already shipped)
 **Goals**
 - Add controls that make it classroom-ready
 - Make it safe and manageable (kick, rotate QR)
@@ -537,107 +555,6 @@ Each stage includes: goals, deliverables, and "done" criteria.
   - Teacher unlocks for next question
 - Text input feels as responsive as drawing
 - All controls work reliably
-
----
-
-### Stage 4 — Drawing Tools and Enhancements
-**Goals**
-- Add essential drawing tools for classroom use
-- Improve student drawing experience with color and thickness options
-- Add undo/redo functionality
-- Provide eraser tool
-
-**Scope Additions**
-- **Student drawing tools**:
-  - **Color picker**: Palette of 8-12 colors (black, red, blue, green, orange, purple, etc.)
-  - **Pen thickness selector**: 3-5 thickness options (thin, medium, thick, very thick)
-  - **Eraser tool**: Toggle between pen and eraser mode
-  - **Undo/redo**: Undo last stroke, redo undone strokes (limited history, e.g., last 20 strokes)
-  - **Clear button**: Student can clear their own board (with confirmation)
-- **UI improvements**:
-  - Compact toolbar at top or side of canvas
-  - Visual feedback for selected tool/color/thickness
-  - Touch-optimized buttons for iPad use
-- **Teacher dashboard updates**:
-  - Show current tool/color in student tiles (optional indicator)
-  - Undo/redo actions sync to teacher view
-  - Erased content removed from teacher view
-
-**Deliverables**
-- Color picker component with preset palette
-- Thickness selector UI (buttons or slider)
-- Eraser mode toggle
-- Undo/redo stack implementation (client-side)
-- Updated stroke messages to include color and thickness
-- Clear button with confirmation dialog
-- Toolbar UI component for student app
-
-**Done Criteria**
-- Students can select from multiple colors and see color change immediately
-- Pen thickness changes are visible in drawn strokes
-- Eraser removes strokes (or draws in background color)
-- Undo removes last stroke, redo restores it
-- All drawing tool changes sync correctly to teacher dashboard
-- Toolbar is intuitive and doesn't obstruct drawing area
-
----
-
-### Stage 5 — Shape Tools and Graph Aids
-**Goals**
-- Add geometric shape tools for classroom use (math, science, diagrams)
-- Provide graph axes and grid backgrounds for quantitative work
-- Enable structured drawing for geometry and data visualization
-
-**Scope Additions**
-- **Shape drawing tools**:
-  - **Line tool**: Click two points to draw straight line
-  - **Rectangle tool**: Click and drag to draw rectangle
-  - **Square tool**: Click and drag to draw square (locked aspect ratio)
-  - **Triangle tool**: Click three points to draw triangle
-  - **Circle/Ellipse tool**: Click center and drag to set radius
-  - **Arrow tool**: Line with arrowhead (useful for annotations)
-- **Graph and grid aids**:
-  - **Grid toggle**: Show/hide background grid (square or dot grid)
-  - **Axes tool**: Draw x/y axes with origin at center OR bottom-left
-    - Configurable scale and labels
-    - Snap-to-grid option
-  - **Ruler overlay** (optional): Temporary measurement guide
-- **Shape properties**:
-  - Filled vs outline shapes (toggle)
-  - Dashed/dotted line styles
-  - Use current color and thickness settings
-- **UI additions**:
-  - Shape palette in toolbar
-  - Mode indicator (freehand / line / rectangle / etc.)
-  - Grid settings panel
-
-**Deliverables**
-- Shape tool implementations for each geometric shape
-- Axes drawing tool with configurable origin
-- Grid background toggle with settings
-- Shape drawing UI (tool palette)
-- Line style options (solid, dashed, dotted)
-- Fill/outline toggle for shapes
-- Updated message contracts for shape data
-
-**Done Criteria**
-- Students can draw basic geometric shapes accurately
-- Axes tool creates proper coordinate systems
-- Grid background aids drawing without cluttering view
-- Shapes render correctly on teacher dashboard
-- All tools work smoothly with touch/Apple Pencil input
-- Shape tools are useful for math and science lessons
-
-**Suggested Additions** (optional, for future consideration):
-- **Highlighter tool**: Semi-transparent pen for emphasis
-- **Text tool**: Add text labels to drawings (may overlap with Stage 3 text input)
-- **Select/move tool**: Select and reposition drawn elements
-- **Snap-to-grid**: Shapes align to grid lines automatically
-- **Angle measurement**: Show angle between lines
-- **Protractor overlay**: Temporary angle guide
-- **Color fill**: Fill closed shapes with color
-
----
 
 ---
 

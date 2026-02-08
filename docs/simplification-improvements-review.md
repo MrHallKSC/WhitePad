@@ -4,6 +4,24 @@
 - Goal: identify code simplifications only, with no behavior changes.
 - Approach: reviewed backend hub/service structure, frontend teacher/student flows, shared types/utilities, and styling organization.
 
+## Implementation Status (February 8, 2026)
+- Completed:
+  - 1, 2, 3, 4 (hub helper extraction and DTO mapping)
+  - 5, 6 (token RNG + `ValueTask` cleanup in room state manager)
+  - 7, 8, 9 (session state consolidation + connection lifecycle hooks)
+  - 11, 12 (state-to-ref sync helper + shared shape renderer)
+  - 14, 15 (type and dead-code cleanup)
+  - 17, 18 (hub contract constants + scoped debug logging)
+- Partially completed:
+  - 10 (`DrawingPage` reduced and split into focused hooks, but can be split further)
+  - 13 (`Toolbar` moved to config-driven options, still has some inline handler complexity)
+  - 16 (major CSS de-duplication done, but styles are still largely centralized in `global.css`)
+- Added verification support after the refactor:
+  - Stage 4 regression matrix: `docs/stage4-regression-test-matrix.md`
+  - Waiting-room/lock state machine tests:
+    - `src/WhitePad.Web/src/student/hooks/waitingRoomStateMachine.ts`
+    - `src/WhitePad.Web/src/student/hooks/waitingRoomStateMachine.test.ts`
+
 ## Recommended Improvements
 
 ### 1) Extract repeated "find student room" logic in hub methods
@@ -154,9 +172,7 @@
 - Suggestion: wrap debug logs behind a flag/helper (`debugLog`) and keep production logs minimal.
 - Justification: lowers noise in complex components while preserving diagnostics when needed.
 
-## Highest-Value First (Suggested Order)
-1. Hub helper extraction for room/student resolution and lock notifications.
-2. `DrawingPage` split + shared shape renderer extraction.
-3. Type de-duplication (`RoomSettings`, `Shape`/`ShapeDrawn`) and constantized hub method names.
-4. CSS de-duplication and modularization.
-5. Hook extraction for RoomDashboard and StudentApp connection lifecycles.
+## Highest-Value Remaining Work
+1. Finish splitting `DrawingPage` into smaller hooks (`useCanvasResize`, `usePointerDrawing`) to reduce coupling.
+2. Continue CSS modularization (`teacher.css`, `student.css`, `toolbar.css`) to reduce style collision risk.
+3. Optional: simplify remaining toolbar popover handlers into one reusable state/action helper.

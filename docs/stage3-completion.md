@@ -6,6 +6,21 @@
 
 ---
 
+## Post-Completion Hardening (Stage 4 In Progress)
+
+After Stage 3 completion, Stage 4 work added stability and iPad behavior fixes without changing Stage 3 core scope:
+- waiting-room state flow and unlock/join behavior fixes
+- classroom lock overlay behavior (read-only board instead of waiting-room redirect)
+- iPad multi-touch/palm rejection improvements
+- iOS toolbar picker layering fix (popup above canvas)
+- regression checklist and initial frontend unit tests for waiting-room/lock transitions
+
+See:
+- `docs/stage4-regression-test-matrix.md`
+- `src/WhitePad.Web/src/student/hooks/waitingRoomStateMachine.test.ts`
+
+---
+
 ## Overview
 
 Stage 3 successfully implemented shape drawing tools, background patterns, and UI improvements, transforming WhitePad into a fully-featured digital whiteboard suitable for mathematics, graphing, and structured note-taking. This stage focused on adding professional drawing tools while optimizing the interface for landscape iPad use.
