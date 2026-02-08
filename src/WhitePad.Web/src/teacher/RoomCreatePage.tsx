@@ -2,16 +2,40 @@ import { useState } from 'react';
 import { HubConnection } from '@microsoft/signalr';
 import { createSignalRConnection } from '../services/signalr';
 import { CreateRoomResponse } from '../shared/types/messages';
+import Modal from '../shared/components/Modal';
 
 interface RoomCreatePageProps {
-  onRoomCreated: (roomId: string, joinToken: string) => void;
+  onRoomCreated: (roomId: string, roomName: string, joinToken: string, joinUrl: string) => void;
 }
 
 function RoomCreatePage({ onRoomCreated }: RoomCreatePageProps) {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [roomName, setRoomName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleCreateRoom = async () => {
+  const handleOpenModal = () => {
+    setIsModalOpen(true);
+    setRoomName('');
+    setError(null);
+  };
+
+  const handleCloseModal = () => {
+    if (!isCreating) {
+      setIsModalOpen(false);
+      setRoomName('');
+      setError(null);
+    }
+  };
+
+  const handleCreateRoom = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!roomName.trim()) {
+      setError('Please enter a room name');
+      return;
+    }
+
     setIsCreating(true);
     setError(null);
 
@@ -21,9 +45,17 @@ function RoomCreatePage({ onRoomCreated }: RoomCreatePageProps) {
       connection = createSignalRConnection('/hub/whiteboard');
       await connection.start();
 
-      const response: CreateRoomResponse = await connection.invoke('CreateRoom');
+      const response: CreateRoomResponse = await connection.invoke('CreateRoom', roomName.trim());
 
-      onRoomCreated(response.roomId, response.joinToken);
+      // In development, rewrite join URL to use Vite dev server
+      let joinUrl = response.joinUrl;
+      if (import.meta.env.DEV) {
+        const url = new URL(joinUrl);
+        joinUrl = `http://localhost:5173${url.pathname}${url.search}`;
+        console.log('[DEV] Rewrote join URL to:', joinUrl);
+      }
+
+      onRoomCreated(response.roomId, response.roomName, response.joinToken, joinUrl);
     } catch (err) {
       console.error('Failed to create room:', err);
       setError('Failed to create room. Please try again.');
@@ -36,17 +68,57 @@ function RoomCreatePage({ onRoomCreated }: RoomCreatePageProps) {
   };
 
   return (
-    <div className="create-room-container">
-      <h1>WhitePad Teacher</h1>
-      <button
-        className="create-room-btn"
-        onClick={handleCreateRoom}
-        disabled={isCreating}
-      >
-        {isCreating ? 'Creating Room...' : 'Create Room'}
-      </button>
-      {error && <p className="error-message">{error}</p>}
-    </div>
+    <>
+      <div className="create-room-container">
+        <h1>WhitePad Teacher</h1>
+        <button
+          type="button"
+          className="create-room-btn"
+          onClick={handleOpenModal}
+        >
+          Create Room
+        </button>
+      </div>
+
+      <Modal isOpen={isModalOpen} onClose={handleCloseModal} title="Create New Room">
+        <form onSubmit={handleCreateRoom}>
+          <div className="form-group">
+            <label htmlFor="roomName">Room Name</label>
+            <input
+              id="roomName"
+              type="text"
+              value={roomName}
+              onChange={(e) => setRoomName(e.target.value)}
+              placeholder="e.g., Math Class - Period 3"
+              disabled={isCreating}
+              autoFocus
+              maxLength={100}
+            />
+            <p className="form-hint">This name will be shown to students and on the projector</p>
+          </div>
+
+          {error && <p className="error-message">{error}</p>}
+
+          <div className="modal-actions">
+            <button
+              type="button"
+              className="button secondary"
+              onClick={handleCloseModal}
+              disabled={isCreating}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="button primary"
+              disabled={isCreating || !roomName.trim()}
+            >
+              {isCreating ? 'Creating...' : 'Create Room'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+    </>
   );
 }
 

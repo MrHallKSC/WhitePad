@@ -307,16 +307,16 @@ function StudentTile({ student, connection, roomId }: StudentTileProps) {
       redrawCanvas();
     };
 
-    connection.on('ReceiveStrokeBatch', handleStrokeBatch);
-    connection.on('StrokeUndone', handleStrokeUndone);
-    connection.on('BoardCleared', handleBoardCleared);
-    connection.on('ReceiveShape', handleShapeDrawn);
+    connection.on('receiveStrokeBatch', handleStrokeBatch);
+    connection.on('strokeUndone', handleStrokeUndone);
+    connection.on('boardCleared', handleBoardCleared);
+    connection.on('receiveShape', handleShapeDrawn);
 
     return () => {
-      connection.off('ReceiveStrokeBatch', handleStrokeBatch);
-      connection.off('StrokeUndone', handleStrokeUndone);
-      connection.off('BoardCleared', handleBoardCleared);
-      connection.off('ReceiveShape', handleShapeDrawn);
+      connection.off('receiveStrokeBatch', handleStrokeBatch);
+      connection.off('strokeUndone', handleStrokeUndone);
+      connection.off('boardCleared', handleBoardCleared);
+      connection.off('receiveShape', handleShapeDrawn);
     };
   }, [connection, student.studentId]);
 

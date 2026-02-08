@@ -17,17 +17,25 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
     }
 
     // Teacher creates a room
-    public async Task<CreateRoomResponse> CreateRoom()
+    public async Task<CreateRoomResponse> CreateRoom(string roomName)
     {
         var room = await _roomStateManager.CreateRoomAsync();
+        room.RoomName = roomName;
 
-        _logger.LogInformation("Room created: {RoomId}", room.RoomId);
+        _logger.LogInformation("Room created: {RoomId} - {RoomName}", room.RoomId, roomName);
+
+        // Get local IP address for network access
+        var localIp = NetworkUtility.GetLocalIPAddress();
+        var joinUrl = $"https://{localIp}:5001/join?roomId={room.RoomId}&token={room.JoinToken}";
+
+        _logger.LogInformation("Join URL for room {RoomId}: {JoinUrl}", room.RoomId, joinUrl);
 
         return new CreateRoomResponse
         {
             RoomId = room.RoomId,
+            RoomName = roomName,
             JoinToken = room.JoinToken,
-            JoinUrl = $"https://localhost:5001/join?room={room.RoomId}&token={room.JoinToken}",
+            JoinUrl = joinUrl,
             CreatedAt = room.CreatedAt
         };
     }
@@ -89,6 +97,13 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
 
         _logger.LogInformation("Student joined: {StudentId} ({DisplayName}) in room {RoomId}", student.StudentId, student.DisplayName, roomId);
 
+        // If waiting room is enabled and not unlocked, lock the student immediately
+        if (room.WaitingRoomEnabled && !room.WaitingRoomUnlocked)
+        {
+            student.IsLocked = true;
+            _logger.LogInformation("Student {StudentId} locked on join (waiting room enabled and not unlocked)", student.StudentId);
+        }
+
         // Notify teacher
         await Clients.Group($"room:{roomId}:teacher").ParticipantJoined(new ParticipantJoined
         {
@@ -97,6 +112,29 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
             ConnectedAt = student.ConnectedAt,
             InputMode = student.InputMode
         });
+
+        // If student was locked, notify them and the teacher
+        if (student.IsLocked)
+        {
+            var lockMessage = new StudentLocked
+            {
+                StudentId = student.StudentId,
+                IsLocked = true
+            };
+
+            // Notify the student
+            await Clients.Caller.StudentLocked(lockMessage);
+
+            // Notify the teacher
+            await Clients.Group($"room:{roomId}:teacher").StudentLocked(lockMessage);
+
+            // Also send waiting room state to student so they know if it's unlocked
+            await Clients.Caller.WaitingRoomStateChanged(new WaitingRoomStateChanged
+            {
+                WaitingRoomEnabled = room.WaitingRoomEnabled,
+                WaitingRoomUnlocked = room.WaitingRoomUnlocked
+            });
+        }
 
         return new JoinRoomResponse
         {
@@ -535,6 +573,160 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
         }
 
         _logger.LogInformation("Sent BoardCleared notifications for all students in room {RoomId}", roomId);
+    }
+
+    // Teacher unlocks waiting room (clicks "Unlock and View")
+    public async Task UnlockWaitingRoom(string roomId)
+    {
+        _logger.LogInformation("Teacher unlocking waiting room in room {RoomId}", roomId);
+
+        var room = await _roomStateManager.GetRoomAsync(roomId);
+        if (room == null)
+        {
+            _logger.LogWarning("Room not found: {RoomId}", roomId);
+            return;
+        }
+
+        room.WaitingRoomUnlocked = true;
+
+        // Broadcast waiting room state to all students
+        var message = new WaitingRoomStateChanged
+        {
+            WaitingRoomEnabled = room.WaitingRoomEnabled,
+            WaitingRoomUnlocked = true
+        };
+
+        await Clients.Group($"room:{roomId}:students").WaitingRoomStateChanged(message);
+        _logger.LogInformation("Waiting room unlocked in room {RoomId}", roomId);
+    }
+
+    // Teacher toggles waiting room checkbox
+    public async Task SetWaitingRoomEnabled(string roomId, bool enabled)
+    {
+        _logger.LogInformation("Teacher setting waiting room enabled={Enabled} in room {RoomId}", enabled, roomId);
+
+        var room = await _roomStateManager.GetRoomAsync(roomId);
+        if (room == null)
+        {
+            _logger.LogWarning("Room not found: {RoomId}", roomId);
+            return;
+        }
+
+        // Update the room's waiting room enabled state
+        room.WaitingRoomEnabled = enabled;
+
+        if (enabled)
+        {
+            // Re-enabling waiting room - lock all students and reset unlocked state
+            room.WaitingRoomUnlocked = false;
+
+            foreach (var student in room.Participants)
+            {
+                student.IsLocked = true;
+
+                var lockMessage = new StudentLocked
+                {
+                    StudentId = student.StudentId,
+                    IsLocked = true
+                };
+
+                // Notify teacher
+                await Clients.Group($"room:{roomId}:teacher").StudentLocked(lockMessage);
+
+                // Notify the specific student
+                if (!string.IsNullOrEmpty(student.ConnectionId))
+                {
+                    await Clients.Client(student.ConnectionId).StudentLocked(lockMessage);
+                }
+            }
+
+            // Broadcast waiting room state to all students
+            var message = new WaitingRoomStateChanged
+            {
+                WaitingRoomEnabled = true,
+                WaitingRoomUnlocked = false
+            };
+
+            await Clients.Group($"room:{roomId}:students").WaitingRoomStateChanged(message);
+            _logger.LogInformation("Waiting room enabled and all students locked in room {RoomId}", roomId);
+        }
+        else
+        {
+            // Disabling waiting room - unlock all students
+            room.WaitingRoomUnlocked = false; // Reset the unlock state
+
+            foreach (var student in room.Participants)
+            {
+                student.IsLocked = false;
+
+                var lockMessage = new StudentLocked
+                {
+                    StudentId = student.StudentId,
+                    IsLocked = false
+                };
+
+                // Notify teacher
+                await Clients.Group($"room:{roomId}:teacher").StudentLocked(lockMessage);
+
+                // Notify the specific student
+                if (!string.IsNullOrEmpty(student.ConnectionId))
+                {
+                    await Clients.Client(student.ConnectionId).StudentLocked(lockMessage);
+                }
+            }
+
+            // Broadcast waiting room state to all students
+            var message = new WaitingRoomStateChanged
+            {
+                WaitingRoomEnabled = false,
+                WaitingRoomUnlocked = false
+            };
+
+            await Clients.Group($"room:{roomId}:students").WaitingRoomStateChanged(message);
+            _logger.LogInformation("Waiting room disabled and all students unlocked in room {RoomId}", roomId);
+        }
+    }
+
+    // Student clicks "Join Room" button from waiting room
+    public async Task JoinFromWaitingRoom()
+    {
+        var connectionId = Context.ConnectionId;
+
+        // Find student's room
+        var rooms = await _roomStateManager.GetAllRoomsAsync();
+        var room = rooms.FirstOrDefault(r => r.Participants.Any(p => p.ConnectionId == connectionId));
+
+        if (room == null)
+        {
+            _logger.LogWarning("Student not in any room, cannot join from waiting room");
+            return;
+        }
+
+        var student = room.Participants.FirstOrDefault(p => p.ConnectionId == connectionId);
+        if (student == null) return;
+
+        // Only unlock if waiting room has been unlocked by teacher
+        if (!room.WaitingRoomUnlocked)
+        {
+            _logger.LogWarning("Student {StudentId} tried to join but waiting room not unlocked yet", student.StudentId);
+            return;
+        }
+
+        student.IsLocked = false;
+
+        _logger.LogInformation("Student {StudentId} joined from waiting room in room {RoomId}", student.StudentId, room.RoomId);
+
+        // Notify teacher
+        var message = new StudentLocked
+        {
+            StudentId = student.StudentId,
+            IsLocked = false
+        };
+
+        await Clients.Group($"room:{room.RoomId}:teacher").StudentLocked(message);
+
+        // Notify the student
+        await Clients.Client(connectionId).StudentLocked(message);
     }
 
     // Handle disconnect

@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from 'react';
 import { HubConnection } from '@microsoft/signalr';
 import { StrokeBatcher } from '../shared/utils/strokeBatching';
-import { StrokePoint, StrokeBatch, StudentLocked, Shape } from '../shared/types/messages';
+import { StrokePoint, StrokeBatch, StudentLocked, Shape, WaitingRoomStateChanged } from '../shared/types/messages';
 import Toolbar, { ToolType, BackgroundType } from './Toolbar';
 
 interface DrawingPageProps {
@@ -9,6 +9,8 @@ interface DrawingPageProps {
   studentId: string;
   displayName: string;
   connection: HubConnection;
+  initialIsLocked?: boolean;
+  initialWaitingRoomUnlocked?: boolean;
 }
 
 interface StoredStroke {
@@ -18,7 +20,9 @@ interface StoredStroke {
   lineWidth: number;
 }
 
-function DrawingPage({ studentId, displayName, connection }: DrawingPageProps) {
+function DrawingPage({ studentId, displayName, connection, initialIsLocked = false, initialWaitingRoomUnlocked = false }: DrawingPageProps) {
+  console.log('[DRAWING PAGE] Component mounted/rendered for student:', studentId, displayName, 'initialIsLocked:', initialIsLocked, 'initialWaitingRoomUnlocked:', initialWaitingRoomUnlocked);
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const backgroundCanvasRef = useRef<HTMLCanvasElement>(null);
   const batcherRef = useRef<StrokeBatcher | null>(null);
@@ -30,7 +34,10 @@ function DrawingPage({ studentId, displayName, connection }: DrawingPageProps) {
   const [currentTool, setCurrentTool] = useState<ToolType>('pen');
   const [currentBackground, setCurrentBackground] = useState<BackgroundType>('none');
   const [confidenceLevel, setConfidenceLevel] = useState<'none' | 'red' | 'amber' | 'green'>('none');
-  const [isLocked, setIsLocked] = useState(false);
+  const [isLocked, setIsLocked] = useState(initialIsLocked);
+  const [waitingRoomUnlocked, setWaitingRoomUnlocked] = useState(initialWaitingRoomUnlocked);
+
+  console.log('[DRAWING PAGE] State - isLocked:', isLocked, 'waitingRoomUnlocked:', waitingRoomUnlocked);
 
   // Undo/redo state
   const strokesRef = useRef<Map<string, StoredStroke>>(new Map());
@@ -64,17 +71,44 @@ function DrawingPage({ studentId, displayName, connection }: DrawingPageProps) {
   // Listen for lock state changes
   useEffect(() => {
     const handleStudentLocked = (message: StudentLocked) => {
+      console.log('[DRAWING PAGE] StudentLocked message received:', message);
       if (message.studentId === studentId) {
+        console.log('[DRAWING PAGE] Lock state changing from', isLocked, 'to', message.isLocked);
         setIsLocked(message.isLocked);
+      } else {
+        console.log('[DRAWING PAGE] StudentLocked message for different student, ignoring');
       }
     };
 
-    connection.on('StudentLocked', handleStudentLocked);
+    console.log('[DRAWING PAGE] Setting up StudentLocked listener for student:', studentId);
+    connection.on('studentLocked', handleStudentLocked);
 
     return () => {
-      connection.off('StudentLocked', handleStudentLocked);
+      console.log('[DRAWING PAGE] Cleaning up StudentLocked listener');
+      connection.off('studentLocked', handleStudentLocked);
     };
   }, [connection, studentId]);
+
+  // Listen for waiting room state changes
+  useEffect(() => {
+    const handleWaitingRoomStateChanged = (message: WaitingRoomStateChanged) => {
+      console.log('[DRAWING PAGE] WaitingRoomStateChanged message received:', message);
+      setWaitingRoomUnlocked(message.waitingRoomUnlocked);
+
+      // If waiting room is disabled entirely, unlock the student
+      if (!message.waitingRoomEnabled) {
+        setIsLocked(false);
+      }
+    };
+
+    console.log('[DRAWING PAGE] Setting up WaitingRoomStateChanged listener');
+    connection.on('waitingRoomStateChanged', handleWaitingRoomStateChanged);
+
+    return () => {
+      console.log('[DRAWING PAGE] Cleaning up WaitingRoomStateChanged listener');
+      connection.off('waitingRoomStateChanged', handleWaitingRoomStateChanged);
+    };
+  }, [connection]);
 
   // Listen for teacher-initiated board clear
   useEffect(() => {
@@ -97,10 +131,10 @@ function DrawingPage({ studentId, displayName, connection }: DrawingPageProps) {
       }
     };
 
-    connection.on('BoardCleared', handleBoardCleared);
+    connection.on('boardCleared', handleBoardCleared);
 
     return () => {
-      connection.off('BoardCleared', handleBoardCleared);
+      connection.off('boardCleared', handleBoardCleared);
     };
   }, [connection, studentId]);
 
@@ -526,7 +560,11 @@ function DrawingPage({ studentId, displayName, connection }: DrawingPageProps) {
   };
 
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (isLocked) return; // Prevent drawing when locked
+    console.log('[DRAWING PAGE] handlePointerDown called, isLocked:', isLocked);
+    if (isLocked) {
+      console.log('[DRAWING PAGE] Pointer down BLOCKED - student is locked');
+      return; // Prevent drawing when locked
+    }
 
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -610,6 +648,8 @@ function DrawingPage({ studentId, displayName, connection }: DrawingPageProps) {
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (isLocked) return; // Prevent interaction when locked
+
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -649,6 +689,8 @@ function DrawingPage({ studentId, displayName, connection }: DrawingPageProps) {
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (isLocked) return; // Prevent interaction when locked
+
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -798,6 +840,65 @@ function DrawingPage({ studentId, displayName, connection }: DrawingPageProps) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [strokeHistory, undoneStrokes]);
 
+  // Track isLocked changes
+  useEffect(() => {
+    console.log('[DRAWING PAGE] isLocked state changed to:', isLocked);
+  }, [isLocked]);
+
+  // Handle join room button click
+  const handleJoinRoom = async () => {
+    try {
+      await connection.invoke('JoinFromWaitingRoom');
+      console.log('[DRAWING PAGE] Joined from waiting room');
+    } catch (err) {
+      console.error('[DRAWING PAGE] Failed to join from waiting room:', err);
+    }
+  };
+
+  // Show waiting room screen when locked
+  if (isLocked) {
+    console.log('[DRAWING PAGE] Rendering WAITING ROOM screen (isLocked=true, waitingRoomUnlocked=', waitingRoomUnlocked, ')');
+
+    if (waitingRoomUnlocked) {
+      // Teacher has unlocked the waiting room - show "Join Room" button
+      return (
+        <div className="waiting-room-screen">
+          <div className="waiting-room-content">
+            <div className="waiting-room-icon">✅</div>
+            <h1 className="waiting-room-title">Ready to Join!</h1>
+            <p className="waiting-room-message">
+              Teacher has started! Click to join
+            </p>
+            <p className="waiting-room-name">Joined as: <strong>{displayName}</strong></p>
+            <button
+              type="button"
+              className="join-room-button"
+              onClick={handleJoinRoom}
+            >
+              Join Room
+            </button>
+          </div>
+        </div>
+      );
+    } else {
+      // Waiting for teacher to unlock
+      return (
+        <div className="waiting-room-screen">
+          <div className="waiting-room-content">
+            <div className="waiting-room-icon">🔒</div>
+            <h1 className="waiting-room-title">Waiting Room</h1>
+            <p className="waiting-room-message">
+              Waiting for teacher to start activity
+            </p>
+            <p className="waiting-room-name">Joined as: <strong>{displayName}</strong></p>
+          </div>
+        </div>
+      );
+    }
+  }
+
+  console.log('[DRAWING PAGE] Rendering DRAWING CONTAINER (isLocked=false)');
+
   return (
     <div className="drawing-container">
       <Toolbar
@@ -844,14 +945,6 @@ function DrawingPage({ studentId, displayName, connection }: DrawingPageProps) {
               height: `${currentThickness * 2}px`,
             }}
           />
-        )}
-        {isLocked && (
-          <div className="locked-overlay">
-            <div className="locked-message">
-              <span className="lock-icon">🔒</span>
-              <span className="lock-text">Locked by Teacher - Pens down</span>
-            </div>
-          </div>
         )}
       </div>
     </div>

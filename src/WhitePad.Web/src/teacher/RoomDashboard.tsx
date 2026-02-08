@@ -2,35 +2,43 @@ import { useState, useEffect, useRef } from 'react';
 import { HubConnection } from '@microsoft/signalr';
 import { createSignalRConnection } from '../services/signalr';
 import { ParticipantJoined, ParticipantLeft, Student, ConfidenceChanged, StudentLocked } from '../shared/types/messages';
-import StudentGrid from './StudentGrid';
-import ConfidenceSummary from './ConfidenceSummary';
+import JoinMode from './JoinMode';
+import ViewerMode from './ViewerMode';
 
 interface RoomDashboardProps {
   roomId: string;
+  roomName: string;
   joinToken: string;
+  joinUrl: string;
 }
 
-function RoomDashboard({ roomId, joinToken }: RoomDashboardProps) {
+type ViewMode = 'join' | 'viewer';
+
+function RoomDashboard({ roomId, roomName, joinToken, joinUrl }: RoomDashboardProps) {
   const [connection, setConnection] = useState<HubConnection | null>(null);
   const [students, setStudents] = useState<Student[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('join');
+  const [waitingRoomEnabled, setWaitingRoomEnabled] = useState(true);
   const connectionRef = useRef<HubConnection | null>(null);
 
   useEffect(() => {
     const setupConnection = async () => {
       const conn = createSignalRConnection('/hub/whiteboard');
 
-      conn.on('ParticipantJoined', (data: ParticipantJoined) => {
+      conn.on('participantJoined', async (data: ParticipantJoined) => {
+        console.log('[ROOM DASHBOARD] ParticipantJoined event:', data);
         const student: Student = {
           studentId: data.studentId,
           displayName: data.displayName,
           connectedAt: data.connectedAt,
-          inputMode: data.inputMode
+          inputMode: data.inputMode,
+          isLocked: false // Backend will send StudentLocked message if needed
         };
         setStudents(prev => [...prev, student]);
       });
 
-      conn.on('ParticipantLeft', (data: ParticipantLeft) => {
+      conn.on('participantLeft', (data: ParticipantLeft) => {
         console.log('ParticipantLeft event received:', data);
         setStudents(prev => {
           const filtered = prev.filter(s => s.studentId !== data.studentId);
@@ -39,7 +47,7 @@ function RoomDashboard({ roomId, joinToken }: RoomDashboardProps) {
         });
       });
 
-      conn.on('ConfidenceChanged', (message: ConfidenceChanged) => {
+      conn.on('confidenceChanged', (message: ConfidenceChanged) => {
         setStudents(prev =>
           prev.map(s =>
             s.studentId === message.studentId
@@ -49,7 +57,7 @@ function RoomDashboard({ roomId, joinToken }: RoomDashboardProps) {
         );
       });
 
-      conn.on('StudentLocked', (message: StudentLocked) => {
+      conn.on('studentLocked', (message: StudentLocked) => {
         setStudents(prev =>
           prev.map(s =>
             s.studentId === message.studentId
@@ -79,68 +87,61 @@ function RoomDashboard({ roomId, joinToken }: RoomDashboardProps) {
     };
   }, [roomId]);
 
-  const joinUrl = `${window.location.origin}/join?roomId=${roomId}&token=${joinToken}`;
+  const handleWaitingRoomToggle = async (enabled: boolean) => {
+    setWaitingRoomEnabled(enabled);
 
-  const handleLockAll = async () => {
-    if (!connection) return;
-    try {
-      await connection.invoke('LockAllStudents', roomId);
-    } catch (err) {
-      console.error('Failed to lock all students:', err);
+    if (connection) {
+      try {
+        await connection.invoke('SetWaitingRoomEnabled', roomId, enabled);
+        console.log(`Waiting room ${enabled ? 'enabled' : 'disabled'}`);
+      } catch (err) {
+        console.error('Failed to toggle waiting room:', err);
+      }
     }
   };
 
-  const handleUnlockAll = async () => {
-    if (!connection) return;
-    try {
-      await connection.invoke('UnlockAllStudents', roomId);
-    } catch (err) {
-      console.error('Failed to unlock all students:', err);
+  const handleSwitchToViewer = async () => {
+    // If waiting room was enabled, unlock the waiting room when entering viewer mode
+    if (waitingRoomEnabled && connection) {
+      try {
+        await connection.invoke('UnlockWaitingRoom', roomId);
+        console.log('Unlocked waiting room when entering viewer mode');
+      } catch (err) {
+        console.error('Failed to unlock waiting room:', err);
+      }
     }
+    setViewMode('viewer');
   };
 
-  const handleClearAll = async () => {
-    if (!connection) return;
-    if (!confirm('Clear all student boards? This cannot be undone.')) return;
-    try {
-      await connection.invoke('ClearAllBoards', roomId);
-    } catch (err) {
-      console.error('Failed to clear all boards:', err);
-    }
-  };
+  if (error) {
+    return (
+      <div className="dashboard-container">
+        <p className="error-message">{error}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="dashboard-container">
-      <div className="dashboard-header">
-        <h1>WhitePad Dashboard</h1>
-        <div className="dashboard-info-row">
-          <div className="room-info">
-            <p><strong>Room ID:</strong> {roomId}</p>
-            <p><strong>Join URL:</strong> {joinUrl}</p>
-            <p className="student-count">Students Connected: {students.length}</p>
-          </div>
-          <ConfidenceSummary students={students} />
-        </div>
-      </div>
-
-      {error && <p className="error-message">{error}</p>}
-
-      <StudentGrid students={students} connection={connection} roomId={roomId} />
-
-      <div className="classroom-controls">
-        <h3>Classroom Controls</h3>
-        <div className="control-buttons">
-          <button type="button" className="button secondary" onClick={handleLockAll}>
-            🔒 Lock All Students
-          </button>
-          <button type="button" className="button secondary" onClick={handleUnlockAll}>
-            🔓 Unlock All Students
-          </button>
-          <button type="button" className="button danger" onClick={handleClearAll}>
-            🗑️ Clear All Boards
-          </button>
-        </div>
-      </div>
+      {viewMode === 'join' ? (
+        <JoinMode
+          roomName={roomName}
+          joinToken={joinToken}
+          joinUrl={joinUrl}
+          students={students}
+          waitingRoomEnabled={waitingRoomEnabled}
+          onWaitingRoomToggle={handleWaitingRoomToggle}
+          onSwitchToViewer={handleSwitchToViewer}
+        />
+      ) : (
+        <ViewerMode
+          roomName={roomName}
+          roomId={roomId}
+          students={students}
+          connection={connection}
+          onSwitchToJoin={() => setViewMode('join')}
+        />
+      )}
     </div>
   );
 }

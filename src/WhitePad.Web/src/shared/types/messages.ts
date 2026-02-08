@@ -38,6 +38,7 @@ export interface RoomSettings {
 
 export interface CreateRoomResponse {
   roomId: string;
+  roomName: string;
   joinToken: string;
   joinUrl: string;
   createdAt: string;
@@ -73,6 +74,11 @@ export interface BoardCleared {
 export interface StudentLocked {
   studentId: string;
   isLocked: boolean;
+}
+
+export interface WaitingRoomStateChanged {
+  waitingRoomEnabled: boolean;
+  waitingRoomUnlocked: boolean;
 }
 
 export interface Student {
