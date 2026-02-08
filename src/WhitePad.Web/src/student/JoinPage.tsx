@@ -1,12 +1,19 @@
 import { useState, useRef } from 'react';
 import { HubConnection } from '@microsoft/signalr';
 import { JoinRoomResponse } from '../shared/types/messages';
+import { HubMethods } from '../shared/constants/hubContract';
 
 interface JoinPageProps {
   roomId: string;
   joinToken: string;
   connection: HubConnection;
-  onJoined: (studentId: string, displayName: string) => void;
+  onJoined: (session: {
+    studentId: string;
+    displayName: string;
+    isLocked: boolean;
+    waitingRoomEnabled: boolean;
+    waitingRoomUnlocked: boolean;
+  }) => void;
 }
 
 function JoinPage({ roomId, joinToken, connection, onJoined }: JoinPageProps) {
@@ -31,7 +38,7 @@ function JoinPage({ roomId, joinToken, connection, onJoined }: JoinPageProps) {
       setError(null);
 
       const response: JoinRoomResponse = await connection.invoke(
-        'JoinRoomAsStudent',
+        HubMethods.JoinRoomAsStudent,
         roomId,
         joinToken,
         name.trim()
@@ -44,7 +51,13 @@ function JoinPage({ roomId, joinToken, connection, onJoined }: JoinPageProps) {
         return;
       }
 
-      onJoined(response.studentId!, response.displayName!);
+      onJoined({
+        studentId: response.studentId!,
+        displayName: response.displayName!,
+        isLocked: response.isLocked ?? false,
+        waitingRoomEnabled: response.waitingRoomEnabled ?? false,
+        waitingRoomUnlocked: response.waitingRoomUnlocked ?? false,
+      });
     } catch (err) {
       console.error('Failed to join room:', err);
       setError('Failed to join room. Please check the link and try again.');

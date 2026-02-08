@@ -1,9 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
-import { HubConnection } from '@microsoft/signalr';
-import { createSignalRConnection } from '../services/signalr';
-import { ParticipantJoined, ParticipantLeft, Student, ConfidenceChanged, StudentLocked } from '../shared/types/messages';
+import { useState } from 'react';
 import JoinMode from './JoinMode';
 import ViewerMode from './ViewerMode';
+import { useTeacherRoomConnection } from './hooks/useTeacherRoomConnection';
 
 interface RoomDashboardProps {
   roomId: string;
@@ -15,100 +13,19 @@ interface RoomDashboardProps {
 type ViewMode = 'join' | 'viewer';
 
 function RoomDashboard({ roomId, roomName, joinToken, joinUrl }: RoomDashboardProps) {
-  const [connection, setConnection] = useState<HubConnection | null>(null);
-  const [students, setStudents] = useState<Student[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const { connection, students, error, actions } = useTeacherRoomConnection(roomId);
   const [viewMode, setViewMode] = useState<ViewMode>('join');
   const [waitingRoomEnabled, setWaitingRoomEnabled] = useState(true);
-  const connectionRef = useRef<HubConnection | null>(null);
-
-  useEffect(() => {
-    const setupConnection = async () => {
-      const conn = createSignalRConnection('/hub/whiteboard');
-
-      conn.on('participantJoined', async (data: ParticipantJoined) => {
-        console.log('[ROOM DASHBOARD] ParticipantJoined event:', data);
-        const student: Student = {
-          studentId: data.studentId,
-          displayName: data.displayName,
-          connectedAt: data.connectedAt,
-          inputMode: data.inputMode,
-          isLocked: false // Backend will send StudentLocked message if needed
-        };
-        setStudents(prev => [...prev, student]);
-      });
-
-      conn.on('participantLeft', (data: ParticipantLeft) => {
-        console.log('ParticipantLeft event received:', data);
-        setStudents(prev => {
-          const filtered = prev.filter(s => s.studentId !== data.studentId);
-          console.log(`Removing student ${data.studentId}. Students before: ${prev.length}, after: ${filtered.length}`);
-          return filtered;
-        });
-      });
-
-      conn.on('confidenceChanged', (message: ConfidenceChanged) => {
-        setStudents(prev =>
-          prev.map(s =>
-            s.studentId === message.studentId
-              ? { ...s, confidenceLevel: message.confidenceLevel }
-              : s
-          )
-        );
-      });
-
-      conn.on('studentLocked', (message: StudentLocked) => {
-        setStudents(prev =>
-          prev.map(s =>
-            s.studentId === message.studentId
-              ? { ...s, isLocked: message.isLocked }
-              : s
-          )
-        );
-      });
-
-      try {
-        await conn.start();
-        await conn.invoke('JoinRoomAsTeacher', roomId);
-        connectionRef.current = conn;
-        setConnection(conn);
-      } catch (err) {
-        console.error('Failed to connect:', err);
-        setError('Failed to connect to room');
-      }
-    };
-
-    setupConnection();
-
-    return () => {
-      if (connectionRef.current) {
-        connectionRef.current.stop();
-      }
-    };
-  }, [roomId]);
 
   const handleWaitingRoomToggle = async (enabled: boolean) => {
     setWaitingRoomEnabled(enabled);
-
-    if (connection) {
-      try {
-        await connection.invoke('SetWaitingRoomEnabled', roomId, enabled);
-        console.log(`Waiting room ${enabled ? 'enabled' : 'disabled'}`);
-      } catch (err) {
-        console.error('Failed to toggle waiting room:', err);
-      }
-    }
+    await actions.setWaitingRoomEnabled(enabled);
   };
 
   const handleSwitchToViewer = async () => {
     // If waiting room was enabled, unlock the waiting room when entering viewer mode
-    if (waitingRoomEnabled && connection) {
-      try {
-        await connection.invoke('UnlockWaitingRoom', roomId);
-        console.log('Unlocked waiting room when entering viewer mode');
-      } catch (err) {
-        console.error('Failed to unlock waiting room:', err);
-      }
+    if (waitingRoomEnabled) {
+      await actions.unlockWaitingRoom();
     }
     setViewMode('viewer');
   };
@@ -123,7 +40,7 @@ function RoomDashboard({ roomId, roomName, joinToken, joinUrl }: RoomDashboardPr
 
   return (
     <div className="dashboard-container">
-      {viewMode === 'join' ? (
+      <div style={{ display: viewMode === 'join' ? 'block' : 'none', flex: 1, minHeight: 0 }}>
         <JoinMode
           roomName={roomName}
           joinToken={joinToken}
@@ -133,7 +50,8 @@ function RoomDashboard({ roomId, roomName, joinToken, joinUrl }: RoomDashboardPr
           onWaitingRoomToggle={handleWaitingRoomToggle}
           onSwitchToViewer={handleSwitchToViewer}
         />
-      ) : (
+      </div>
+      <div style={{ display: viewMode === 'viewer' ? 'block' : 'none', flex: 1, minHeight: 0 }}>
         <ViewerMode
           roomName={roomName}
           roomId={roomId}
@@ -141,7 +59,7 @@ function RoomDashboard({ roomId, roomName, joinToken, joinUrl }: RoomDashboardPr
           connection={connection}
           onSwitchToJoin={() => setViewMode('join')}
         />
-      )}
+      </div>
     </div>
   );
 }

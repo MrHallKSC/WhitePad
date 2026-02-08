@@ -1,6 +1,8 @@
 import { useRef, useEffect, useState } from 'react';
 import { HubConnection } from '@microsoft/signalr';
 import { Student, StrokeBatch, StrokeUndone, BoardCleared, ShapeDrawn, Shape } from '../shared/types/messages';
+import { renderShape } from '../shared/utils/shapeRenderer';
+import { HubEvents, HubMethods } from '../shared/constants/hubContract';
 
 interface StudentTileProps {
   student: Student;
@@ -18,129 +20,6 @@ function StudentTile({ student, connection, roomId }: StudentTileProps) {
   const strokesRef = useRef<Map<string, StrokeBatch>>(new Map());
   const shapesRef = useRef<Map<string, Shape>>(new Map());
   const [contextMenu, setContextMenu] = useState<ContextMenuPosition | null>(null);
-
-  const renderShape = (ctx: CanvasRenderingContext2D, shape: Shape, canvasWidth: number, canvasHeight: number) => {
-    if (shape.points.length === 0) return;
-
-    ctx.strokeStyle = shape.color;
-    ctx.lineWidth = (shape.lineWidth || 2) * 0.4; // Scale down for smaller teacher view
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-
-    ctx.beginPath();
-
-    switch (shape.type) {
-      case 'line':
-        if (shape.points.length >= 2) {
-          const start = shape.points[0];
-          const end = shape.points[1];
-          ctx.moveTo(start.x * canvasWidth, start.y * canvasHeight);
-          ctx.lineTo(end.x * canvasWidth, end.y * canvasHeight);
-        }
-        break;
-
-      case 'rectangle':
-        if (shape.points.length >= 2) {
-          const start = shape.points[0];
-          const end = shape.points[1];
-          const x = Math.min(start.x, end.x) * canvasWidth;
-          const y = Math.min(start.y, end.y) * canvasHeight;
-          const width = Math.abs(end.x - start.x) * canvasWidth;
-          const height = Math.abs(end.y - start.y) * canvasHeight;
-          ctx.rect(x, y, width, height);
-        }
-        break;
-
-      case 'circle':
-        if (shape.points.length >= 2) {
-          const center = shape.points[0];
-          const edge = shape.points[1];
-          const dx = (edge.x - center.x) * canvasWidth;
-          const dy = (edge.y - center.y) * canvasHeight;
-          const radius = Math.sqrt(dx * dx + dy * dy);
-          ctx.arc(center.x * canvasWidth, center.y * canvasHeight, radius, 0, Math.PI * 2);
-        }
-        break;
-
-      case 'arrow':
-        // Arrow with line and arrowhead
-        if (shape.points.length >= 2) {
-          const start = shape.points[0];
-          const end = shape.points[1];
-          const startX = start.x * canvasWidth;
-          const startY = start.y * canvasHeight;
-          const endX = end.x * canvasWidth;
-          const endY = end.y * canvasHeight;
-
-          // Draw the line
-          ctx.moveTo(startX, startY);
-          ctx.lineTo(endX, endY);
-
-          // Calculate arrowhead
-          const headLength = Math.max(15, shape.lineWidth * 4); // Arrow head size proportional to line width
-          const angle = Math.atan2(endY - startY, endX - startX);
-
-          // Draw arrowhead (two lines forming a V)
-          ctx.moveTo(endX, endY);
-          ctx.lineTo(
-            endX - headLength * Math.cos(angle - Math.PI / 6),
-            endY - headLength * Math.sin(angle - Math.PI / 6)
-          );
-          ctx.moveTo(endX, endY);
-          ctx.lineTo(
-            endX - headLength * Math.cos(angle + Math.PI / 6),
-            endY - headLength * Math.sin(angle + Math.PI / 6)
-          );
-        }
-        break;
-
-      case 'axesL':
-        // L-shaped axes with origin at bottom-left
-        if (shape.points.length >= 2) {
-          const origin = shape.points[0];
-          const extent = shape.points[1];
-          const originX = origin.x * canvasWidth;
-          const originY = origin.y * canvasHeight;
-          const extentX = extent.x * canvasWidth;
-          const extentY = extent.y * canvasHeight;
-
-          // Horizontal axis (to the right)
-          ctx.moveTo(originX, originY);
-          ctx.lineTo(extentX, originY);
-
-          // Vertical axis (upward)
-          ctx.moveTo(originX, originY);
-          ctx.lineTo(originX, extentY);
-        }
-        break;
-
-      case 'axesCross':
-        // Cross-shaped axes with origin at center
-        if (shape.points.length >= 2) {
-          const center = shape.points[0];
-          const extent = shape.points[1];
-          const centerX = center.x * canvasWidth;
-          const centerY = center.y * canvasHeight;
-          const extentX = extent.x * canvasWidth;
-          const extentY = extent.y * canvasHeight;
-
-          // Calculate the distance from center to extent
-          const dx = Math.abs(extentX - centerX);
-          const dy = Math.abs(extentY - centerY);
-
-          // Horizontal axis (left and right from center)
-          ctx.moveTo(centerX - dx, centerY);
-          ctx.lineTo(centerX + dx, centerY);
-
-          // Vertical axis (up and down from center)
-          ctx.moveTo(centerX, centerY - dy);
-          ctx.lineTo(centerX, centerY + dy);
-        }
-        break;
-    }
-
-    ctx.stroke();
-  };
 
   const redrawCanvas = () => {
     const canvas = canvasRef.current;
@@ -175,7 +54,7 @@ function StudentTile({ student, connection, roomId }: StudentTileProps) {
 
     // Redraw all shapes
     shapesRef.current.forEach((shape) => {
-      renderShape(ctx, shape, canvas.width, canvas.height);
+      renderShape(ctx, shape, canvas.width, canvas.height, { lineWidthScale: 0.4 });
     });
   };
 
@@ -196,9 +75,9 @@ function StudentTile({ student, connection, roomId }: StudentTileProps) {
 
     try {
       if (student.isLocked) {
-        await connection.invoke('UnlockStudent', roomId, student.studentId);
+        await connection.invoke(HubMethods.UnlockStudent, roomId, student.studentId);
       } else {
-        await connection.invoke('LockStudent', roomId, student.studentId);
+        await connection.invoke(HubMethods.LockStudent, roomId, student.studentId);
       }
     } catch (err) {
       console.error('Failed to toggle lock:', err);
@@ -210,7 +89,7 @@ function StudentTile({ student, connection, roomId }: StudentTileProps) {
     if (!connection) return;
 
     try {
-      await connection.invoke('KickStudent', roomId, student.studentId);
+      await connection.invoke(HubMethods.KickStudent, roomId, student.studentId);
     } catch (err) {
       console.error('Failed to kick student:', err);
     }
@@ -226,7 +105,7 @@ function StudentTile({ student, connection, roomId }: StudentTileProps) {
     }
 
     try {
-      await connection.invoke('ClearStudentBoard', roomId, student.studentId);
+      await connection.invoke(HubMethods.ClearStudentBoard, roomId, student.studentId);
     } catch (err) {
       console.error('Failed to clear student board:', err);
     }
@@ -307,16 +186,16 @@ function StudentTile({ student, connection, roomId }: StudentTileProps) {
       redrawCanvas();
     };
 
-    connection.on('receiveStrokeBatch', handleStrokeBatch);
-    connection.on('strokeUndone', handleStrokeUndone);
-    connection.on('boardCleared', handleBoardCleared);
-    connection.on('receiveShape', handleShapeDrawn);
+    connection.on(HubEvents.ReceiveStrokeBatch, handleStrokeBatch);
+    connection.on(HubEvents.StrokeUndone, handleStrokeUndone);
+    connection.on(HubEvents.BoardCleared, handleBoardCleared);
+    connection.on(HubEvents.ReceiveShape, handleShapeDrawn);
 
     return () => {
-      connection.off('receiveStrokeBatch', handleStrokeBatch);
-      connection.off('strokeUndone', handleStrokeUndone);
-      connection.off('boardCleared', handleBoardCleared);
-      connection.off('receiveShape', handleShapeDrawn);
+      connection.off(HubEvents.ReceiveStrokeBatch, handleStrokeBatch);
+      connection.off(HubEvents.StrokeUndone, handleStrokeUndone);
+      connection.off(HubEvents.BoardCleared, handleBoardCleared);
+      connection.off(HubEvents.ReceiveShape, handleShapeDrawn);
     };
   }, [connection, student.studentId]);
 

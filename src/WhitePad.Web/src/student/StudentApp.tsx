@@ -1,48 +1,42 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { HubConnection } from '@microsoft/signalr';
-import { createSignalRConnection } from '../services/signalr';
 import JoinPage from './JoinPage';
 import DrawingPage from './DrawingPage';
+import { useStudentConnection } from './hooks/useStudentConnection';
 
 function StudentApp() {
   const [searchParams] = useSearchParams();
-  const [connection, setConnection] = useState<HubConnection | null>(null);
   const [studentId, setStudentId] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState<string | null>(null);
+  const [initialIsLocked, setInitialIsLocked] = useState(false);
+  const [initialWaitingRoomEnabled, setInitialWaitingRoomEnabled] = useState(false);
+  const [initialWaitingRoomUnlocked, setInitialWaitingRoomUnlocked] = useState(false);
   const [showKickedModal, setShowKickedModal] = useState(false);
-  const connectionRef = useRef<HubConnection | null>(null);
 
   const roomId = searchParams.get('roomId');
   const joinToken = searchParams.get('token');
 
-  useEffect(() => {
-    // Create and maintain one connection for the entire student session
-    const setupConnection = async () => {
-      const conn = createSignalRConnection('/hub/whiteboard');
-      await conn.start();
-      connectionRef.current = conn;
-      setConnection(conn);
-    };
-
-    setupConnection();
-
-    return () => {
-      if (connectionRef.current) {
-        connectionRef.current.stop();
-      }
-    };
-  }, []);
-
-  const handleJoined = useCallback((id: string, name: string) => {
-    setStudentId(id);
-    setDisplayName(name);
+  const handleJoined = useCallback((session: {
+    studentId: string;
+    displayName: string;
+    isLocked: boolean;
+    waitingRoomEnabled: boolean;
+    waitingRoomUnlocked: boolean;
+  }) => {
+    setStudentId(session.studentId);
+    setDisplayName(session.displayName);
+    setInitialIsLocked(session.isLocked);
+    setInitialWaitingRoomEnabled(session.waitingRoomEnabled);
+    setInitialWaitingRoomUnlocked(session.waitingRoomUnlocked);
   }, []);
 
   const handleKickedModalClose = () => {
     setShowKickedModal(false);
     setStudentId(null);
     setDisplayName(null);
+    setInitialIsLocked(false);
+    setInitialWaitingRoomEnabled(false);
+    setInitialWaitingRoomUnlocked(false);
   };
 
   // Stable callback for kicked event
@@ -51,16 +45,7 @@ function StudentApp() {
     setShowKickedModal(true);
   }, []);
 
-  // Handle being kicked by teacher
-  useEffect(() => {
-    if (!connection) return;
-
-    connection.on('kicked', handleKicked);
-
-    return () => {
-      connection.off('kicked', handleKicked);
-    };
-  }, [connection, handleKicked]);
+  const { connection, error } = useStudentConnection(handleKicked);
 
   // Note: DrawingPage handles studentLocked and waitingRoomStateChanged events
   // We only set initial values here, which are passed as props to DrawingPage
@@ -70,6 +55,14 @@ function StudentApp() {
     return (
       <div className="error-message">
         Invalid join URL. Please use the link provided by your teacher.
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="error-message">
+        {error}
       </div>
     );
   }
@@ -96,8 +89,9 @@ function StudentApp() {
         studentId={studentId}
         displayName={displayName}
         connection={connection}
-        initialIsLocked={false}
-        initialWaitingRoomUnlocked={false}
+        initialIsLocked={initialIsLocked}
+        initialWaitingRoomEnabled={initialWaitingRoomEnabled}
+        initialWaitingRoomUnlocked={initialWaitingRoomUnlocked}
       />
 
       {showKickedModal && (

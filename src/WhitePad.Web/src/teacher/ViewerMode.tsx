@@ -1,6 +1,7 @@
 import { HubConnection } from '@microsoft/signalr';
 import { Student } from '../shared/types/messages';
 import StudentGrid from './StudentGrid';
+import { HubMethods } from '../shared/constants/hubContract';
 import ConfidenceSummary from './ConfidenceSummary';
 
 interface ViewerModeProps {
@@ -15,7 +16,7 @@ function ViewerMode({ roomName, roomId, students, connection, onSwitchToJoin }: 
   const handleLockAll = async () => {
     if (!connection) return;
     try {
-      await connection.invoke('LockAllStudents', roomId);
+      await connection.invoke(HubMethods.LockAllStudents, roomId);
     } catch (err) {
       console.error('Failed to lock all students:', err);
     }
@@ -24,7 +25,7 @@ function ViewerMode({ roomName, roomId, students, connection, onSwitchToJoin }: 
   const handleUnlockAll = async () => {
     if (!connection) return;
     try {
-      await connection.invoke('UnlockAllStudents', roomId);
+      await connection.invoke(HubMethods.UnlockAllStudents, roomId);
     } catch (err) {
       console.error('Failed to unlock all students:', err);
     }
@@ -34,7 +35,7 @@ function ViewerMode({ roomName, roomId, students, connection, onSwitchToJoin }: 
     if (!connection) return;
     if (!confirm('Clear all student boards? This cannot be undone.')) return;
     try {
-      await connection.invoke('ClearAllBoards', roomId);
+      await connection.invoke(HubMethods.ClearAllBoards, roomId);
     } catch (err) {
       console.error('Failed to clear all boards:', err);
     }
@@ -47,6 +48,9 @@ function ViewerMode({ roomName, roomId, students, connection, onSwitchToJoin }: 
           <h1>{roomName}</h1>
           <p className="student-count">Students Connected: {students.length}</p>
         </div>
+
+        <ConfidenceSummary students={students} />
+
         <div className="viewer-mode-actions">
           <button
             type="button"
@@ -57,8 +61,6 @@ function ViewerMode({ roomName, roomId, students, connection, onSwitchToJoin }: 
           </button>
         </div>
       </div>
-
-      <ConfidenceSummary students={students} />
 
       <StudentGrid students={students} connection={connection} roomId={roomId} />
 

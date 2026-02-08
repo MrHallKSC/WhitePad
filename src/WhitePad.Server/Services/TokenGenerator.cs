@@ -8,9 +8,8 @@ public class TokenGenerator : ITokenGenerator
     {
         // 6-character alphanumeric token (avoid confusing characters)
         const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-        var random = new Random();
         return new string(Enumerable.Range(0, 6)
-            .Select(_ => chars[random.Next(chars.Length)])
+            .Select(_ => chars[Random.Shared.Next(chars.Length)])
             .ToArray());
     }
 }

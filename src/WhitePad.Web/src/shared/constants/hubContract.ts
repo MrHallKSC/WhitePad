@@ -1,0 +1,33 @@
+export const HubMethods = {
+  CreateRoom: 'CreateRoom',
+  JoinRoomAsTeacher: 'JoinRoomAsTeacher',
+  JoinRoomAsStudent: 'JoinRoomAsStudent',
+  SetWaitingRoomEnabled: 'SetWaitingRoomEnabled',
+  UnlockWaitingRoom: 'UnlockWaitingRoom',
+  LockStudent: 'LockStudent',
+  UnlockStudent: 'UnlockStudent',
+  KickStudent: 'KickStudent',
+  ClearStudentBoard: 'ClearStudentBoard',
+  LockAllStudents: 'LockAllStudents',
+  UnlockAllStudents: 'UnlockAllStudents',
+  ClearAllBoards: 'ClearAllBoards',
+  SendStrokeBatch: 'SendStrokeBatch',
+  SendShape: 'SendShape',
+  SetConfidence: 'SetConfidence',
+  UndoStroke: 'UndoStroke',
+  ClearBoard: 'ClearBoard',
+  JoinFromWaitingRoom: 'JoinFromWaitingRoom',
+} as const;
+
+export const HubEvents = {
+  ParticipantJoined: 'participantJoined',
+  ParticipantLeft: 'participantLeft',
+  ConfidenceChanged: 'confidenceChanged',
+  StudentLocked: 'studentLocked',
+  BoardCleared: 'boardCleared',
+  WaitingRoomStateChanged: 'waitingRoomStateChanged',
+  Kicked: 'kicked',
+  ReceiveStrokeBatch: 'receiveStrokeBatch',
+  StrokeUndone: 'strokeUndone',
+  ReceiveShape: 'receiveShape',
+} as const;

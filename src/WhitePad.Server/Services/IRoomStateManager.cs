@@ -4,12 +4,12 @@ namespace WhitePad.Server.Services;
 
 public interface IRoomStateManager
 {
-    Task<Room> CreateRoomAsync();
-    Task<Room?> GetRoomAsync(string roomId);
-    Task<bool> ValidateJoinTokenAsync(string roomId, string joinToken);
-    Task<Student> AddStudentAsync(string roomId, string connectionId, string? displayName = null);
-    Task RemoveStudentAsync(string roomId, string studentId);
-    Task<Student?> GetStudentByConnectionIdAsync(string connectionId);
-    Task UpdateTeacherSessionAsync(string roomId, string sessionId);
-    Task<IEnumerable<Room>> GetAllRoomsAsync();
+    ValueTask<Room> CreateRoomAsync();
+    ValueTask<Room?> GetRoomAsync(string roomId);
+    ValueTask<bool> ValidateJoinTokenAsync(string roomId, string joinToken);
+    ValueTask<Student> AddStudentAsync(string roomId, string connectionId, string? displayName = null);
+    ValueTask RemoveStudentAsync(string roomId, string studentId);
+    ValueTask<Student?> GetStudentByConnectionIdAsync(string connectionId);
+    ValueTask UpdateTeacherSessionAsync(string roomId, string sessionId);
+    ValueTask<IEnumerable<Room>> GetAllRoomsAsync();
 }

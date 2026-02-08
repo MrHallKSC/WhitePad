@@ -6,5 +6,8 @@ public class JoinRoomResponse
     public string? StudentId { get; set; }
     public string? DisplayName { get; set; }
     public RoomSettings? RoomSettings { get; set; }
+    public bool IsLocked { get; set; }
+    public bool WaitingRoomEnabled { get; set; }
+    public bool WaitingRoomUnlocked { get; set; }
     public string? Error { get; set; }
 }

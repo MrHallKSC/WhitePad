@@ -46,6 +46,30 @@ const THICKNESSES = [
   { name: 'Extra Thick', value: 10 },
 ];
 
+const TOOL_OPTIONS: Array<{ tool: ToolType; icon: string; label: string; title: string }> = [
+  { tool: 'pen', icon: '✏️', label: 'Pen', title: 'Pen Tool' },
+  { tool: 'eraser', icon: '🧹', label: 'Eraser', title: 'Eraser Tool' },
+  { tool: 'line', icon: '📏', label: 'Line', title: 'Line Tool' },
+  { tool: 'rectangle', icon: '▭', label: 'Rectangle', title: 'Rectangle Tool' },
+  { tool: 'circle', icon: '○', label: 'Circle', title: 'Circle Tool' },
+  { tool: 'arrow', icon: '→', label: 'Arrow', title: 'Arrow Tool' },
+  { tool: 'axesL', icon: '⌞', label: 'L-Axes', title: 'L-shaped Axes (bottom-left origin)' },
+  { tool: 'axesCross', icon: '✛', label: '+-Axes', title: 'Cross Axes (center origin)' },
+];
+
+const BACKGROUND_OPTIONS: Array<{ value: BackgroundType; icon: string; label: string; title: string }> = [
+  { value: 'none', icon: '□', label: 'None', title: 'No Background' },
+  { value: 'dotted', icon: '⋮⋮', label: 'Dotted', title: 'Dotted Grid' },
+  { value: 'lined', icon: '☰', label: 'Lined', title: 'Lined Paper' },
+  { value: 'squares', icon: '⊞', label: 'Squares', title: 'Square Grid' },
+];
+
+const CONFIDENCE_OPTIONS = [
+  { value: 'red' as const, icon: '🔴', title: 'Need Help', className: 'red' },
+  { value: 'amber' as const, icon: '🟡', title: 'Unsure', className: 'amber' },
+  { value: 'green' as const, icon: '🟢', title: 'Got It!', className: 'green' },
+];
+
 function Toolbar({
   displayName,
   currentColor,
@@ -65,16 +89,12 @@ function Toolbar({
   canUndo,
   canRedo,
 }: ToolbarProps) {
+  type PickerType = 'color' | 'thickness' | 'confidence' | 'background';
+
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
-  const [showColorPicker, setShowColorPicker] = useState(false);
-  const [showThicknessPicker, setShowThicknessPicker] = useState(false);
-  const [showConfidencePicker, setShowConfidencePicker] = useState(false);
-  const [showBackgroundPicker, setShowBackgroundPicker] = useState(false);
-  const [colorPickerPos, setColorPickerPos] = useState({ top: 0, left: 0 });
-  const [thicknessPickerPos, setThicknessPickerPos] = useState({ top: 0, left: 0 });
-  const [confidencePickerPos, setConfidencePickerPos] = useState({ top: 0, left: 0 });
-  const [backgroundPickerPos, setBackgroundPickerPos] = useState({ top: 0, left: 0 });
+  const [activePicker, setActivePicker] = useState<PickerType | null>(null);
+  const [pickerPos, setPickerPos] = useState({ top: 0, left: 0 });
 
   const handleCollapseToggle = () => {
     setIsCollapsed(!isCollapsed);
@@ -103,66 +123,41 @@ function Toolbar({
 
   const handleColorSelect = (color: string) => {
     onColorChange(color);
-    setShowColorPicker(false);
+    setActivePicker(null);
   };
 
   const handleThicknessSelect = (thickness: number) => {
     onThicknessChange(thickness);
-    setShowThicknessPicker(false);
+    setActivePicker(null);
   };
 
-  const handleColorPickerToggle = (e: React.MouseEvent<HTMLButtonElement>) => {
-    if (!showColorPicker) {
+  const handlePickerToggle = (pickerType: PickerType) => (e: React.MouseEvent<HTMLButtonElement>) => {
+    const shouldOpen = activePicker !== pickerType;
+    if (shouldOpen) {
       const rect = e.currentTarget.getBoundingClientRect();
-      setColorPickerPos({
+      setPickerPos({
         top: rect.top,
         left: rect.right + 8,
       });
+      setActivePicker(pickerType);
+      return;
     }
-    setShowColorPicker(!showColorPicker);
-  };
 
-  const handleThicknessPickerToggle = (e: React.MouseEvent<HTMLButtonElement>) => {
-    if (!showThicknessPicker) {
-      const rect = e.currentTarget.getBoundingClientRect();
-      setThicknessPickerPos({
-        top: rect.top,
-        left: rect.right + 8,
-      });
-    }
-    setShowThicknessPicker(!showThicknessPicker);
-  };
-
-  const handleConfidencePickerToggle = (e: React.MouseEvent<HTMLButtonElement>) => {
-    if (!showConfidencePicker) {
-      const rect = e.currentTarget.getBoundingClientRect();
-      setConfidencePickerPos({
-        top: rect.top,
-        left: rect.right + 8,
-      });
-    }
-    setShowConfidencePicker(!showConfidencePicker);
+    setActivePicker(null);
   };
 
   const handleConfidenceSelect = (level: 'none' | 'red' | 'amber' | 'green') => {
     onConfidenceChange(level);
-    setShowConfidencePicker(false);
-  };
-
-  const handleBackgroundPickerToggle = (e: React.MouseEvent<HTMLButtonElement>) => {
-    if (!showBackgroundPicker) {
-      const rect = e.currentTarget.getBoundingClientRect();
-      setBackgroundPickerPos({
-        top: rect.top,
-        left: rect.right + 8,
-      });
-    }
-    setShowBackgroundPicker(!showBackgroundPicker);
+    setActivePicker(null);
   };
 
   const handleBackgroundSelect = (background: BackgroundType) => {
     onBackgroundChange(background);
-    setShowBackgroundPicker(false);
+    setActivePicker(null);
+  };
+
+  const handleConfidenceToggle = (level: 'red' | 'amber' | 'green') => {
+    onConfidenceChange(currentConfidence === level ? 'none' : level);
   };
 
   const getConfidenceIcon = (level: 'none' | 'red' | 'amber' | 'green') => {
@@ -206,78 +201,18 @@ function Toolbar({
         {/* Drawing Tools Section */}
         <div className="toolbar-section tools-section">
           {!isCollapsed && <label className="toolbar-section-label">TOOLS</label>}
-          <button
-            type="button"
-            className={`tool-btn ${currentTool === 'pen' ? 'active' : ''}`}
-            onClick={() => onToolChange('pen')}
-            title="Pen Tool"
-          >
-            <span className="tool-icon">✏️</span>
-            {!isCollapsed && <span className="tool-label">Pen</span>}
-          </button>
-          <button
-            type="button"
-            className={`tool-btn ${currentTool === 'eraser' ? 'active' : ''}`}
-            onClick={() => onToolChange('eraser')}
-            title="Eraser Tool"
-          >
-            <span className="tool-icon">🧹</span>
-            {!isCollapsed && <span className="tool-label">Eraser</span>}
-          </button>
-          <button
-            type="button"
-            className={`tool-btn ${currentTool === 'line' ? 'active' : ''}`}
-            onClick={() => onToolChange('line')}
-            title="Line Tool"
-          >
-            <span className="tool-icon">📏</span>
-            {!isCollapsed && <span className="tool-label">Line</span>}
-          </button>
-          <button
-            type="button"
-            className={`tool-btn ${currentTool === 'rectangle' ? 'active' : ''}`}
-            onClick={() => onToolChange('rectangle')}
-            title="Rectangle Tool"
-          >
-            <span className="tool-icon">▭</span>
-            {!isCollapsed && <span className="tool-label">Rectangle</span>}
-          </button>
-          <button
-            type="button"
-            className={`tool-btn ${currentTool === 'circle' ? 'active' : ''}`}
-            onClick={() => onToolChange('circle')}
-            title="Circle Tool"
-          >
-            <span className="tool-icon">○</span>
-            {!isCollapsed && <span className="tool-label">Circle</span>}
-          </button>
-          <button
-            type="button"
-            className={`tool-btn ${currentTool === 'arrow' ? 'active' : ''}`}
-            onClick={() => onToolChange('arrow')}
-            title="Arrow Tool"
-          >
-            <span className="tool-icon">→</span>
-            {!isCollapsed && <span className="tool-label">Arrow</span>}
-          </button>
-          <button
-            type="button"
-            className={`tool-btn ${currentTool === 'axesL' ? 'active' : ''}`}
-            onClick={() => onToolChange('axesL')}
-            title="L-shaped Axes (bottom-left origin)"
-          >
-            <span className="tool-icon">⌞</span>
-            {!isCollapsed && <span className="tool-label">L-Axes</span>}
-          </button>
-          <button
-            type="button"
-            className={`tool-btn ${currentTool === 'axesCross' ? 'active' : ''}`}
-            onClick={() => onToolChange('axesCross')}
-            title="Cross Axes (center origin)"
-          >
-            <span className="tool-icon">✛</span>
-            {!isCollapsed && <span className="tool-label">+-Axes</span>}
-          </button>
+          {TOOL_OPTIONS.map((tool) => (
+            <button
+              type="button"
+              key={tool.tool}
+              className={`tool-btn ${currentTool === tool.tool ? 'active' : ''}`}
+              onClick={() => onToolChange(tool.tool)}
+              title={tool.title}
+            >
+              <span className="tool-icon">{tool.icon}</span>
+              {!isCollapsed && <span className="tool-label">{tool.label}</span>}
+            </button>
+          ))}
         </div>
 
         {/* Background Picker */}
@@ -287,52 +222,28 @@ function Toolbar({
             <button
               type="button"
               className="picker-current-btn"
-              onClick={handleBackgroundPickerToggle}
+              onClick={handlePickerToggle('background')}
               title="Select Background"
             >
               <span style={{ fontSize: '18px' }}>{getBackgroundIcon(currentBackground)}</span>
             </button>
-            {showBackgroundPicker && (
+            {activePicker === 'background' && (
               <div
                 className="picker-popup vertical"
-                style={{ top: `${backgroundPickerPos.top}px`, left: `${backgroundPickerPos.left}px` }}
+                style={{ top: `${pickerPos.top}px`, left: `${pickerPos.left}px` }}
               >
-                <button
-                  type="button"
-                  className={`background-button ${currentBackground === 'none' ? 'selected' : ''}`}
-                  onClick={() => handleBackgroundSelect('none')}
-                  title="No Background"
-                >
-                  <span className="bg-icon">□</span>
-                  <span className="bg-label">None</span>
-                </button>
-                <button
-                  type="button"
-                  className={`background-button ${currentBackground === 'dotted' ? 'selected' : ''}`}
-                  onClick={() => handleBackgroundSelect('dotted')}
-                  title="Dotted Grid"
-                >
-                  <span className="bg-icon">⋮⋮</span>
-                  <span className="bg-label">Dotted</span>
-                </button>
-                <button
-                  type="button"
-                  className={`background-button ${currentBackground === 'lined' ? 'selected' : ''}`}
-                  onClick={() => handleBackgroundSelect('lined')}
-                  title="Lined Paper"
-                >
-                  <span className="bg-icon">☰</span>
-                  <span className="bg-label">Lined</span>
-                </button>
-                <button
-                  type="button"
-                  className={`background-button ${currentBackground === 'squares' ? 'selected' : ''}`}
-                  onClick={() => handleBackgroundSelect('squares')}
-                  title="Square Grid"
-                >
-                  <span className="bg-icon">⊞</span>
-                  <span className="bg-label">Squares</span>
-                </button>
+                {BACKGROUND_OPTIONS.map((background) => (
+                  <button
+                    type="button"
+                    key={background.value}
+                    className={`background-button ${currentBackground === background.value ? 'selected' : ''}`}
+                    onClick={() => handleBackgroundSelect(background.value)}
+                    title={background.title}
+                  >
+                    <span className="bg-icon">{background.icon}</span>
+                    <span className="bg-label">{background.label}</span>
+                  </button>
+                ))}
               </div>
             )}
           </div>
@@ -345,7 +256,7 @@ function Toolbar({
             <button
               type="button"
               className="picker-current-btn"
-              onClick={handleColorPickerToggle}
+              onClick={handlePickerToggle('color')}
               title="Select Color"
               disabled={isErasing}
             >
@@ -354,10 +265,10 @@ function Toolbar({
                 style={{ backgroundColor: currentColor }}
               />
             </button>
-            {showColorPicker && (
+            {activePicker === 'color' && (
               <div
                 className="picker-popup horizontal"
-                style={{ top: `${colorPickerPos.top}px`, left: `${colorPickerPos.left}px` }}
+                style={{ top: `${pickerPos.top}px`, left: `${pickerPos.left}px` }}
               >
                 {COLORS.map((color) => (
                   <button
@@ -383,7 +294,7 @@ function Toolbar({
             <button
               type="button"
               className="picker-current-btn"
-              onClick={handleThicknessPickerToggle}
+              onClick={handlePickerToggle('thickness')}
               title="Select Thickness"
             >
               <div
@@ -394,10 +305,10 @@ function Toolbar({
                 }}
               />
             </button>
-            {showThicknessPicker && (
+            {activePicker === 'thickness' && (
               <div
                 className="picker-popup horizontal"
-                style={{ top: `${thicknessPickerPos.top}px`, left: `${thicknessPickerPos.left}px` }}
+                style={{ top: `${pickerPos.top}px`, left: `${pickerPos.left}px` }}
               >
                 {THICKNESSES.map((thickness) => (
                   <button
@@ -465,70 +376,44 @@ function Toolbar({
               <button
                 type="button"
                 className="picker-current-btn"
-                onClick={handleConfidencePickerToggle}
+                onClick={handlePickerToggle('confidence')}
                 title="Select Confidence Level"
               >
                 <span style={{ fontSize: '20px' }}>{getConfidenceIcon(currentConfidence)}</span>
               </button>
-              {showConfidencePicker && (
+              {activePicker === 'confidence' && (
                 <div
                   className="picker-popup horizontal"
-                  style={{ top: `${confidencePickerPos.top}px`, left: `${confidencePickerPos.left}px` }}
+                  style={{ top: `${pickerPos.top}px`, left: `${pickerPos.left}px` }}
                 >
-                  <button
-                    type="button"
-                    className={`confidence-button red ${currentConfidence === 'red' ? 'selected' : ''}`}
-                    onClick={() => handleConfidenceSelect(currentConfidence === 'red' ? 'none' : 'red')}
-                    title="Need Help"
-                  >
-                    🔴
-                  </button>
-                  <button
-                    type="button"
-                    className={`confidence-button amber ${currentConfidence === 'amber' ? 'selected' : ''}`}
-                    onClick={() => handleConfidenceSelect(currentConfidence === 'amber' ? 'none' : 'amber')}
-                    title="Unsure"
-                  >
-                    🟡
-                  </button>
-                  <button
-                    type="button"
-                    className={`confidence-button green ${currentConfidence === 'green' ? 'selected' : ''}`}
-                    onClick={() => handleConfidenceSelect(currentConfidence === 'green' ? 'none' : 'green')}
-                    title="Got It!"
-                  >
-                    🟢
-                  </button>
+                  {CONFIDENCE_OPTIONS.map((option) => (
+                    <button
+                      type="button"
+                      key={option.value}
+                      className={`confidence-button ${option.className} ${currentConfidence === option.value ? 'selected' : ''}`}
+                      onClick={() => handleConfidenceSelect(currentConfidence === option.value ? 'none' : option.value)}
+                      title={option.title}
+                    >
+                      {option.icon}
+                    </button>
+                  ))}
                 </div>
               )}
             </div>
           ) : (
             // Expanded: Show all confidence buttons horizontally
             <div className="confidence-selector horizontal">
-              <button
-                type="button"
-                className={`confidence-button red ${currentConfidence === 'red' ? 'selected' : ''}`}
-                onClick={() => onConfidenceChange(currentConfidence === 'red' ? 'none' : 'red')}
-                title="Need Help"
-              >
-                🔴
-              </button>
-              <button
-                type="button"
-                className={`confidence-button amber ${currentConfidence === 'amber' ? 'selected' : ''}`}
-                onClick={() => onConfidenceChange(currentConfidence === 'amber' ? 'none' : 'amber')}
-                title="Unsure"
-              >
-                🟡
-              </button>
-              <button
-                type="button"
-                className={`confidence-button green ${currentConfidence === 'green' ? 'selected' : ''}`}
-                onClick={() => onConfidenceChange(currentConfidence === 'green' ? 'none' : 'green')}
-                title="Got It!"
-              >
-                🟢
-              </button>
+              {CONFIDENCE_OPTIONS.map((option) => (
+                <button
+                  type="button"
+                  key={option.value}
+                  className={`confidence-button ${option.className} ${currentConfidence === option.value ? 'selected' : ''}`}
+                  onClick={() => handleConfidenceToggle(option.value)}
+                  title={option.title}
+                >
+                  {option.icon}
+                </button>
+              ))}
             </div>
           )}
         </div>

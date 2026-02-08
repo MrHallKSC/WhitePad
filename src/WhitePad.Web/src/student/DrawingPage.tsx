@@ -1,8 +1,14 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { HubConnection } from '@microsoft/signalr';
 import { StrokeBatcher } from '../shared/utils/strokeBatching';
-import { StrokePoint, StrokeBatch, StudentLocked, Shape, WaitingRoomStateChanged } from '../shared/types/messages';
+import { StrokePoint, StrokeBatch, Shape } from '../shared/types/messages';
+import { renderShape } from '../shared/utils/shapeRenderer';
+import { debugLog } from '../shared/utils/debugLog';
+import { HubEvents, HubMethods } from '../shared/constants/hubContract';
 import Toolbar, { ToolType, BackgroundType } from './Toolbar';
+import { useStrokeHistory } from './hooks/useStrokeHistory';
+import { useWaitingRoomState } from './hooks/useWaitingRoomState';
+import { useLatest } from '../shared/hooks/useLatest';
 
 interface DrawingPageProps {
   roomId: string;
@@ -10,6 +16,7 @@ interface DrawingPageProps {
   displayName: string;
   connection: HubConnection;
   initialIsLocked?: boolean;
+  initialWaitingRoomEnabled?: boolean;
   initialWaitingRoomUnlocked?: boolean;
 }
 
@@ -20,7 +27,15 @@ interface StoredStroke {
   lineWidth: number;
 }
 
-function DrawingPage({ studentId, displayName, connection, roomId, initialIsLocked = false, initialWaitingRoomUnlocked = false }: DrawingPageProps) {
+function DrawingPage({
+  studentId,
+  displayName,
+  connection,
+  roomId: _roomId,
+  initialIsLocked = false,
+  initialWaitingRoomEnabled = false,
+  initialWaitingRoomUnlocked = false,
+}: DrawingPageProps) {
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const backgroundCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -35,15 +50,33 @@ function DrawingPage({ studentId, displayName, connection, roomId, initialIsLock
   const [currentTool, setCurrentTool] = useState<ToolType>('pen');
   const [currentBackground, setCurrentBackground] = useState<BackgroundType>('none');
   const [confidenceLevel, setConfidenceLevel] = useState<'none' | 'red' | 'amber' | 'green'>('none');
-  const [isLocked, setIsLocked] = useState(initialIsLocked);
-  const [waitingRoomUnlocked, setWaitingRoomUnlocked] = useState(initialWaitingRoomUnlocked);
+
+  const {
+    isLocked,
+    isInWaitingRoomFlow,
+    waitingRoomUnlocked,
+    joinFromWaitingRoom,
+  } = useWaitingRoomState({
+    connection,
+    studentId,
+    initialIsLocked,
+    initialWaitingRoomEnabled,
+    initialWaitingRoomUnlocked,
+  });
+
+  const isWaitingRoomLocked = isLocked && isInWaitingRoomFlow;
+  const isClassroomLocked = isLocked && !isInWaitingRoomFlow;
 
   // Undo/redo state
   const strokesRef = useRef<Map<string, StoredStroke>>(new Map());
-  const [strokeHistory, setStrokeHistory] = useState<string[]>([]);
-  const strokeHistoryRef = useRef<string[]>([]);
-  const [undoneStrokes, setUndoneStrokes] = useState<string[]>([]);
-  const currentBackgroundRef = useRef<BackgroundType>('none');
+  const {
+    strokeHistory,
+    setStrokeHistory,
+    strokeHistoryRef,
+    undoneStrokes,
+    setUndoneStrokes,
+  } = useStrokeHistory();
+  const currentBackgroundRef = useLatest<BackgroundType>(currentBackground);
 
   // Cursor state for eraser
   const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null);
@@ -53,92 +86,17 @@ function DrawingPage({ studentId, displayName, connection, roomId, initialIsLock
   const [shapeInProgress, setShapeInProgress] = useState<Shape | null>(null);
 
   // Create refs for pointer handler dependencies to stabilize them
-  const currentColorRef = useRef(currentColor);
-  const currentThicknessRef = useRef(currentThickness);
-  const currentToolRef = useRef(currentTool);
-  const isLockedRef = useRef(isLocked);
-  const studentIdRef = useRef(studentId);
-  const connectionRef = useRef(connection);
-
-  // Keep refs in sync with state
-  useEffect(() => {
-    strokeHistoryRef.current = strokeHistory;
-  }, [strokeHistory]);
-
-  useEffect(() => {
-    currentBackgroundRef.current = currentBackground;
-  }, [currentBackground]);
-
-  useEffect(() => {
-    currentColorRef.current = currentColor;
-  }, [currentColor]);
-
-  useEffect(() => {
-    currentThicknessRef.current = currentThickness;
-  }, [currentThickness]);
-
-  useEffect(() => {
-    currentToolRef.current = currentTool;
-  }, [currentTool]);
-
-  useEffect(() => {
-    isLockedRef.current = isLocked;
-  }, [isLocked]);
-
-  useEffect(() => {
-    studentIdRef.current = studentId;
-  }, [studentId]);
-
-  useEffect(() => {
-    connectionRef.current = connection;
-  }, [connection]);
+  const currentColorRef = useLatest(currentColor);
+  const currentThicknessRef = useLatest(currentThickness);
+  const currentToolRef = useLatest(currentTool);
+  const isLockedRef = useLatest(isLocked);
+  const studentIdRef = useLatest(studentId);
+  const connectionRef = useLatest(connection);
 
   // Redraw background canvas when background changes
   useEffect(() => {
     renderBackgroundCanvas();
   }, [currentBackground]);
-
-  // Listen for lock state changes
-  useEffect(() => {
-    const handleStudentLocked = (message: StudentLocked) => {
-      console.log('[DRAWING PAGE] StudentLocked message received:', message);
-      if (message.studentId === studentId) {
-        console.log('[DRAWING PAGE] Lock state changing from', isLocked, 'to', message.isLocked);
-        setIsLocked(message.isLocked);
-      } else {
-        console.log('[DRAWING PAGE] StudentLocked message for different student, ignoring');
-      }
-    };
-
-    console.log('[DRAWING PAGE] Setting up StudentLocked listener for student:', studentId);
-    connection.on('studentLocked', handleStudentLocked);
-
-    return () => {
-      console.log('[DRAWING PAGE] Cleaning up StudentLocked listener');
-      connection.off('studentLocked', handleStudentLocked);
-    };
-  }, [connection, studentId]);
-
-  // Listen for waiting room state changes
-  useEffect(() => {
-    const handleWaitingRoomStateChanged = (message: WaitingRoomStateChanged) => {
-      console.log('[DRAWING PAGE] WaitingRoomStateChanged message received:', message);
-      setWaitingRoomUnlocked(message.waitingRoomUnlocked);
-
-      // If waiting room is disabled entirely, unlock the student
-      if (!message.waitingRoomEnabled) {
-        setIsLocked(false);
-      }
-    };
-
-    console.log('[DRAWING PAGE] Setting up WaitingRoomStateChanged listener');
-    connection.on('waitingRoomStateChanged', handleWaitingRoomStateChanged);
-
-    return () => {
-      console.log('[DRAWING PAGE] Cleaning up WaitingRoomStateChanged listener');
-      connection.off('waitingRoomStateChanged', handleWaitingRoomStateChanged);
-    };
-  }, [connection]);
 
   // Listen for teacher-initiated board clear
   useEffect(() => {
@@ -161,10 +119,10 @@ function DrawingPage({ studentId, displayName, connection, roomId, initialIsLock
       }
     };
 
-    connection.on('boardCleared', handleBoardCleared);
+    connection.on(HubEvents.BoardCleared, handleBoardCleared);
 
     return () => {
-      connection.off('boardCleared', handleBoardCleared);
+      connection.off(HubEvents.BoardCleared, handleBoardCleared);
     };
   }, [connection, studentId]);
 
@@ -207,7 +165,7 @@ function DrawingPage({ studentId, displayName, connection, roomId, initialIsLock
     currentHistory.forEach(strokeId => {
       const stroke = strokesRef.current.get(strokeId);
       if (!stroke) {
-        console.log('[RESIZE-REDRAW] Stroke not found:', strokeId);
+        debugLog('DrawingPage', 'Resize redraw skipped missing stroke', strokeId);
         return;
       }
 
@@ -323,7 +281,7 @@ function DrawingPage({ studentId, displayName, connection, roomId, initialIsLock
       // Try to find as shape
       const shape = shapesRef.current.get(id);
       if (shape) {
-        renderShape(ctx, shape, canvas.width, canvas.height, false);
+        renderShape(ctx, shape, canvas.width, canvas.height);
         return;
       }
     });
@@ -396,137 +354,6 @@ function DrawingPage({ studentId, displayName, connection, roomId, initialIsLock
 
     // Draw the background pattern
     drawBackground(ctx, canvas.width, canvas.height, currentBackground);
-  };
-
-  const renderShape = (ctx: CanvasRenderingContext2D, shape: Shape, canvasWidth: number, canvasHeight: number, isDashed: boolean = false) => {
-    if (shape.points.length === 0) return;
-
-    ctx.strokeStyle = shape.color;
-    ctx.lineWidth = shape.lineWidth;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-
-    if (isDashed) {
-      ctx.setLineDash([5, 5]);
-    }
-
-    ctx.beginPath();
-
-    switch (shape.type) {
-      case 'line':
-        if (shape.points.length >= 2) {
-          const start = shape.points[0];
-          const end = shape.points[1];
-          ctx.moveTo(start.x * canvasWidth, start.y * canvasHeight);
-          ctx.lineTo(end.x * canvasWidth, end.y * canvasHeight);
-        }
-        break;
-
-      case 'rectangle':
-        if (shape.points.length >= 2) {
-          const start = shape.points[0];
-          const end = shape.points[1];
-          const x = Math.min(start.x, end.x) * canvasWidth;
-          const y = Math.min(start.y, end.y) * canvasHeight;
-          const width = Math.abs(end.x - start.x) * canvasWidth;
-          const height = Math.abs(end.y - start.y) * canvasHeight;
-          ctx.rect(x, y, width, height);
-        }
-        break;
-
-      case 'circle':
-        if (shape.points.length >= 2) {
-          const center = shape.points[0];
-          const edge = shape.points[1];
-          const dx = (edge.x - center.x) * canvasWidth;
-          const dy = (edge.y - center.y) * canvasHeight;
-          const radius = Math.sqrt(dx * dx + dy * dy);
-          ctx.arc(center.x * canvasWidth, center.y * canvasHeight, radius, 0, Math.PI * 2);
-        }
-        break;
-
-      case 'arrow':
-        // Arrow with line and arrowhead
-        if (shape.points.length >= 2) {
-          const start = shape.points[0];
-          const end = shape.points[1];
-          const startX = start.x * canvasWidth;
-          const startY = start.y * canvasHeight;
-          const endX = end.x * canvasWidth;
-          const endY = end.y * canvasHeight;
-
-          // Draw the line
-          ctx.moveTo(startX, startY);
-          ctx.lineTo(endX, endY);
-
-          // Calculate arrowhead
-          const headLength = Math.max(15, shape.lineWidth * 4); // Arrow head size proportional to line width
-          const angle = Math.atan2(endY - startY, endX - startX);
-
-          // Draw arrowhead (two lines forming a V)
-          ctx.moveTo(endX, endY);
-          ctx.lineTo(
-            endX - headLength * Math.cos(angle - Math.PI / 6),
-            endY - headLength * Math.sin(angle - Math.PI / 6)
-          );
-          ctx.moveTo(endX, endY);
-          ctx.lineTo(
-            endX - headLength * Math.cos(angle + Math.PI / 6),
-            endY - headLength * Math.sin(angle + Math.PI / 6)
-          );
-        }
-        break;
-
-      case 'axesL':
-        // L-shaped axes with origin at bottom-left
-        if (shape.points.length >= 2) {
-          const origin = shape.points[0];
-          const extent = shape.points[1];
-          const originX = origin.x * canvasWidth;
-          const originY = origin.y * canvasHeight;
-          const extentX = extent.x * canvasWidth;
-          const extentY = extent.y * canvasHeight;
-
-          // Horizontal axis (to the right)
-          ctx.moveTo(originX, originY);
-          ctx.lineTo(extentX, originY);
-
-          // Vertical axis (upward)
-          ctx.moveTo(originX, originY);
-          ctx.lineTo(originX, extentY);
-        }
-        break;
-
-      case 'axesCross':
-        // Cross-shaped axes with origin at center
-        if (shape.points.length >= 2) {
-          const center = shape.points[0];
-          const extent = shape.points[1];
-          const centerX = center.x * canvasWidth;
-          const centerY = center.y * canvasHeight;
-          const extentX = extent.x * canvasWidth;
-          const extentY = extent.y * canvasHeight;
-
-          // Calculate the distance from center to extent
-          const dx = Math.abs(extentX - centerX);
-          const dy = Math.abs(extentY - centerY);
-
-          // Horizontal axis (left and right from center)
-          ctx.moveTo(centerX - dx, centerY);
-          ctx.lineTo(centerX + dx, centerY);
-
-          // Vertical axis (up and down from center)
-          ctx.moveTo(centerX, centerY - dy);
-          ctx.lineTo(centerX, centerY + dy);
-        }
-        break;
-    }
-
-    ctx.stroke();
-
-    if (isDashed) {
-      ctx.setLineDash([]);
-    }
   };
 
   const getNormalizedPoint = (clientX: number, clientY: number, pressure: number): StrokePoint => {
@@ -655,7 +482,7 @@ function DrawingPage({ studentId, displayName, connection, roomId, initialIsLock
       }
 
       // Send to server
-      conn.invoke('SendStrokeBatch', batchWithStyle).catch(err => {
+      conn.invoke(HubMethods.SendStrokeBatch, batchWithStyle).catch(err => {
         console.error('Failed to send stroke batch:', err);
       });
     });
@@ -700,7 +527,7 @@ function DrawingPage({ studentId, displayName, connection, roomId, initialIsLock
       const ctx = canvas.getContext('2d');
       if (ctx) {
         redrawCanvas();
-        renderShape(ctx, updatedShape, canvas.width, canvas.height, true);
+        renderShape(ctx, updatedShape, canvas.width, canvas.height, { isDashed: true });
       }
       return;
     }
@@ -739,7 +566,7 @@ function DrawingPage({ studentId, displayName, connection, roomId, initialIsLock
       setUndoneStrokes([]); // Clear redo stack
 
       // Send to server
-      connectionRef.current.invoke('SendShape', completedShape).catch(err => {
+      connectionRef.current.invoke(HubMethods.SendShape, completedShape).catch(err => {
         console.error('Failed to send shape:', err);
       });
 
@@ -749,7 +576,7 @@ function DrawingPage({ studentId, displayName, connection, roomId, initialIsLock
       redrawCanvas();
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        renderShape(ctx, completedShape, canvas.width, canvas.height, false);
+        renderShape(ctx, completedShape, canvas.width, canvas.height);
       }
 
       return;
@@ -786,13 +613,16 @@ function DrawingPage({ studentId, displayName, connection, roomId, initialIsLock
   }, []);
 
   const handleConfidenceChange = useCallback((level: 'none' | 'red' | 'amber' | 'green') => {
+    if (isLockedRef.current) return;
+
     setConfidenceLevel(level);
-    connection.invoke('SetConfidence', level).catch(err => {
+    connection.invoke(HubMethods.SetConfidence, level).catch(err => {
       console.error('Failed to set confidence:', err);
     });
   }, [connection]);
 
   const handleUndo = useCallback(() => {
+    if (isLockedRef.current) return;
     if (strokeHistory.length === 0) return;
 
     const lastStrokeId = strokeHistory[strokeHistory.length - 1];
@@ -805,12 +635,13 @@ function DrawingPage({ studentId, displayName, connection, roomId, initialIsLock
     redrawCanvas(newHistory);
 
     // Notify server so teacher view updates
-    connection.invoke('UndoStroke', lastStrokeId).catch(err => {
+    connection.invoke(HubMethods.UndoStroke, lastStrokeId).catch(err => {
       console.error('Failed to send undo:', err);
     });
   }, [strokeHistory, connection]);
 
   const handleRedo = useCallback(() => {
+    if (isLockedRef.current) return;
     if (undoneStrokes.length === 0) return;
 
     const strokeToRedo = undoneStrokes[undoneStrokes.length - 1];
@@ -824,6 +655,8 @@ function DrawingPage({ studentId, displayName, connection, roomId, initialIsLock
   }, [undoneStrokes, strokeHistory]);
 
   const handleClear = useCallback(() => {
+    if (isLockedRef.current) return;
+
     strokesRef.current.clear();
     shapesRef.current.clear();
     setStrokeHistory([]);
@@ -838,7 +671,7 @@ function DrawingPage({ studentId, displayName, connection, roomId, initialIsLock
     }
 
     // Notify server so teacher view updates
-    connection.invoke('ClearBoard').catch(err => {
+    connection.invoke(HubMethods.ClearBoard).catch(err => {
       console.error('Failed to send clear:', err);
     });
   }, [connection]);
@@ -859,6 +692,8 @@ function DrawingPage({ studentId, displayName, connection, roomId, initialIsLock
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (isLockedRef.current) return;
+
       if (e.ctrlKey || e.metaKey) {
         if (e.key === 'z' && !e.shiftKey) {
           e.preventDefault();
@@ -876,21 +711,21 @@ function DrawingPage({ studentId, displayName, connection, roomId, initialIsLock
 
   // Track isLocked changes
   useEffect(() => {
-    console.log('[DRAWING PAGE] isLocked state changed to:', isLocked);
+    debugLog('DrawingPage', 'isLocked changed', isLocked);
   }, [isLocked]);
 
   // Handle join room button click
   const handleJoinRoom = async () => {
     try {
-      await connection.invoke('JoinFromWaitingRoom');
-      console.log('[DRAWING PAGE] Joined from waiting room');
+      await joinFromWaitingRoom();
+      debugLog('DrawingPage', 'Joined from waiting room');
     } catch (err) {
       console.error('[DRAWING PAGE] Failed to join from waiting room:', err);
     }
   };
 
   // Show waiting room screen when locked
-  if (isLocked) {
+  if (isWaitingRoomLocked) {
     if (waitingRoomUnlocked) {
       // Teacher has unlocked the waiting room - show "Join Room" button
       return (
@@ -930,7 +765,7 @@ function DrawingPage({ studentId, displayName, connection, roomId, initialIsLock
   }
 
   return (
-    <div className="drawing-container">
+    <div className={`drawing-container ${isClassroomLocked ? 'drawing-locked' : ''}`}>
       <Toolbar
         displayName={displayName}
         currentColor={currentColor}
@@ -975,6 +810,14 @@ function DrawingPage({ studentId, displayName, connection, roomId, initialIsLock
               height: `${currentThickness * 2}px`,
             }}
           />
+        )}
+        {isClassroomLocked && (
+          <div className="locked-overlay">
+            <div className="locked-message">
+              <span className="lock-icon">🔒</span>
+              <span className="lock-text">Drawing is locked by your teacher</span>
+            </div>
+          </div>
         )}
       </div>
     </div>

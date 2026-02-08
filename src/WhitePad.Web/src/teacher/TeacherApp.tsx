@@ -2,22 +2,35 @@ import { useState } from 'react';
 import RoomCreatePage from './RoomCreatePage';
 import RoomDashboard from './RoomDashboard';
 
-function TeacherApp() {
-  const [roomId, setRoomId] = useState<string | null>(null);
-  const [roomName, setRoomName] = useState<string | null>(null);
-  const [joinToken, setJoinToken] = useState<string | null>(null);
-  const [joinUrl, setJoinUrl] = useState<string | null>(null);
+type TeacherSession = {
+  roomId: string;
+  roomName: string;
+  joinToken: string;
+  joinUrl: string;
+};
 
-  if (!roomId || !roomName || !joinToken || !joinUrl) {
+function TeacherApp() {
+  const [session, setSession] = useState<TeacherSession | null>(null);
+
+  if (!session) {
     return <RoomCreatePage onRoomCreated={(id, name, token, url) => {
-      setRoomId(id);
-      setRoomName(name);
-      setJoinToken(token);
-      setJoinUrl(url);
+      setSession({
+        roomId: id,
+        roomName: name,
+        joinToken: token,
+        joinUrl: url,
+      });
     }} />;
   }
 
-  return <RoomDashboard roomId={roomId} roomName={roomName} joinToken={joinToken} joinUrl={joinUrl} />;
+  return (
+    <RoomDashboard
+      roomId={session.roomId}
+      roomName={session.roomName}
+      joinToken={session.joinToken}
+      joinUrl={session.joinUrl}
+    />
+  );
 }
 
 export default TeacherApp;

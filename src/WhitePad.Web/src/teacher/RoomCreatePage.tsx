@@ -3,6 +3,7 @@ import { HubConnection } from '@microsoft/signalr';
 import { createSignalRConnection } from '../services/signalr';
 import { CreateRoomResponse } from '../shared/types/messages';
 import Modal from '../shared/components/Modal';
+import { HubMethods } from '../shared/constants/hubContract';
 
 interface RoomCreatePageProps {
   onRoomCreated: (roomId: string, roomName: string, joinToken: string, joinUrl: string) => void;
@@ -45,7 +46,7 @@ function RoomCreatePage({ onRoomCreated }: RoomCreatePageProps) {
       connection = createSignalRConnection('/hub/whiteboard');
       await connection.start();
 
-      const response: CreateRoomResponse = await connection.invoke('CreateRoom', roomName.trim());
+      const response: CreateRoomResponse = await connection.invoke(HubMethods.CreateRoom, roomName.trim());
 
       // In development, rewrite join URL to use Vite dev server
       let joinUrl = response.joinUrl;

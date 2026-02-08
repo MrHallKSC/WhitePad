@@ -13,7 +13,7 @@ public class InMemoryRoomStateManager : IRoomStateManager
         _tokenGenerator = tokenGenerator;
     }
 
-    public Task<Room> CreateRoomAsync()
+    public ValueTask<Room> CreateRoomAsync()
     {
         var room = new Room
         {
@@ -24,24 +24,24 @@ public class InMemoryRoomStateManager : IRoomStateManager
         };
 
         _rooms[room.RoomId] = room;
-        return Task.FromResult(room);
+        return ValueTask.FromResult(room);
     }
 
-    public Task<Room?> GetRoomAsync(string roomId)
+    public ValueTask<Room?> GetRoomAsync(string roomId)
     {
         _rooms.TryGetValue(roomId, out var room);
-        return Task.FromResult(room);
+        return ValueTask.FromResult(room);
     }
 
-    public Task<bool> ValidateJoinTokenAsync(string roomId, string joinToken)
+    public ValueTask<bool> ValidateJoinTokenAsync(string roomId, string joinToken)
     {
         if (!_rooms.TryGetValue(roomId, out var room))
-            return Task.FromResult(false);
+            return ValueTask.FromResult(false);
 
-        return Task.FromResult(room.JoinToken == joinToken);
+        return ValueTask.FromResult(room.JoinToken == joinToken);
     }
 
-    public Task<Student> AddStudentAsync(string roomId, string connectionId, string? displayName = null)
+    public ValueTask<Student> AddStudentAsync(string roomId, string connectionId, string? displayName = null)
     {
         if (!_rooms.TryGetValue(roomId, out var room))
             throw new InvalidOperationException("Room not found");
@@ -65,10 +65,10 @@ public class InMemoryRoomStateManager : IRoomStateManager
         room.Participants.Add(student);
         room.LastActivityAt = DateTime.UtcNow;
 
-        return Task.FromResult(student);
+        return ValueTask.FromResult(student);
     }
 
-    public Task RemoveStudentAsync(string roomId, string studentId)
+    public ValueTask RemoveStudentAsync(string roomId, string studentId)
     {
         if (_rooms.TryGetValue(roomId, out var room))
         {
@@ -80,22 +80,22 @@ public class InMemoryRoomStateManager : IRoomStateManager
             }
         }
 
-        return Task.CompletedTask;
+        return ValueTask.CompletedTask;
     }
 
-    public Task<Student?> GetStudentByConnectionIdAsync(string connectionId)
+    public ValueTask<Student?> GetStudentByConnectionIdAsync(string connectionId)
     {
         foreach (var room in _rooms.Values)
         {
             var student = room.Participants.FirstOrDefault(s => s.ConnectionId == connectionId);
             if (student != null)
-                return Task.FromResult<Student?>(student);
+                return ValueTask.FromResult<Student?>(student);
         }
 
-        return Task.FromResult<Student?>(null);
+        return ValueTask.FromResult<Student?>(null);
     }
 
-    public Task UpdateTeacherSessionAsync(string roomId, string sessionId)
+    public ValueTask UpdateTeacherSessionAsync(string roomId, string sessionId)
     {
         if (_rooms.TryGetValue(roomId, out var room))
         {
@@ -103,11 +103,11 @@ public class InMemoryRoomStateManager : IRoomStateManager
             room.LastActivityAt = DateTime.UtcNow;
         }
 
-        return Task.CompletedTask;
+        return ValueTask.CompletedTask;
     }
 
-    public Task<IEnumerable<Room>> GetAllRoomsAsync()
+    public ValueTask<IEnumerable<Room>> GetAllRoomsAsync()
     {
-        return Task.FromResult<IEnumerable<Room>>(_rooms.Values);
+        return ValueTask.FromResult<IEnumerable<Room>>(_rooms.Values);
     }
 }

@@ -51,20 +51,14 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
         }
 
         await _roomStateManager.UpdateTeacherSessionAsync(roomId, Context.ConnectionId);
-        await Groups.AddToGroupAsync(Context.ConnectionId, $"room:{roomId}:teacher");
+        await Groups.AddToGroupAsync(Context.ConnectionId, TeacherGroup(roomId));
 
         _logger.LogInformation("Teacher joined room: {RoomId}", roomId);
 
         // Send current participants to teacher
         foreach (var student in room.Participants)
         {
-            await Clients.Caller.ParticipantJoined(new ParticipantJoined
-            {
-                StudentId = student.StudentId,
-                DisplayName = student.DisplayName,
-                ConnectedAt = student.ConnectedAt,
-                InputMode = student.InputMode
-            });
+            await Clients.Caller.ParticipantJoined(ToParticipantJoined(student));
         }
     }
 
@@ -93,7 +87,7 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
 
         // Add student to room with custom name if provided
         var student = await _roomStateManager.AddStudentAsync(roomId, Context.ConnectionId, displayName);
-        await Groups.AddToGroupAsync(Context.ConnectionId, $"room:{roomId}:students");
+        await Groups.AddToGroupAsync(Context.ConnectionId, StudentsGroup(roomId));
 
         _logger.LogInformation("Student joined: {StudentId} ({DisplayName}) in room {RoomId}", student.StudentId, student.DisplayName, roomId);
 
@@ -105,13 +99,7 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
         }
 
         // Notify teacher
-        await Clients.Group($"room:{roomId}:teacher").ParticipantJoined(new ParticipantJoined
-        {
-            StudentId = student.StudentId,
-            DisplayName = student.DisplayName,
-            ConnectedAt = student.ConnectedAt,
-            InputMode = student.InputMode
-        });
+        await Clients.Group(TeacherGroup(roomId)).ParticipantJoined(ToParticipantJoined(student));
 
         // If student was locked, notify them and the teacher
         if (student.IsLocked)
@@ -122,18 +110,8 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
                 IsLocked = true
             };
 
-            // Notify the student
-            await Clients.Caller.StudentLocked(lockMessage);
-
             // Notify the teacher
-            await Clients.Group($"room:{roomId}:teacher").StudentLocked(lockMessage);
-
-            // Also send waiting room state to student so they know if it's unlocked
-            await Clients.Caller.WaitingRoomStateChanged(new WaitingRoomStateChanged
-            {
-                WaitingRoomEnabled = room.WaitingRoomEnabled,
-                WaitingRoomUnlocked = room.WaitingRoomUnlocked
-            });
+            await Clients.Group(TeacherGroup(roomId)).StudentLocked(lockMessage);
         }
 
         return new JoinRoomResponse
@@ -141,15 +119,17 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
             Success = true,
             StudentId = student.StudentId,
             DisplayName = student.DisplayName,
-            RoomSettings = room.Settings
+            RoomSettings = room.Settings,
+            IsLocked = student.IsLocked,
+            WaitingRoomEnabled = room.WaitingRoomEnabled,
+            WaitingRoomUnlocked = room.WaitingRoomUnlocked
         };
     }
 
     // Student sends stroke batch
     public async Task SendStrokeBatch(StrokeBatch batch)
     {
-        // Get student info from connection
-        var student = await _roomStateManager.GetStudentByConnectionIdAsync(Context.ConnectionId);
+        var (room, student) = await GetRoomAndStudentByConnectionIdAsync(Context.ConnectionId);
         if (student == null)
         {
             _logger.LogWarning("Unknown student tried to send stroke: {ConnectionId}", Context.ConnectionId);
@@ -159,32 +139,20 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
         // Set student ID on batch (security - don't trust client)
         batch.StudentId = student.StudentId;
 
-        // Find which room this student is in
-        string? roomId = null;
-        foreach (var room in await GetAllRoomsAsync())
-        {
-            if (room.Participants.Any(s => s.StudentId == student.StudentId))
-            {
-                roomId = room.RoomId;
-                break;
-            }
-        }
-
-        if (roomId == null)
+        if (room == null)
         {
             _logger.LogWarning("Student {StudentId} not in any room", student.StudentId);
             return;
         }
 
         // Send to teacher only
-        await Clients.Group($"room:{roomId}:teacher").ReceiveStrokeBatch(batch);
+        await Clients.Group(TeacherGroup(room.RoomId)).ReceiveStrokeBatch(batch);
     }
 
     // Student sends shape
     public async Task SendShape(Shape shape)
     {
-        // Get student info from connection
-        var student = await _roomStateManager.GetStudentByConnectionIdAsync(Context.ConnectionId);
+        var (room, student) = await GetRoomAndStudentByConnectionIdAsync(Context.ConnectionId);
         if (student == null)
         {
             _logger.LogWarning("Unknown student tried to send shape: {ConnectionId}", Context.ConnectionId);
@@ -194,37 +162,16 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
         // Set student ID on shape (security - don't trust client)
         shape.StudentId = student.StudentId;
 
-        // Find which room this student is in
-        string? roomId = null;
-        foreach (var room in await GetAllRoomsAsync())
-        {
-            if (room.Participants.Any(s => s.StudentId == student.StudentId))
-            {
-                roomId = room.RoomId;
-                break;
-            }
-        }
-
-        if (roomId == null)
+        if (room == null)
         {
             _logger.LogWarning("Student {StudentId} not in any room", student.StudentId);
             return;
         }
 
-        // Create ShapeDrawn message
-        var shapeDrawn = new ShapeDrawn
-        {
-            ShapeId = shape.ShapeId,
-            StudentId = shape.StudentId,
-            Type = shape.Type,
-            Points = shape.Points,
-            Color = shape.Color,
-            LineWidth = shape.LineWidth,
-            IsComplete = shape.IsComplete
-        };
+        var shapeDrawn = ToShapeDrawn(shape);
 
         // Send to teacher only
-        await Clients.Group($"room:{roomId}:teacher").ReceiveShape(shapeDrawn);
+        await Clients.Group(TeacherGroup(room.RoomId)).ReceiveShape(shapeDrawn);
     }
 
     // Student sets confidence level
@@ -240,17 +187,13 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
             return;
         }
 
-        // Find student's room
-        var rooms = await _roomStateManager.GetAllRoomsAsync();
-        var room = rooms.FirstOrDefault(r => r.Participants.Any(p => p.ConnectionId == connectionId));
-
+        var (room, student) = await GetRoomAndStudentByConnectionIdAsync(connectionId);
         if (room == null)
         {
             _logger.LogWarning("Student not in any room, cannot set confidence");
             return;
         }
 
-        var student = room.Participants.FirstOrDefault(p => p.ConnectionId == connectionId);
         if (student == null) return;
 
         // Update confidence level
@@ -266,7 +209,7 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
             ConfidenceLevel = confidenceLevel
         };
 
-        await Clients.Group($"room:{room.RoomId}:teacher").ConfidenceChanged(message);
+        await Clients.Group(TeacherGroup(room.RoomId)).ConfidenceChanged(message);
     }
 
     // Student undoes a stroke
@@ -274,17 +217,13 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
     {
         var connectionId = Context.ConnectionId;
 
-        // Find student's room
-        var rooms = await _roomStateManager.GetAllRoomsAsync();
-        var room = rooms.FirstOrDefault(r => r.Participants.Any(p => p.ConnectionId == connectionId));
-
+        var (room, student) = await GetRoomAndStudentByConnectionIdAsync(connectionId);
         if (room == null)
         {
             _logger.LogWarning("Student not in any room, cannot undo stroke");
             return;
         }
 
-        var student = room.Participants.FirstOrDefault(p => p.ConnectionId == connectionId);
         if (student == null) return;
 
         _logger.LogInformation("Student {StudentId} undid stroke {StrokeId}", student.StudentId, strokeId);
@@ -296,7 +235,7 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
             StrokeId = strokeId
         };
 
-        await Clients.Group($"room:{room.RoomId}:teacher").StrokeUndone(message);
+        await Clients.Group(TeacherGroup(room.RoomId)).StrokeUndone(message);
     }
 
     // Student clears their board
@@ -304,17 +243,13 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
     {
         var connectionId = Context.ConnectionId;
 
-        // Find student's room
-        var rooms = await _roomStateManager.GetAllRoomsAsync();
-        var room = rooms.FirstOrDefault(r => r.Participants.Any(p => p.ConnectionId == connectionId));
-
+        var (room, student) = await GetRoomAndStudentByConnectionIdAsync(connectionId);
         if (room == null)
         {
             _logger.LogWarning("Student not in any room, cannot clear board");
             return;
         }
 
-        var student = room.Participants.FirstOrDefault(p => p.ConnectionId == connectionId);
         if (student == null) return;
 
         _logger.LogInformation("Student {StudentId} cleared their board", student.StudentId);
@@ -325,7 +260,7 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
             StudentId = student.StudentId
         };
 
-        await Clients.Group($"room:{room.RoomId}:teacher").BoardCleared(message);
+        await Clients.Group(TeacherGroup(room.RoomId)).BoardCleared(message);
     }
 
     // Teacher locks individual student
@@ -347,22 +282,7 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
             return;
         }
 
-        student.IsLocked = true;
-
-        // Notify teacher
-        var message = new StudentLocked
-        {
-            StudentId = studentId,
-            IsLocked = true
-        };
-
-        await Clients.Group($"room:{roomId}:teacher").StudentLocked(message);
-
-        // Notify the specific student
-        if (!string.IsNullOrEmpty(student.ConnectionId))
-        {
-            await Clients.Client(student.ConnectionId).StudentLocked(message);
-        }
+        await SetStudentLockStateAndNotifyAsync(roomId, student, isLocked: true);
     }
 
     // Teacher unlocks individual student
@@ -384,22 +304,7 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
             return;
         }
 
-        student.IsLocked = false;
-
-        // Notify teacher
-        var message = new StudentLocked
-        {
-            StudentId = studentId,
-            IsLocked = false
-        };
-
-        await Clients.Group($"room:{roomId}:teacher").StudentLocked(message);
-
-        // Notify the specific student
-        if (!string.IsNullOrEmpty(student.ConnectionId))
-        {
-            await Clients.Client(student.ConnectionId).StudentLocked(message);
-        }
+        await SetStudentLockStateAndNotifyAsync(roomId, student, isLocked: false);
     }
 
     // Teacher locks all students
@@ -416,22 +321,7 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
 
         foreach (var student in room.Participants)
         {
-            student.IsLocked = true;
-
-            var message = new StudentLocked
-            {
-                StudentId = student.StudentId,
-                IsLocked = true
-            };
-
-            // Notify teacher
-            await Clients.Group($"room:{roomId}:teacher").StudentLocked(message);
-
-            // Notify the specific student
-            if (!string.IsNullOrEmpty(student.ConnectionId))
-            {
-                await Clients.Client(student.ConnectionId).StudentLocked(message);
-            }
+            await SetStudentLockStateAndNotifyAsync(roomId, student, isLocked: true);
         }
     }
 
@@ -449,22 +339,7 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
 
         foreach (var student in room.Participants)
         {
-            student.IsLocked = false;
-
-            var message = new StudentLocked
-            {
-                StudentId = student.StudentId,
-                IsLocked = false
-            };
-
-            // Notify teacher
-            await Clients.Group($"room:{roomId}:teacher").StudentLocked(message);
-
-            // Notify the specific student
-            if (!string.IsNullOrEmpty(student.ConnectionId))
-            {
-                await Clients.Client(student.ConnectionId).StudentLocked(message);
-            }
+            await SetStudentLockStateAndNotifyAsync(roomId, student, isLocked: false);
         }
     }
 
@@ -498,8 +373,8 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
         {
             StudentId = studentId
         };
-        await Clients.Group($"room:{roomId}:teacher").ParticipantLeft(participantLeft);
-        _logger.LogInformation("Sent ParticipantLeft notification for student {StudentId} to group room:{RoomId}:teacher", studentId, roomId);
+        await Clients.Group(TeacherGroup(roomId)).ParticipantLeft(participantLeft);
+        _logger.LogInformation("Sent ParticipantLeft notification for student {StudentId} to group {TeacherGroup}", studentId, TeacherGroup(roomId));
 
         // Notify the student they've been kicked (sends them back to name input)
         if (!string.IsNullOrEmpty(connectionId))
@@ -539,7 +414,7 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
         }
 
         // Notify teacher to clear this student's tile
-        await Clients.Group($"room:{roomId}:teacher").BoardCleared(boardCleared);
+        await Clients.Group(TeacherGroup(roomId)).BoardCleared(boardCleared);
         _logger.LogInformation("Sent BoardCleared notification for student {StudentId}", studentId);
     }
 
@@ -569,7 +444,7 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
             }
 
             // Notify teacher to clear this student's tile
-            await Clients.Group($"room:{roomId}:teacher").BoardCleared(boardCleared);
+            await Clients.Group(TeacherGroup(roomId)).BoardCleared(boardCleared);
         }
 
         _logger.LogInformation("Sent BoardCleared notifications for all students in room {RoomId}", roomId);
@@ -596,7 +471,7 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
             WaitingRoomUnlocked = true
         };
 
-        await Clients.Group($"room:{roomId}:students").WaitingRoomStateChanged(message);
+        await Clients.Group(StudentsGroup(roomId)).WaitingRoomStateChanged(message);
         _logger.LogInformation("Waiting room unlocked in room {RoomId}", roomId);
     }
 
@@ -622,22 +497,7 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
 
             foreach (var student in room.Participants)
             {
-                student.IsLocked = true;
-
-                var lockMessage = new StudentLocked
-                {
-                    StudentId = student.StudentId,
-                    IsLocked = true
-                };
-
-                // Notify teacher
-                await Clients.Group($"room:{roomId}:teacher").StudentLocked(lockMessage);
-
-                // Notify the specific student
-                if (!string.IsNullOrEmpty(student.ConnectionId))
-                {
-                    await Clients.Client(student.ConnectionId).StudentLocked(lockMessage);
-                }
+                await SetStudentLockStateAndNotifyAsync(roomId, student, isLocked: true);
             }
 
             // Broadcast waiting room state to all students
@@ -647,7 +507,7 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
                 WaitingRoomUnlocked = false
             };
 
-            await Clients.Group($"room:{roomId}:students").WaitingRoomStateChanged(message);
+            await Clients.Group(StudentsGroup(roomId)).WaitingRoomStateChanged(message);
             _logger.LogInformation("Waiting room enabled and all students locked in room {RoomId}", roomId);
         }
         else
@@ -657,22 +517,7 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
 
             foreach (var student in room.Participants)
             {
-                student.IsLocked = false;
-
-                var lockMessage = new StudentLocked
-                {
-                    StudentId = student.StudentId,
-                    IsLocked = false
-                };
-
-                // Notify teacher
-                await Clients.Group($"room:{roomId}:teacher").StudentLocked(lockMessage);
-
-                // Notify the specific student
-                if (!string.IsNullOrEmpty(student.ConnectionId))
-                {
-                    await Clients.Client(student.ConnectionId).StudentLocked(lockMessage);
-                }
+                await SetStudentLockStateAndNotifyAsync(roomId, student, isLocked: false);
             }
 
             // Broadcast waiting room state to all students
@@ -682,7 +527,7 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
                 WaitingRoomUnlocked = false
             };
 
-            await Clients.Group($"room:{roomId}:students").WaitingRoomStateChanged(message);
+            await Clients.Group(StudentsGroup(roomId)).WaitingRoomStateChanged(message);
             _logger.LogInformation("Waiting room disabled and all students unlocked in room {RoomId}", roomId);
         }
     }
@@ -692,17 +537,13 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
     {
         var connectionId = Context.ConnectionId;
 
-        // Find student's room
-        var rooms = await _roomStateManager.GetAllRoomsAsync();
-        var room = rooms.FirstOrDefault(r => r.Participants.Any(p => p.ConnectionId == connectionId));
-
+        var (room, student) = await GetRoomAndStudentByConnectionIdAsync(connectionId);
         if (room == null)
         {
             _logger.LogWarning("Student not in any room, cannot join from waiting room");
             return;
         }
 
-        var student = room.Participants.FirstOrDefault(p => p.ConnectionId == connectionId);
         if (student == null) return;
 
         // Only unlock if waiting room has been unlocked by teacher
@@ -712,21 +553,9 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
             return;
         }
 
-        student.IsLocked = false;
-
         _logger.LogInformation("Student {StudentId} joined from waiting room in room {RoomId}", student.StudentId, room.RoomId);
 
-        // Notify teacher
-        var message = new StudentLocked
-        {
-            StudentId = student.StudentId,
-            IsLocked = false
-        };
-
-        await Clients.Group($"room:{room.RoomId}:teacher").StudentLocked(message);
-
-        // Notify the student
-        await Clients.Client(connectionId).StudentLocked(message);
+        await SetStudentLockStateAndNotifyAsync(room.RoomId, student, isLocked: false);
     }
 
     // Handle disconnect
@@ -763,10 +592,10 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
                     LeftAt = DateTime.UtcNow
                 };
 
-                await Clients.Group($"room:{room.RoomId}:teacher").ParticipantLeft(leftMessage);
+                await Clients.Group(TeacherGroup(room.RoomId)).ParticipantLeft(leftMessage);
 
-                _logger.LogInformation("Sent ParticipantLeft notification for student {StudentId} to group room:{RoomId}:teacher",
-                    student.StudentId, room.RoomId);
+                _logger.LogInformation("Sent ParticipantLeft notification for student {StudentId} to group {TeacherGroup}",
+                    student.StudentId, TeacherGroup(room.RoomId));
                 break;
             }
         }
@@ -774,8 +603,61 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
         await base.OnDisconnectedAsync(exception);
     }
 
-    private async Task<IEnumerable<Room>> GetAllRoomsAsync()
+    private ValueTask<IEnumerable<Room>> GetAllRoomsAsync() => _roomStateManager.GetAllRoomsAsync();
+
+    private async Task<(Room? Room, Student? Student)> GetRoomAndStudentByConnectionIdAsync(string connectionId)
     {
-        return await _roomStateManager.GetAllRoomsAsync();
+        foreach (var room in await GetAllRoomsAsync())
+        {
+            var student = room.Participants.FirstOrDefault(s => s.ConnectionId == connectionId);
+            if (student != null)
+            {
+                return (room, student);
+            }
+        }
+
+        // Preserve unknown-student handling for methods that log on invalid connections.
+        var trackedStudent = await _roomStateManager.GetStudentByConnectionIdAsync(connectionId);
+        return (null, trackedStudent);
     }
+
+    private async Task SetStudentLockStateAndNotifyAsync(string roomId, Student student, bool isLocked)
+    {
+        student.IsLocked = isLocked;
+
+        var message = new StudentLocked
+        {
+            StudentId = student.StudentId,
+            IsLocked = isLocked
+        };
+
+        await Clients.Group(TeacherGroup(roomId)).StudentLocked(message);
+        if (!string.IsNullOrEmpty(student.ConnectionId))
+        {
+            await Clients.Client(student.ConnectionId).StudentLocked(message);
+        }
+    }
+
+    private static string TeacherGroup(string roomId) => $"room:{roomId}:teacher";
+
+    private static string StudentsGroup(string roomId) => $"room:{roomId}:students";
+
+    private static ParticipantJoined ToParticipantJoined(Student student) => new()
+    {
+        StudentId = student.StudentId,
+        DisplayName = student.DisplayName,
+        ConnectedAt = student.ConnectedAt,
+        InputMode = student.InputMode
+    };
+
+    private static ShapeDrawn ToShapeDrawn(Shape shape) => new()
+    {
+        ShapeId = shape.ShapeId,
+        StudentId = shape.StudentId,
+        Type = shape.Type,
+        Points = shape.Points,
+        Color = shape.Color,
+        LineWidth = shape.LineWidth,
+        IsComplete = shape.IsComplete
+    };
 }

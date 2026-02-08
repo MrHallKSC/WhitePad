@@ -1,4 +1,5 @@
 // TypeScript interfaces mirroring C# DTOs
+import type { RoomSettings } from './room';
 
 export interface StrokePoint {
   x: number;
@@ -16,24 +17,15 @@ export interface StrokeBatch {
   isComplete: boolean;
 }
 
-export interface JoinRoomRequest {
-  roomId: string;
-  joinToken: string;
-  displayName?: string;
-}
-
 export interface JoinRoomResponse {
   success: boolean;
   studentId?: string;
   displayName?: string;
   roomSettings?: RoomSettings;
+  isLocked?: boolean;
+  waitingRoomEnabled?: boolean;
+  waitingRoomUnlocked?: boolean;
   error?: string;
-}
-
-export interface RoomSettings {
-  isLocked: boolean;
-  isFrozen: boolean;
-  maxStudents: number;
 }
 
 export interface CreateRoomResponse {
@@ -101,12 +93,4 @@ export interface Shape {
   isComplete: boolean;
 }
 
-export interface ShapeDrawn {
-  shapeId: string;
-  studentId: string;
-  type: 'line' | 'rectangle' | 'circle' | 'arrow' | 'axesL' | 'axesCross';
-  points: StrokePoint[];
-  color: string;
-  lineWidth: number;
-  isComplete: boolean;
-}
+export type ShapeDrawn = Shape;
