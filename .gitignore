@@ -75,3 +75,7 @@ playwright/.cache/
 
 # Frontend build artifacts
 src/WhitePad.Server/wwwroot/
+
+# Local helper scripts
+/start-dev-tmux.sh
+/start-network-tmux.sh

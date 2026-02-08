@@ -143,10 +143,11 @@ function StudentTile({ student, connection, roomId }: StudentTileProps) {
     const handleStrokeUndone = (message: StrokeUndone) => {
       if (message.studentId !== student.studentId) return;
 
-      // Remove the stroke from storage
+      // Undo can target either a strokeId or a shapeId from the student's history.
       strokesRef.current.delete(message.strokeId);
+      shapesRef.current.delete(message.strokeId);
 
-      // Redraw entire canvas without that stroke
+      // Redraw entire canvas without that item
       redrawCanvas();
     };
 
