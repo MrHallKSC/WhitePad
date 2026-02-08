@@ -1,4 +1,4 @@
-import { useState, memo } from 'react';
+import { useEffect, useState, memo } from 'react';
 import { createPortal } from 'react-dom';
 
 export type ToolType = 'pen' | 'eraser' | 'line' | 'rectangle' | 'circle' | 'arrow' | 'axesL' | 'axesCross';
@@ -97,6 +97,30 @@ function Toolbar({
   const [activePicker, setActivePicker] = useState<PickerType | null>(null);
   const [pickerPos, setPickerPos] = useState({ top: 0, left: 0 });
   const portalTarget = typeof document !== 'undefined' ? document.body : null;
+
+  useEffect(() => {
+    if (!activePicker) {
+      return;
+    }
+
+    const handleOutsidePointerDown = (event: PointerEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) {
+        return;
+      }
+
+      if (target.closest('.picker-popup') || target.closest('.picker-current-btn')) {
+        return;
+      }
+
+      setActivePicker(null);
+    };
+
+    document.addEventListener('pointerdown', handleOutsidePointerDown);
+    return () => {
+      document.removeEventListener('pointerdown', handleOutsidePointerDown);
+    };
+  }, [activePicker]);
 
   const handleCollapseToggle = () => {
     setIsCollapsed(!isCollapsed);

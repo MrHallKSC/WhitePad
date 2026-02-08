@@ -2,6 +2,11 @@ import { Dispatch, SetStateAction, useCallback, useEffect, useState } from 'reac
 import { HubConnection } from '@microsoft/signalr';
 import { StudentLocked, WaitingRoomStateChanged } from '../../shared/types/messages';
 import { HubEvents, HubMethods } from '../../shared/constants/hubContract';
+import {
+  applyStudentLocked,
+  applyWaitingRoomStateChanged,
+  createInitialWaitingRoomState,
+} from './waitingRoomStateMachine';
 
 type WaitingRoomState = {
   isLocked: boolean;
@@ -27,28 +32,29 @@ export function useWaitingRoomState({
   initialWaitingRoomEnabled = false,
   initialWaitingRoomUnlocked = false,
 }: UseWaitingRoomStateOptions): WaitingRoomState {
-  const [isLocked, setIsLocked] = useState(initialIsLocked);
-  const [isInWaitingRoomFlow, setIsInWaitingRoomFlow] = useState(
-    initialWaitingRoomEnabled && initialIsLocked
+  const [uiState, setUiState] = useState(() =>
+    createInitialWaitingRoomState(
+      initialIsLocked,
+      initialWaitingRoomEnabled,
+      initialWaitingRoomUnlocked
+    )
   );
-  const [waitingRoomEnabled, setWaitingRoomEnabled] = useState(initialWaitingRoomEnabled);
-  const [waitingRoomUnlocked, setWaitingRoomUnlocked] = useState(initialWaitingRoomUnlocked);
 
   // Keep initial join state in sync if the student/session changes.
   useEffect(() => {
-    setIsLocked(initialIsLocked);
-    setIsInWaitingRoomFlow(initialWaitingRoomEnabled && initialIsLocked);
-    setWaitingRoomEnabled(initialWaitingRoomEnabled);
-    setWaitingRoomUnlocked(initialWaitingRoomUnlocked);
+    setUiState(
+      createInitialWaitingRoomState(
+        initialIsLocked,
+        initialWaitingRoomEnabled,
+        initialWaitingRoomUnlocked
+      )
+    );
   }, [studentId, initialIsLocked, initialWaitingRoomEnabled, initialWaitingRoomUnlocked]);
 
   useEffect(() => {
     const handleStudentLocked = (message: StudentLocked) => {
       if (message.studentId === studentId) {
-        setIsLocked(message.isLocked);
-        if (!message.isLocked) {
-          setIsInWaitingRoomFlow(false);
-        }
+        setUiState(prev => applyStudentLocked(prev, message.isLocked));
       }
     };
 
@@ -60,16 +66,7 @@ export function useWaitingRoomState({
 
   useEffect(() => {
     const handleWaitingRoomStateChanged = (message: WaitingRoomStateChanged) => {
-      setWaitingRoomEnabled(message.waitingRoomEnabled);
-      setWaitingRoomUnlocked(message.waitingRoomUnlocked);
-
-      if (!message.waitingRoomEnabled) {
-        setIsLocked(false);
-        setIsInWaitingRoomFlow(false);
-      } else if (!message.waitingRoomUnlocked) {
-        // Waiting room has been (re)enabled and students are gated again.
-        setIsInWaitingRoomFlow(true);
-      }
+      setUiState(prev => applyWaitingRoomStateChanged(prev, message));
     };
 
     connection.on(HubEvents.WaitingRoomStateChanged, handleWaitingRoomStateChanged);
@@ -83,11 +80,18 @@ export function useWaitingRoomState({
   }, [connection]);
 
   return {
-    isLocked,
-    setIsLocked,
-    isInWaitingRoomFlow,
-    waitingRoomEnabled,
-    waitingRoomUnlocked,
+    isLocked: uiState.isLocked,
+    setIsLocked: (value) => {
+      if (typeof value === 'function') {
+        setUiState(prev => applyStudentLocked(prev, value(prev.isLocked)));
+        return;
+      }
+
+      setUiState(prev => applyStudentLocked(prev, value));
+    },
+    isInWaitingRoomFlow: uiState.isInWaitingRoomFlow,
+    waitingRoomEnabled: uiState.waitingRoomEnabled,
+    waitingRoomUnlocked: uiState.waitingRoomUnlocked,
     joinFromWaitingRoom,
   };
 }
