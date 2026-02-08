@@ -26,12 +26,12 @@ Students can:
 
 ## Project Status
 
-**Current Stage**: Stage 3 - Shape Tools 🔄
+**Current Stage**: Stage 3 ✅ COMPLETE → Stage 4 Next
 
 - [x] **Stage 0** - Project Setup (Complete)
 - [x] **Stage 1** - Local MVP with real-time drawing (Complete)
 - [x] **Stage 2** - Drawing tools: colors, thickness, eraser, undo/redo, confidence traffic light (Complete)
-- [x] **Stage 3** - Shape tools: line, rectangle, circle, axes (L & cross), clear board controls (Complete)
+- [x] **Stage 3** - Shape tools: line, rectangle, circle, arrow, axes (L & cross), background patterns, teacher clear controls (Complete)
 - [ ] **Stage 4** - iPad testing with Apple Pencil on home Wi-Fi (Next)
 
 ## Quick Start (for Development)
@@ -170,15 +170,15 @@ Comprehensive documentation is available in the `docs/` folder:
 - Clear board (student-initiated)
 - Confidence traffic light (red/amber/green for formative assessment)
 
-### ✅ Stage 3 - Shape Tools (COMPLETE)
-- Line tool (drag-to-draw)
-- Rectangle tool
-- Circle tool
-- Arrow tool
-- Axes tools (L-shaped and cross-shaped)
-- Background patterns (dotted, lined, squares with notebook spacing)
-- Teacher controls: Clear All Boards, Clear Student Board (context menu)
-- All shapes sync to teacher dashboard in real-time
+### ✅ Stage 3 - Shape Tools & UI Improvements (COMPLETE)
+- **Shape tools**: Line, rectangle, circle, arrow (drag-to-draw with preview)
+- **Axes tools**: L-shaped (bottom-left origin) and cross-shaped (center origin)
+- **Background patterns**: Dotted grid, ruled lines, square grid (notebook-style spacing ~35px)
+- **Dual-canvas architecture**: Backgrounds on separate canvas layer, persist through eraser/clear
+- **Collapsible left sidebar**: Vertical toolbar optimized for landscape iPad use (240px expanded, 60px collapsed)
+- **Teacher clear controls**: Clear All Boards button, Clear Student Board (context menu)
+- **Shape preview**: Live preview while drawing with dashed outline
+- All shapes and backgrounds sync to teacher dashboard in real-time
 
 ### 🔄 Stage 4 - iPad Testing (NEXT)
 - QR code generation
@@ -217,11 +217,14 @@ Comprehensive documentation is available in the `docs/` folder:
 - ✅ Teacher dashboard with live student tile grid
 - ✅ Room creation and student joining via URL
 - ✅ **Drawing tools**: 12 colors, 5 thickness levels, eraser with composite mode
-- ✅ **Shape tools**: line, rectangle, circle, arrow, axes (L-shaped and cross)
-- ✅ **Background patterns**: Dotted grid, ruled lines, square grid (notebook-style)
+- ✅ **Shape tools**: Line, rectangle, circle, arrow with drag-to-draw and live preview
+- ✅ **Axes tools**: L-shaped (bottom-left origin), cross-shaped (center origin)
+- ✅ **Background patterns**: Dotted grid, ruled lines, square grid on separate canvas layer
+- ✅ **Collapsible toolbar**: Vertical left sidebar (240px/60px) optimized for landscape iPad
 - ✅ **Undo/redo**: Unlimited undo with keyboard shortcuts (Ctrl+Z/Y)
 - ✅ **Clear controls**: Student clear (with confirmation), teacher clear individual/all boards
 - ✅ **Confidence traffic light**: Red/Amber/Green formative assessment indicator
+- ✅ **Classroom controls**: Lock/unlock students, kick students, custom student names
 
 ### In Progress
 - 🔄 QR code generation for easy student access
@@ -293,6 +296,6 @@ For issues or questions:
 
 ---
 
-**Status**: Stage 3 Complete - Shape Tools Working | Next: iPad Testing on Home Wi-Fi
+**Status**: ✅ Stage 3 Complete - Shape Tools, Backgrounds & UI Improvements | Next: iPad Testing on Home Wi-Fi
 
-**Last Updated**: February 2026
+**Last Updated**: February 8, 2026
