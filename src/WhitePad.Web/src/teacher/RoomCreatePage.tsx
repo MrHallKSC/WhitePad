@@ -51,7 +51,7 @@ function RoomCreatePage({ onRoomCreated }: RoomCreatePageProps) {
       let joinUrl = response.joinUrl;
       if (import.meta.env.DEV) {
         const url = new URL(joinUrl);
-        joinUrl = `http://localhost:5173${url.pathname}${url.search}`;
+        joinUrl = `${window.location.origin}${url.pathname}${url.search}`;
         console.log('[DEV] Rewrote join URL to:', joinUrl);
       }
 

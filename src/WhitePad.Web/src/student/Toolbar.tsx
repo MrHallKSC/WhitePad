@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, memo } from 'react';
 
 export type ToolType = 'pen' | 'eraser' | 'line' | 'rectangle' | 'circle' | 'arrow' | 'axesL' | 'axesCross';
 export type BackgroundType = 'none' | 'dotted' | 'lined' | 'squares';
@@ -555,4 +555,4 @@ function Toolbar({
   );
 }
 
-export default Toolbar;
+export default memo(Toolbar);

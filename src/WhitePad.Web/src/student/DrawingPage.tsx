@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import { HubConnection } from '@microsoft/signalr';
 import { StrokeBatcher } from '../shared/utils/strokeBatching';
 import { StrokePoint, StrokeBatch, StudentLocked, Shape, WaitingRoomStateChanged } from '../shared/types/messages';
@@ -20,13 +20,14 @@ interface StoredStroke {
   lineWidth: number;
 }
 
-function DrawingPage({ studentId, displayName, connection, initialIsLocked = false, initialWaitingRoomUnlocked = false }: DrawingPageProps) {
-  console.log('[DRAWING PAGE] Component mounted/rendered for student:', studentId, displayName, 'initialIsLocked:', initialIsLocked, 'initialWaitingRoomUnlocked:', initialWaitingRoomUnlocked);
+function DrawingPage({ studentId, displayName, connection, roomId, initialIsLocked = false, initialWaitingRoomUnlocked = false }: DrawingPageProps) {
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const backgroundCanvasRef = useRef<HTMLCanvasElement>(null);
   const batcherRef = useRef<StrokeBatcher | null>(null);
+  const currentStrokeIdRef = useRef<string | null>(null);
   const isDrawingRef = useRef(false);
+  const pointerDownInProgressRef = useRef(false); // Prevent re-entrancy
 
   // Drawing state
   const [currentColor, setCurrentColor] = useState('#000000');
@@ -36,8 +37,6 @@ function DrawingPage({ studentId, displayName, connection, initialIsLocked = fal
   const [confidenceLevel, setConfidenceLevel] = useState<'none' | 'red' | 'amber' | 'green'>('none');
   const [isLocked, setIsLocked] = useState(initialIsLocked);
   const [waitingRoomUnlocked, setWaitingRoomUnlocked] = useState(initialWaitingRoomUnlocked);
-
-  console.log('[DRAWING PAGE] State - isLocked:', isLocked, 'waitingRoomUnlocked:', waitingRoomUnlocked);
 
   // Undo/redo state
   const strokesRef = useRef<Map<string, StoredStroke>>(new Map());
@@ -53,15 +52,46 @@ function DrawingPage({ studentId, displayName, connection, initialIsLocked = fal
   const shapesRef = useRef<Map<string, Shape>>(new Map());
   const [shapeInProgress, setShapeInProgress] = useState<Shape | null>(null);
 
-  // Keep strokeHistoryRef in sync with strokeHistory
+  // Create refs for pointer handler dependencies to stabilize them
+  const currentColorRef = useRef(currentColor);
+  const currentThicknessRef = useRef(currentThickness);
+  const currentToolRef = useRef(currentTool);
+  const isLockedRef = useRef(isLocked);
+  const studentIdRef = useRef(studentId);
+  const connectionRef = useRef(connection);
+
+  // Keep refs in sync with state
   useEffect(() => {
     strokeHistoryRef.current = strokeHistory;
   }, [strokeHistory]);
 
-  // Keep currentBackgroundRef in sync with currentBackground
   useEffect(() => {
     currentBackgroundRef.current = currentBackground;
   }, [currentBackground]);
+
+  useEffect(() => {
+    currentColorRef.current = currentColor;
+  }, [currentColor]);
+
+  useEffect(() => {
+    currentThicknessRef.current = currentThickness;
+  }, [currentThickness]);
+
+  useEffect(() => {
+    currentToolRef.current = currentTool;
+  }, [currentTool]);
+
+  useEffect(() => {
+    isLockedRef.current = isLocked;
+  }, [isLocked]);
+
+  useEffect(() => {
+    studentIdRef.current = studentId;
+  }, [studentId]);
+
+  useEffect(() => {
+    connectionRef.current = connection;
+  }, [connection]);
 
   // Redraw background canvas when background changes
   useEffect(() => {
@@ -141,35 +171,18 @@ function DrawingPage({ studentId, displayName, connection, initialIsLocked = fal
   // Manual resize handler that can be called when needed
   const handleCanvasResize = useRef(() => {
     const canvas = canvasRef.current;
-    if (!canvas) {
-      console.log('[RESIZE] Canvas ref is null');
-      return;
-    }
+    if (!canvas) return;
 
     // Skip if currently drawing
-    if (isDrawingRef.current) {
-      console.log('[RESIZE] Skipping - currently drawing');
-      return;
-    }
+    if (isDrawingRef.current) return;
 
     const rect = canvas.getBoundingClientRect();
     const currentHistory = strokeHistoryRef.current;
-    console.log('[RESIZE] Canvas dimensions:', {
-      currentWidth: canvas.width,
-      currentHeight: canvas.height,
-      newWidth: rect.width,
-      newHeight: rect.height,
-      strokeHistoryLength: currentHistory.length,
-      strokesInMap: strokesRef.current.size
-    });
 
     // Only resize if dimensions actually changed
     if (canvas.width === rect.width && canvas.height === rect.height) {
-      console.log('[RESIZE] Dimensions unchanged, skipping');
       return;
     }
-
-    console.log('[RESIZE] Resizing canvas and redrawing with', currentHistory.length, 'strokes...');
     canvas.width = rect.width;
     canvas.height = rect.height;
 
@@ -221,8 +234,6 @@ function DrawingPage({ studentId, displayName, connection, initialIsLocked = fal
 
       ctx.stroke();
     });
-
-    console.log('[RESIZE] Redraw complete');
   });
 
   // Initial setup and window resize handling
@@ -255,34 +266,30 @@ function DrawingPage({ studentId, displayName, connection, initialIsLocked = fal
     };
   }, []);
 
-  const redrawCanvas = (strokeIds?: string[]) => {
-    const canvas = canvasRef.current;
-    if (!canvas) {
-      console.log('[REDRAW] Canvas ref is null');
-      return;
+  // Initialize canvas when transitioning from waiting room to drawing mode
+  useEffect(() => {
+    if (!isLocked && canvasRef.current) {
+      // Small delay to ensure canvas is rendered in DOM
+      setTimeout(() => {
+        handleCanvasResize.current();
+      }, 50);
     }
+  }, [isLocked]);
+
+  const redrawCanvas = useCallback((strokeIds?: string[]) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
     const ctx = canvas.getContext('2d');
-    if (!ctx) {
-      console.log('[REDRAW] Cannot get 2D context');
-      return;
-    }
+    if (!ctx) return;
 
-    // Use provided strokeIds or current strokeHistory
-    const idsToRender = strokeIds !== undefined ? strokeIds : strokeHistory;
-
-    console.log('[REDRAW] Starting redraw:', {
-      strokeIdsProvided: strokeIds !== undefined,
-      idsToRenderCount: idsToRender.length,
-      strokesInMap: strokesRef.current.size,
-      canvasSize: { width: canvas.width, height: canvas.height }
-    });
+    // Use provided strokeIds or current strokeHistory from ref
+    const idsToRender = strokeIds !== undefined ? strokeIds : strokeHistoryRef.current;
 
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // Redraw all strokes and shapes in history order
-    let drawnCount = 0;
     idsToRender.forEach(id => {
       // Try to find as stroke first
       const stroke = strokesRef.current.get(id);
@@ -298,10 +305,7 @@ function DrawingPage({ studentId, displayName, connection, initialIsLocked = fal
           allPoints.push(...batch.points);
         });
 
-        if (allPoints.length === 0) {
-          console.log('[REDRAW] Stroke has no points:', id);
-          return;
-        }
+        if (allPoints.length === 0) return;
 
         ctx.beginPath();
         const firstPoint = allPoints[0];
@@ -313,7 +317,6 @@ function DrawingPage({ studentId, displayName, connection, initialIsLocked = fal
         }
 
         ctx.stroke();
-        drawnCount++;
         return;
       }
 
@@ -321,15 +324,10 @@ function DrawingPage({ studentId, displayName, connection, initialIsLocked = fal
       const shape = shapesRef.current.get(id);
       if (shape) {
         renderShape(ctx, shape, canvas.width, canvas.height, false);
-        drawnCount++;
         return;
       }
-
-      console.log('[REDRAW] Item not found in maps:', id);
     });
-
-    console.log('[REDRAW] Completed. Drew', drawnCount, 'strokes');
-  };
+  }, []); // No dependencies - uses refs for all data
 
   const drawBackground = (ctx: CanvasRenderingContext2D, width: number, height: number, backgroundType: BackgroundType) => {
     if (backgroundType === 'none') return;
@@ -559,15 +557,24 @@ function DrawingPage({ studentId, displayName, connection, initialIsLocked = fal
     }
   };
 
-  const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    console.log('[DRAWING PAGE] handlePointerDown called, isLocked:', isLocked);
-    if (isLocked) {
-      console.log('[DRAWING PAGE] Pointer down BLOCKED - student is locked');
+  const handlePointerDown = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
+    // Prevent re-entrancy - if we're already processing a pointer down, ignore this one
+    if (pointerDownInProgressRef.current) {
+      return;
+    }
+
+    pointerDownInProgressRef.current = true;
+
+    if (isLockedRef.current) {
+      pointerDownInProgressRef.current = false;
       return; // Prevent drawing when locked
     }
 
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas) {
+      pointerDownInProgressRef.current = false;
+      return;
+    }
 
     e.preventDefault();
     canvas.setPointerCapture(e.pointerId);
@@ -578,56 +585,67 @@ function DrawingPage({ studentId, displayName, connection, initialIsLocked = fal
     const pressure = e.pressure || 0.5;
     const point = getNormalizedPoint(e.clientX, e.clientY, pressure);
 
+    const tool = currentToolRef.current;
+    const color = currentColorRef.current;
+    const thickness = currentThicknessRef.current;
+    const sid = studentIdRef.current;
+    const conn = connectionRef.current;
+
     // Handle shape tools
-    if (currentTool === 'line' || currentTool === 'rectangle' || currentTool === 'circle' || currentTool === 'arrow' || currentTool === 'axesL' || currentTool === 'axesCross') {
-      const shapeId = `${studentId}-shape-${Date.now()}`;
+    if (tool === 'line' || tool === 'rectangle' || tool === 'circle' || tool === 'arrow' || tool === 'axesL' || tool === 'axesCross') {
+      const shapeId = `${sid}-shape-${Date.now()}`;
       const newShape: Shape = {
         shapeId,
-        studentId,
-        type: currentTool,
+        studentId: sid,
+        type: tool,
         points: [point],
-        color: currentColor,
-        lineWidth: currentThickness,
+        color: color,
+        lineWidth: thickness,
         isComplete: false,
       };
       setShapeInProgress(newShape);
+      pointerDownInProgressRef.current = false;
       return;
     }
 
     // Use destination-out composite mode for eraser to actually erase pixels
-    if (currentTool === 'eraser') {
+    if (tool === 'eraser') {
       ctx.globalCompositeOperation = 'destination-out';
     } else {
       ctx.globalCompositeOperation = 'source-over';
     }
 
-    ctx.strokeStyle = currentColor;
-    ctx.lineWidth = currentThickness;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = thickness;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
-    const strokeId = `${studentId}-${Date.now()}`;
+    const strokeId = `${sid}-${Date.now()}`;
+    currentStrokeIdRef.current = strokeId; // Store for later use in pointerUp
 
     // Store stroke for undo/redo
     const newStroke: StoredStroke = {
       strokeId,
       batches: [],
-      color: currentColor,
-      lineWidth: currentThickness,
+      color: color,
+      lineWidth: thickness,
     };
     strokesRef.current.set(strokeId, newStroke);
-    setStrokeHistory(prev => [...prev, strokeId]);
-    setUndoneStrokes([]); // Clear redo stack when new stroke is made
+
+    // DON'T update state during pointer down - defer to pointer up
+    // This prevents re-renders during active pointer interaction
+    // setStrokeHistory(prev => [...prev, strokeId]);
+    // setUndoneStrokes([]); // Clear redo stack when new stroke is made
 
     batcherRef.current = new StrokeBatcher(strokeId, (batch) => {
       // Add color and lineWidth to the batch
       const batchWithStyle: StrokeBatch = {
-        studentId: studentId,
+        studentId: sid,
         strokeId: batch.strokeId || strokeId,
         points: batch.points || [],
         isComplete: batch.isComplete || false,
-        color: currentColor,
-        lineWidth: currentThickness,
+        color: color,
+        lineWidth: thickness,
       };
 
       // Store batch locally
@@ -637,7 +655,7 @@ function DrawingPage({ studentId, displayName, connection, initialIsLocked = fal
       }
 
       // Send to server
-      connection.invoke('SendStrokeBatch', batchWithStyle).catch(err => {
+      conn.invoke('SendStrokeBatch', batchWithStyle).catch(err => {
         console.error('Failed to send stroke batch:', err);
       });
     });
@@ -645,22 +663,27 @@ function DrawingPage({ studentId, displayName, connection, initialIsLocked = fal
     batcherRef.current.addPoint(point);
     drawPoint(e.clientX - canvas.getBoundingClientRect().left,
              e.clientY - canvas.getBoundingClientRect().top);
-  };
 
-  const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (isLocked) return; // Prevent interaction when locked
+    pointerDownInProgressRef.current = false;
+  }, []); // Empty deps - uses refs for all values
+
+  const handlePointerMove = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (isLockedRef.current) return; // Prevent interaction when locked
 
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     e.preventDefault();
 
-    // Update cursor position for eraser preview
     const rect = canvas.getBoundingClientRect();
-    setCursorPosition({
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
-    });
+
+    // Update cursor position for eraser preview ONLY when using eraser
+    if (currentToolRef.current === 'eraser') {
+      setCursorPosition({
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      });
+    }
 
     const pressure = e.pressure || 0.5;
     const point = getNormalizedPoint(e.clientX, e.clientY, pressure);
@@ -686,10 +709,10 @@ function DrawingPage({ studentId, displayName, connection, initialIsLocked = fal
 
     batcherRef.current.addPoint(point);
     drawPoint(e.clientX - rect.left, e.clientY - rect.top);
-  };
+  }, [shapeInProgress, redrawCanvas]); // shapeInProgress and redrawCanvas as deps
 
-  const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (isLocked) return; // Prevent interaction when locked
+  const handlePointerUp = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (isLockedRef.current) return; // Prevent interaction when locked
 
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -716,7 +739,7 @@ function DrawingPage({ studentId, displayName, connection, initialIsLocked = fal
       setUndoneStrokes([]); // Clear redo stack
 
       // Send to server
-      connection.invoke('SendShape', completedShape).catch(err => {
+      connectionRef.current.invoke('SendShape', completedShape).catch(err => {
         console.error('Failed to send shape:', err);
       });
 
@@ -737,33 +760,39 @@ function DrawingPage({ studentId, displayName, connection, initialIsLocked = fal
       batcherRef.current = null;
     }
 
+    // Update state AFTER pointer up to avoid re-renders during active pointer interaction
+    if (currentStrokeIdRef.current) {
+      const completedStrokeId = currentStrokeIdRef.current; // Capture value before clearing
+      currentStrokeIdRef.current = null; // Clear immediately to prevent double-add
+      setStrokeHistory(prev => [...prev, completedStrokeId]);
+      setUndoneStrokes([]); // Clear redo stack
+    }
+
     isDrawingRef.current = false;
-  };
+  }, [shapeInProgress, redrawCanvas]); // shapeInProgress and redrawCanvas as deps
 
   // Toolbar event handlers
-  const handleColorChange = (color: string) => {
+  const handleColorChange = useCallback((color: string) => {
     setCurrentColor(color);
-    if (currentTool === 'eraser') {
-      setCurrentTool('pen');
-    }
-  };
+    setCurrentTool(prev => prev === 'eraser' ? 'pen' : prev);
+  }, []);
 
-  const handleThicknessChange = (thickness: number) => {
+  const handleThicknessChange = useCallback((thickness: number) => {
     setCurrentThickness(thickness);
-  };
+  }, []);
 
-  const handleToolChange = (tool: ToolType) => {
+  const handleToolChange = useCallback((tool: ToolType) => {
     setCurrentTool(tool);
-  };
+  }, []);
 
-  const handleConfidenceChange = (level: 'none' | 'red' | 'amber' | 'green') => {
+  const handleConfidenceChange = useCallback((level: 'none' | 'red' | 'amber' | 'green') => {
     setConfidenceLevel(level);
     connection.invoke('SetConfidence', level).catch(err => {
       console.error('Failed to set confidence:', err);
     });
-  };
+  }, [connection]);
 
-  const handleUndo = () => {
+  const handleUndo = useCallback(() => {
     if (strokeHistory.length === 0) return;
 
     const lastStrokeId = strokeHistory[strokeHistory.length - 1];
@@ -779,9 +808,9 @@ function DrawingPage({ studentId, displayName, connection, initialIsLocked = fal
     connection.invoke('UndoStroke', lastStrokeId).catch(err => {
       console.error('Failed to send undo:', err);
     });
-  };
+  }, [strokeHistory, connection]);
 
-  const handleRedo = () => {
+  const handleRedo = useCallback(() => {
     if (undoneStrokes.length === 0) return;
 
     const strokeToRedo = undoneStrokes[undoneStrokes.length - 1];
@@ -792,9 +821,9 @@ function DrawingPage({ studentId, displayName, connection, initialIsLocked = fal
 
     // Redraw with the new history immediately
     redrawCanvas(newHistory);
-  };
+  }, [undoneStrokes, strokeHistory]);
 
-  const handleClear = () => {
+  const handleClear = useCallback(() => {
     strokesRef.current.clear();
     shapesRef.current.clear();
     setStrokeHistory([]);
@@ -812,15 +841,20 @@ function DrawingPage({ studentId, displayName, connection, initialIsLocked = fal
     connection.invoke('ClearBoard').catch(err => {
       console.error('Failed to send clear:', err);
     });
-  };
+  }, [connection]);
 
-  const handleMouseEnter = () => {
+  const handleMouseEnter = useCallback(() => {
     // Cursor will be shown when mouse enters
-  };
+  }, []);
 
-  const handleMouseLeave = () => {
+  const handleMouseLeave = useCallback(() => {
     setCursorPosition(null);
-  };
+  }, []);
+
+  // Stable callback for toolbar resize that calls the ref function
+  const handleToolbarResize = useCallback(() => {
+    handleCanvasResize.current();
+  }, []);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -838,7 +872,7 @@ function DrawingPage({ studentId, displayName, connection, initialIsLocked = fal
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [strokeHistory, undoneStrokes]);
+  }, [handleUndo, handleRedo]);
 
   // Track isLocked changes
   useEffect(() => {
@@ -857,8 +891,6 @@ function DrawingPage({ studentId, displayName, connection, initialIsLocked = fal
 
   // Show waiting room screen when locked
   if (isLocked) {
-    console.log('[DRAWING PAGE] Rendering WAITING ROOM screen (isLocked=true, waitingRoomUnlocked=', waitingRoomUnlocked, ')');
-
     if (waitingRoomUnlocked) {
       // Teacher has unlocked the waiting room - show "Join Room" button
       return (
@@ -897,8 +929,6 @@ function DrawingPage({ studentId, displayName, connection, initialIsLocked = fal
     }
   }
 
-  console.log('[DRAWING PAGE] Rendering DRAWING CONTAINER (isLocked=false)');
-
   return (
     <div className="drawing-container">
       <Toolbar
@@ -916,7 +946,7 @@ function DrawingPage({ studentId, displayName, connection, initialIsLocked = fal
         onUndo={handleUndo}
         onRedo={handleRedo}
         onClear={handleClear}
-        onToolbarResized={handleCanvasResize.current}
+        onToolbarResized={handleToolbarResize}
         canUndo={strokeHistory.length > 0}
         canRedo={undoneStrokes.length > 0}
       />

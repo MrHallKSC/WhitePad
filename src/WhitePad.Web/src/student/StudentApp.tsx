@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { HubConnection } from '@microsoft/signalr';
 import { createSignalRConnection } from '../services/signalr';
-import { StudentLocked, WaitingRoomStateChanged } from '../shared/types/messages';
 import JoinPage from './JoinPage';
 import DrawingPage from './DrawingPage';
 
@@ -12,8 +11,6 @@ function StudentApp() {
   const [studentId, setStudentId] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [showKickedModal, setShowKickedModal] = useState(false);
-  const [initialIsLocked, setInitialIsLocked] = useState(false);
-  const [initialWaitingRoomUnlocked, setInitialWaitingRoomUnlocked] = useState(false);
   const connectionRef = useRef<HubConnection | null>(null);
 
   const roomId = searchParams.get('roomId');
@@ -48,46 +45,26 @@ function StudentApp() {
     setDisplayName(null);
   };
 
+  // Stable callback for kicked event
+  const handleKicked = useCallback(() => {
+    // Show kicked modal
+    setShowKickedModal(true);
+  }, []);
+
   // Handle being kicked by teacher
   useEffect(() => {
     if (!connection) return;
-
-    const handleKicked = () => {
-      // Show kicked modal
-      setShowKickedModal(true);
-    };
 
     connection.on('kicked', handleKicked);
 
     return () => {
       connection.off('kicked', handleKicked);
     };
-  }, [connection]);
+  }, [connection, handleKicked]);
 
-  // Set up early listeners to capture initial state when student joins
-  // These listeners are set up BEFORE join happens, so they catch the initial messages
-  useEffect(() => {
-    if (!connection) return;
-
-    const handleStudentLocked = (message: StudentLocked) => {
-      console.log('[STUDENT APP] StudentLocked message received:', message);
-      // Update initial state for any student lock message (will be filtered by studentId in DrawingPage)
-      setInitialIsLocked(message.isLocked);
-    };
-
-    const handleWaitingRoomStateChanged = (message: WaitingRoomStateChanged) => {
-      console.log('[STUDENT APP] WaitingRoomStateChanged message received:', message);
-      setInitialWaitingRoomUnlocked(message.waitingRoomUnlocked);
-    };
-
-    connection.on('studentLocked', handleStudentLocked);
-    connection.on('waitingRoomStateChanged', handleWaitingRoomStateChanged);
-
-    return () => {
-      connection.off('studentLocked', handleStudentLocked);
-      connection.off('waitingRoomStateChanged', handleWaitingRoomStateChanged);
-    };
-  }, [connection]);
+  // Note: DrawingPage handles studentLocked and waitingRoomStateChanged events
+  // We only set initial values here, which are passed as props to DrawingPage
+  // DrawingPage will then maintain its own state and listen to updates
 
   if (!roomId || !joinToken) {
     return (
@@ -119,8 +96,8 @@ function StudentApp() {
         studentId={studentId}
         displayName={displayName}
         connection={connection}
-        initialIsLocked={initialIsLocked}
-        initialWaitingRoomUnlocked={initialWaitingRoomUnlocked}
+        initialIsLocked={false}
+        initialWaitingRoomUnlocked={false}
       />
 
       {showKickedModal && (

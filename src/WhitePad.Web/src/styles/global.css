@@ -1649,6 +1649,7 @@ body {
   align-items: center;
   gap: 10px;
   cursor: pointer;
+  -webkit-user-select: none; /* Safari/iOS support */
   user-select: none;
 }
 
