@@ -42,6 +42,7 @@ export interface ParticipantJoined {
   displayName: string;
   connectedAt: string;
   inputMode: string;
+  hasAnswered?: boolean;
 }
 
 export interface ParticipantLeft {
@@ -78,6 +79,11 @@ export interface QuestionChanged {
   question: string | null;
 }
 
+export interface AnsweredChanged {
+  studentId: string;
+  hasAnswered: boolean;
+}
+
 export interface Student {
   studentId: string;
   displayName: string;
@@ -86,6 +92,7 @@ export interface Student {
   inputMode: string;
   confidenceLevel?: 'none' | 'red' | 'amber' | 'green';
   isLocked?: boolean;
+  hasAnswered?: boolean;
 }
 
 export interface Shape {

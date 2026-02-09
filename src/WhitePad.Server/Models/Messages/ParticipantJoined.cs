@@ -6,4 +6,5 @@ public class ParticipantJoined
     public string DisplayName { get; set; } = string.Empty;
     public DateTime ConnectedAt { get; set; }
     public string InputMode { get; set; } = "draw";
+    public bool HasAnswered { get; set; }
 }

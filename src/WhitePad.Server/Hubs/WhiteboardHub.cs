@@ -588,6 +588,11 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
 
         room.CurrentQuestion = normalized;
 
+        foreach (var student in room.Participants)
+        {
+            student.HasAnswered = false;
+        }
+
         var message = new QuestionChanged
         {
             Question = room.CurrentQuestion
@@ -595,6 +600,34 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
 
         await Clients.Group(TeacherGroup(roomId)).QuestionChanged(message);
         await Clients.Group(StudentsGroup(roomId)).QuestionChanged(message);
+
+        foreach (var student in room.Participants)
+        {
+            await Clients.Group(TeacherGroup(roomId)).AnsweredChanged(new AnsweredChanged
+            {
+                StudentId = student.StudentId,
+                HasAnswered = false
+            });
+        }
+    }
+
+    // Student sets answered state
+    public async Task SetAnswered(bool hasAnswered)
+    {
+        var (room, student) = await GetRoomAndStudentByConnectionIdAsync(Context.ConnectionId);
+        if (room == null || student == null)
+        {
+            _logger.LogWarning("Student not in any room, cannot set answered");
+            return;
+        }
+
+        student.HasAnswered = hasAnswered;
+
+        await Clients.Group(TeacherGroup(room.RoomId)).AnsweredChanged(new AnsweredChanged
+        {
+            StudentId = student.StudentId,
+            HasAnswered = hasAnswered
+        });
     }
 
     // Handle disconnect
@@ -686,7 +719,8 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
         StudentId = student.StudentId,
         DisplayName = student.DisplayName,
         ConnectedAt = student.ConnectedAt,
-        InputMode = student.InputMode
+        InputMode = student.InputMode,
+        HasAnswered = student.HasAnswered
     };
 
     private static ShapeDrawn ToShapeDrawn(Shape shape) => new()

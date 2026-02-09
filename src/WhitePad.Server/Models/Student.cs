@@ -8,6 +8,7 @@ public class Student
     public string InputMode { get; set; } = "draw"; // "draw" or "type"
     public string ConfidenceLevel { get; set; } = "none"; // "none", "red", "amber", "green"
     public bool IsLocked { get; set; } = false; // Individual student lock state
+    public bool HasAnswered { get; set; } = false;
     public DateTime ConnectedAt { get; set; }
     public DateTime LastSeenAt { get; set; }
 }

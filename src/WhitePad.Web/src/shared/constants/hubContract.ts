@@ -18,6 +18,7 @@ export const HubMethods = {
   ClearBoard: 'ClearBoard',
   JoinFromWaitingRoom: 'JoinFromWaitingRoom',
   SetQuestion: 'SetQuestion',
+  SetAnswered: 'SetAnswered',
 } as const;
 
 export const HubEvents = {
@@ -32,4 +33,5 @@ export const HubEvents = {
   StrokeUndone: 'strokeUndone',
   ReceiveShape: 'receiveShape',
   QuestionChanged: 'questionChanged',
+  AnsweredChanged: 'answeredChanged',
 } as const;

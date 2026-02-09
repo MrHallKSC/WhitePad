@@ -54,6 +54,7 @@ function DrawingPage({
   const [currentBackground, setCurrentBackground] = useState<BackgroundType>('none');
   const [confidenceLevel, setConfidenceLevel] = useState<'none' | 'red' | 'amber' | 'green'>('none');
   const [currentQuestion, setCurrentQuestion] = useState<string | null>(initialQuestion);
+  const [hasAnswered, setHasAnswered] = useState(false);
 
   const {
     isLocked,
@@ -134,6 +135,7 @@ function DrawingPage({
   useEffect(() => {
     const handleQuestionChanged = (message: QuestionChanged) => {
       setCurrentQuestion(message.question ?? null);
+      setHasAnswered(false);
     };
 
     connection.on(HubEvents.QuestionChanged, handleQuestionChanged);
@@ -141,6 +143,14 @@ function DrawingPage({
       connection.off(HubEvents.QuestionChanged, handleQuestionChanged);
     };
   }, [connection]);
+
+  const handleAnsweredToggle = useCallback(() => {
+    const nextValue = !hasAnswered;
+    setHasAnswered(nextValue);
+    connection.invoke(HubMethods.SetAnswered, nextValue).catch(err => {
+      console.error('Failed to set answered state:', err);
+    });
+  }, [connection, hasAnswered]);
 
   // Manual resize handler that can be called when needed
   const handleCanvasResize = useRef(() => {
@@ -841,7 +851,15 @@ function DrawingPage({
       <div className="canvas-wrapper">
         {currentQuestion && currentQuestion.trim().length > 0 && (
           <div className="question-banner">
-            {currentQuestion}
+            <div className="question-banner-text">{currentQuestion}</div>
+            <button
+              type="button"
+              className={`question-answered-btn ${hasAnswered ? 'answered' : 'not-answered'}`}
+              onClick={handleAnsweredToggle}
+              aria-pressed={hasAnswered}
+            >
+              Answered {hasAnswered ? '✓' : '✕'}
+            </button>
           </div>
         )}
         <canvas

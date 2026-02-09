@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { HubConnection } from '@microsoft/signalr';
 import { createSignalRConnection } from '../../services/signalr';
-import { ParticipantJoined, ParticipantLeft, Student, ConfidenceChanged, StudentLocked } from '../../shared/types/messages';
+import {
+  ParticipantJoined,
+  ParticipantLeft,
+  Student,
+  ConfidenceChanged,
+  StudentLocked,
+  AnsweredChanged,
+} from '../../shared/types/messages';
 import { HubEvents, HubMethods } from '../../shared/constants/hubContract';
 
 type TeacherRoomActions = {
@@ -36,6 +43,7 @@ export function useTeacherRoomConnection(roomId: string): TeacherRoomConnectionS
         connectedAt: data.connectedAt,
         inputMode: data.inputMode,
         isLocked: false,
+        hasAnswered: data.hasAnswered ?? false,
       };
       setStudents(prev => [...prev, student]);
     });
@@ -64,6 +72,20 @@ export function useTeacherRoomConnection(roomId: string): TeacherRoomConnectionS
       );
     });
 
+    const handleAnsweredChanged = (message: AnsweredChanged) => {
+      setStudents(prev =>
+        prev.map(s =>
+          s.studentId === message.studentId
+            ? { ...s, hasAnswered: message.hasAnswered }
+            : s
+        )
+      );
+    };
+
+    conn.on(HubEvents.AnsweredChanged, handleAnsweredChanged);
+    // Safety: handle PascalCase event name as well.
+    conn.on('AnsweredChanged', handleAnsweredChanged);
+
     const setupConnection = async () => {
       try {
         await conn.start();
@@ -87,11 +109,11 @@ export function useTeacherRoomConnection(roomId: string): TeacherRoomConnectionS
     return () => {
       isDisposed = true;
       if (connectionRef.current) {
-        connectionRef.current.stop();
-        connectionRef.current = null;
-      } else {
-        conn.stop();
-      }
+      connectionRef.current.stop();
+      connectionRef.current = null;
+    } else {
+      conn.stop();
+    }
     };
   }, [roomId]);
 

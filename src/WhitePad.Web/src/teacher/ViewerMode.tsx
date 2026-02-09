@@ -18,8 +18,15 @@ function ViewerMode({ roomName, roomId, students, connection, onSwitchToJoin }: 
   const [currentQuestion, setCurrentQuestion] = useState<string | null>(null);
   const [questionDraft, setQuestionDraft] = useState('');
   const [isQuestionModalOpen, setIsQuestionModalOpen] = useState(false);
+  const [didUpdateQuestion, setDidUpdateQuestion] = useState(false);
+  const updateTimeoutRef = useRef<number | null>(null);
   const currentQuestionRef = useRef<string | null>(null);
   const QUESTION_MAX_LENGTH = 280;
+  const totalStudents = students.length;
+  const answeredCount = students.filter(student => student.hasAnswered).length;
+  const answeredPercent = totalStudents === 0
+    ? 0
+    : Math.round((answeredCount / totalStudents) * 100);
 
   const handleLockAll = async () => {
     if (!connection) return;
@@ -87,6 +94,14 @@ function ViewerMode({ roomName, roomId, students, connection, onSwitchToJoin }: 
         }
         return prev;
       });
+      setDidUpdateQuestion(true);
+      if (updateTimeoutRef.current) {
+        window.clearTimeout(updateTimeoutRef.current);
+      }
+      updateTimeoutRef.current = window.setTimeout(() => {
+        setDidUpdateQuestion(false);
+        updateTimeoutRef.current = null;
+      }, 1400);
     };
 
     connection.on(HubEvents.QuestionChanged, handleQuestionChanged);
@@ -172,6 +187,9 @@ function ViewerMode({ roomName, roomId, students, connection, onSwitchToJoin }: 
           </button>
         </div>
         <div className="question-status">
+          <span className="question-status-metric">
+            Answered: {answeredPercent}% ({answeredCount}/{totalStudents})
+          </span>
           <span className="question-status-label">Question:</span>
           <span className="question-status-text">
             {currentQuestion && currentQuestion.trim().length > 0 ? currentQuestion : 'No question set'}
@@ -184,32 +202,38 @@ function ViewerMode({ roomName, roomId, students, connection, onSwitchToJoin }: 
           <div className="modal-content question-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Class Question</h2>
-              <button type="button" className="modal-close" onClick={closeQuestionModal}>
-                ×
-              </button>
+              <button type="button" className="modal-close" onClick={closeQuestionModal}>x</button>
             </div>
             <div className="modal-body">
-              <textarea
-                className="question-textarea"
-                value={questionDraft}
-                onChange={(e) => setQuestionDraft(e.target.value)}
-                placeholder="Type a question for the class..."
-                maxLength={QUESTION_MAX_LENGTH}
-                rows={4}
-              />
-              <div className="question-actions">
-                <span className="question-limit">
+              <div className="question-textarea-wrapper">
+                <textarea
+                  className="question-textarea"
+                  value={questionDraft}
+                  onChange={(e) => setQuestionDraft(e.target.value)}
+                  placeholder="Type a question for the class..."
+                  maxLength={QUESTION_MAX_LENGTH}
+                  rows={4}
+                />
+                <span className="question-limit-overlay">
                   {questionDraft.length}/{QUESTION_MAX_LENGTH}
                 </span>
+              </div>
+              <div className="question-actions">
                 <div className="question-buttons">
-                  <button type="button" className="button secondary" onClick={handleSendQuestion}>
+                  <button
+                    type="button"
+                    className={`button secondary question-send-btn ${didUpdateQuestion ? 'sent' : ''}`}
+                    onClick={handleSendQuestion}
+                  >
                     Send / Update
+                    {didUpdateQuestion && <span className="question-send-tick">âœ“</span>}
                   </button>
                   <button type="button" className="button danger" onClick={handleClearQuestion}>
                     Clear Question
                   </button>
                 </div>
               </div>
+              <p className="question-modal-hint">Click outside the box to close.</p>
             </div>
           </div>
         </div>
@@ -219,6 +243,9 @@ function ViewerMode({ roomName, roomId, students, connection, onSwitchToJoin }: 
 }
 
 export default ViewerMode;
+
+
+
 
 
 
