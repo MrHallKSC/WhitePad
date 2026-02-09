@@ -14,5 +14,6 @@ public interface IWhiteboardClient
     Task BoardCleared(BoardCleared message);
     Task StudentLocked(StudentLocked message);
     Task WaitingRoomStateChanged(WaitingRoomStateChanged message);
+    Task QuestionChanged(QuestionChanged message);
     Task Kicked();
 }

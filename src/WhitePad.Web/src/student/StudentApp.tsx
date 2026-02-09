@@ -11,6 +11,7 @@ function StudentApp() {
   const [initialIsLocked, setInitialIsLocked] = useState(false);
   const [initialWaitingRoomEnabled, setInitialWaitingRoomEnabled] = useState(false);
   const [initialWaitingRoomUnlocked, setInitialWaitingRoomUnlocked] = useState(false);
+  const [initialQuestion, setInitialQuestion] = useState<string | null>(null);
   const [showKickedModal, setShowKickedModal] = useState(false);
 
   const roomId = searchParams.get('roomId');
@@ -22,12 +23,14 @@ function StudentApp() {
     isLocked: boolean;
     waitingRoomEnabled: boolean;
     waitingRoomUnlocked: boolean;
+    currentQuestion: string | null;
   }) => {
     setStudentId(session.studentId);
     setDisplayName(session.displayName);
     setInitialIsLocked(session.isLocked);
     setInitialWaitingRoomEnabled(session.waitingRoomEnabled);
     setInitialWaitingRoomUnlocked(session.waitingRoomUnlocked);
+    setInitialQuestion(session.currentQuestion);
   }, []);
 
   const handleKickedModalClose = () => {
@@ -37,6 +40,7 @@ function StudentApp() {
     setInitialIsLocked(false);
     setInitialWaitingRoomEnabled(false);
     setInitialWaitingRoomUnlocked(false);
+    setInitialQuestion(null);
   };
 
   // Stable callback for kicked event
@@ -92,6 +96,7 @@ function StudentApp() {
         initialIsLocked={initialIsLocked}
         initialWaitingRoomEnabled={initialWaitingRoomEnabled}
         initialWaitingRoomUnlocked={initialWaitingRoomUnlocked}
+        initialQuestion={initialQuestion}
       />
 
       {showKickedModal && (

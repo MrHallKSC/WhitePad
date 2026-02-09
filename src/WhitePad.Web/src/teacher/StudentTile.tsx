@@ -145,8 +145,16 @@ function StudentTile({
     if (!canvas || !wrapper) return;
 
     const rect = wrapper.getBoundingClientRect();
-    const width = Math.max(1, Math.floor(rect.width));
-    const height = Math.max(1, Math.floor(rect.height));
+    const availableWidth = Math.max(1, Math.floor(rect.width));
+    const availableHeight = Math.max(1, Math.floor(rect.height));
+    const aspectRatio = 4 / 3;
+
+    let width = availableWidth;
+    let height = Math.floor(width / aspectRatio);
+    if (height > availableHeight) {
+      height = availableHeight;
+      width = Math.floor(height * aspectRatio);
+    }
 
     if (canvas.width !== width || canvas.height !== height) {
       canvas.width = width;

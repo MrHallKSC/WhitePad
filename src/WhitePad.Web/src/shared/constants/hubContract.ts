@@ -17,6 +17,7 @@ export const HubMethods = {
   UndoStroke: 'UndoStroke',
   ClearBoard: 'ClearBoard',
   JoinFromWaitingRoom: 'JoinFromWaitingRoom',
+  SetQuestion: 'SetQuestion',
 } as const;
 
 export const HubEvents = {
@@ -30,4 +31,5 @@ export const HubEvents = {
   ReceiveStrokeBatch: 'receiveStrokeBatch',
   StrokeUndone: 'strokeUndone',
   ReceiveShape: 'receiveShape',
+  QuestionChanged: 'questionChanged',
 } as const;

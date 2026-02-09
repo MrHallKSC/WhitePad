@@ -25,6 +25,7 @@ export interface JoinRoomResponse {
   isLocked?: boolean;
   waitingRoomEnabled?: boolean;
   waitingRoomUnlocked?: boolean;
+  currentQuestion?: string | null;
   error?: string;
 }
 
@@ -71,6 +72,10 @@ export interface StudentLocked {
 export interface WaitingRoomStateChanged {
   waitingRoomEnabled: boolean;
   waitingRoomUnlocked: boolean;
+}
+
+export interface QuestionChanged {
+  question: string | null;
 }
 
 export interface Student {

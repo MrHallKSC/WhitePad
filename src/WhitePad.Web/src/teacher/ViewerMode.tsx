@@ -1,8 +1,8 @@
 import { HubConnection } from '@microsoft/signalr';
-import { useEffect, useState } from 'react';
-import { Student } from '../shared/types/messages';
+import { useEffect, useRef, useState } from 'react';
+import { QuestionChanged, Student } from '../shared/types/messages';
 import StudentGrid from './StudentGrid';
-import { HubMethods } from '../shared/constants/hubContract';
+import { HubEvents, HubMethods } from '../shared/constants/hubContract';
 import ConfidenceSummary from './ConfidenceSummary';
 
 interface ViewerModeProps {
@@ -15,6 +15,11 @@ interface ViewerModeProps {
 
 function ViewerMode({ roomName, roomId, students, connection, onSwitchToJoin }: ViewerModeProps) {
   const [focusedStudentId, setFocusedStudentId] = useState<string | null>(null);
+  const [currentQuestion, setCurrentQuestion] = useState<string | null>(null);
+  const [questionDraft, setQuestionDraft] = useState('');
+  const [isQuestionModalOpen, setIsQuestionModalOpen] = useState(false);
+  const currentQuestionRef = useRef<string | null>(null);
+  const QUESTION_MAX_LENGTH = 280;
 
   const handleLockAll = async () => {
     if (!connection) return;
@@ -65,6 +70,61 @@ function ViewerMode({ roomName, roomId, students, connection, onSwitchToJoin }: 
     }
   }, [focusedStudentId, students]);
 
+  useEffect(() => {
+    currentQuestionRef.current = currentQuestion;
+  }, [currentQuestion]);
+
+  useEffect(() => {
+    if (!connection) return;
+
+    const handleQuestionChanged = (message: QuestionChanged) => {
+      const nextQuestion = message.question ?? null;
+      setCurrentQuestion(nextQuestion);
+      setQuestionDraft(prev => {
+        const previousQuestion = currentQuestionRef.current ?? '';
+        if (prev.trim() === '' || prev === previousQuestion) {
+          return nextQuestion ?? '';
+        }
+        return prev;
+      });
+    };
+
+    connection.on(HubEvents.QuestionChanged, handleQuestionChanged);
+    return () => {
+      connection.off(HubEvents.QuestionChanged, handleQuestionChanged);
+    };
+  }, [connection]);
+
+  const handleSendQuestion = async () => {
+    if (!connection) return;
+    const trimmed = questionDraft.trim();
+    const payload = trimmed.length === 0 ? null : trimmed;
+    try {
+      await connection.invoke(HubMethods.SetQuestion, roomId, payload);
+    } catch (err) {
+      console.error('Failed to set question:', err);
+    }
+  };
+
+  const handleClearQuestion = async () => {
+    if (!connection) return;
+    setQuestionDraft('');
+    try {
+      await connection.invoke(HubMethods.SetQuestion, roomId, null);
+    } catch (err) {
+      console.error('Failed to clear question:', err);
+    }
+  };
+
+  const openQuestionModal = () => {
+    setQuestionDraft(currentQuestion ?? '');
+    setIsQuestionModalOpen(true);
+  };
+
+  const closeQuestionModal = () => {
+    setIsQuestionModalOpen(false);
+  };
+
   return (
     <div className="viewer-mode-container">
       <div className="viewer-mode-header">
@@ -81,7 +141,7 @@ function ViewerMode({ roomName, roomId, students, connection, onSwitchToJoin }: 
             className="button secondary"
             onClick={onSwitchToJoin}
           >
-            ← Back to Join Mode
+            Back to Join Mode
           </button>
         </div>
       </div>
@@ -107,11 +167,66 @@ function ViewerMode({ roomName, roomId, students, connection, onSwitchToJoin }: 
           <button type="button" className="button danger" onClick={handleClearAll}>
             🗑️ Clear All Boards
           </button>
+          <button type="button" className="button secondary" onClick={openQuestionModal}>
+            Ask a Question
+          </button>
+        </div>
+        <div className="question-status">
+          <span className="question-status-label">Question:</span>
+          <span className="question-status-text">
+            {currentQuestion && currentQuestion.trim().length > 0 ? currentQuestion : 'No question set'}
+          </span>
         </div>
       </div>
+
+      {isQuestionModalOpen && (
+        <div className="modal-overlay" onClick={closeQuestionModal}>
+          <div className="modal-content question-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Class Question</h2>
+              <button type="button" className="modal-close" onClick={closeQuestionModal}>
+                �
+              </button>
+            </div>
+            <div className="modal-body">
+              <textarea
+                className="question-textarea"
+                value={questionDraft}
+                onChange={(e) => setQuestionDraft(e.target.value)}
+                placeholder="Type a question for the class..."
+                maxLength={QUESTION_MAX_LENGTH}
+                rows={4}
+              />
+              <div className="question-actions">
+                <span className="question-limit">
+                  {questionDraft.length}/{QUESTION_MAX_LENGTH}
+                </span>
+                <div className="question-buttons">
+                  <button type="button" className="button secondary" onClick={handleSendQuestion}>
+                    Send / Update
+                  </button>
+                  <button type="button" className="button danger" onClick={handleClearQuestion}>
+                    Clear Question
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 export default ViewerMode;
+
+
+
+
+
+
+
+
+
+
 

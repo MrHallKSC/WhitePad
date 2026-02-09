@@ -9,6 +9,7 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
 {
     private readonly IRoomStateManager _roomStateManager;
     private readonly ILogger<WhiteboardHub> _logger;
+    private const int MaxQuestionLength = 280;
 
     public WhiteboardHub(IRoomStateManager roomStateManager, ILogger<WhiteboardHub> logger)
     {
@@ -60,6 +61,11 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
         {
             await Clients.Caller.ParticipantJoined(ToParticipantJoined(student));
         }
+
+        await Clients.Caller.QuestionChanged(new QuestionChanged
+        {
+            Question = room.CurrentQuestion
+        });
     }
 
     // Student joins room
@@ -122,7 +128,8 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
             RoomSettings = room.Settings,
             IsLocked = student.IsLocked,
             WaitingRoomEnabled = room.WaitingRoomEnabled,
-            WaitingRoomUnlocked = room.WaitingRoomUnlocked
+            WaitingRoomUnlocked = room.WaitingRoomUnlocked,
+            CurrentQuestion = room.CurrentQuestion
         };
     }
 
@@ -556,6 +563,38 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
         _logger.LogInformation("Student {StudentId} joined from waiting room in room {RoomId}", student.StudentId, room.RoomId);
 
         await SetStudentLockStateAndNotifyAsync(room.RoomId, student, isLocked: false);
+    }
+
+    // Teacher sets a question for the room
+    public async Task SetQuestion(string roomId, string? question)
+    {
+        _logger.LogInformation("Teacher setting question in room {RoomId}", roomId);
+
+        var room = await _roomStateManager.GetRoomAsync(roomId);
+        if (room == null)
+        {
+            _logger.LogWarning("Room not found: {RoomId}", roomId);
+            return;
+        }
+
+        var normalized = string.IsNullOrWhiteSpace(question)
+            ? null
+            : question.Trim();
+
+        if (!string.IsNullOrEmpty(normalized) && normalized.Length > MaxQuestionLength)
+        {
+            normalized = normalized[..MaxQuestionLength];
+        }
+
+        room.CurrentQuestion = normalized;
+
+        var message = new QuestionChanged
+        {
+            Question = room.CurrentQuestion
+        };
+
+        await Clients.Group(TeacherGroup(roomId)).QuestionChanged(message);
+        await Clients.Group(StudentsGroup(roomId)).QuestionChanged(message);
     }
 
     // Handle disconnect

@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { HubConnection } from '@microsoft/signalr';
 import { StrokeBatcher } from '../shared/utils/strokeBatching';
-import { StrokePoint, StrokeBatch, Shape } from '../shared/types/messages';
+import { StrokePoint, StrokeBatch, Shape, QuestionChanged } from '../shared/types/messages';
 import { renderShape } from '../shared/utils/shapeRenderer';
 import { debugLog } from '../shared/utils/debugLog';
 import { HubEvents, HubMethods } from '../shared/constants/hubContract';
@@ -18,6 +18,7 @@ interface DrawingPageProps {
   initialIsLocked?: boolean;
   initialWaitingRoomEnabled?: boolean;
   initialWaitingRoomUnlocked?: boolean;
+  initialQuestion?: string | null;
 }
 
 interface StoredStroke {
@@ -35,6 +36,7 @@ function DrawingPage({
   initialIsLocked = false,
   initialWaitingRoomEnabled = false,
   initialWaitingRoomUnlocked = false,
+  initialQuestion = null,
 }: DrawingPageProps) {
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -51,6 +53,7 @@ function DrawingPage({
   const [currentTool, setCurrentTool] = useState<ToolType>('pen');
   const [currentBackground, setCurrentBackground] = useState<BackgroundType>('none');
   const [confidenceLevel, setConfidenceLevel] = useState<'none' | 'red' | 'amber' | 'green'>('none');
+  const [currentQuestion, setCurrentQuestion] = useState<string | null>(initialQuestion);
 
   const {
     isLocked,
@@ -126,6 +129,18 @@ function DrawingPage({
       connection.off(HubEvents.BoardCleared, handleBoardCleared);
     };
   }, [connection, studentId]);
+
+  // Listen for teacher question updates
+  useEffect(() => {
+    const handleQuestionChanged = (message: QuestionChanged) => {
+      setCurrentQuestion(message.question ?? null);
+    };
+
+    connection.on(HubEvents.QuestionChanged, handleQuestionChanged);
+    return () => {
+      connection.off(HubEvents.QuestionChanged, handleQuestionChanged);
+    };
+  }, [connection]);
 
   // Manual resize handler that can be called when needed
   const handleCanvasResize = useRef(() => {
@@ -824,6 +839,11 @@ function DrawingPage({
         canRedo={undoneStrokes.length > 0}
       />
       <div className="canvas-wrapper">
+        {currentQuestion && currentQuestion.trim().length > 0 && (
+          <div className="question-banner">
+            {currentQuestion}
+          </div>
+        )}
         <canvas
           ref={backgroundCanvasRef}
           className="background-canvas"

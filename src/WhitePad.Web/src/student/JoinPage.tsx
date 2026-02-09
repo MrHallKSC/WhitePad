@@ -13,6 +13,7 @@ interface JoinPageProps {
     isLocked: boolean;
     waitingRoomEnabled: boolean;
     waitingRoomUnlocked: boolean;
+    currentQuestion: string | null;
   }) => void;
 }
 
@@ -57,6 +58,7 @@ function JoinPage({ roomId, joinToken, connection, onJoined }: JoinPageProps) {
         isLocked: response.isLocked ?? false,
         waitingRoomEnabled: response.waitingRoomEnabled ?? false,
         waitingRoomUnlocked: response.waitingRoomUnlocked ?? false,
+        currentQuestion: response.currentQuestion ?? null,
       });
     } catch (err) {
       console.error('Failed to join room:', err);

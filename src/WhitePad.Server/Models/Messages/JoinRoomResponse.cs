@@ -9,5 +9,6 @@ public class JoinRoomResponse
     public bool IsLocked { get; set; }
     public bool WaitingRoomEnabled { get; set; }
     public bool WaitingRoomUnlocked { get; set; }
+    public string? CurrentQuestion { get; set; }
     public string? Error { get; set; }
 }
