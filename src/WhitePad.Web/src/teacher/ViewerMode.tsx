@@ -1,4 +1,5 @@
 import { HubConnection } from '@microsoft/signalr';
+import { useEffect, useState } from 'react';
 import { Student } from '../shared/types/messages';
 import StudentGrid from './StudentGrid';
 import { HubMethods } from '../shared/constants/hubContract';
@@ -13,6 +14,8 @@ interface ViewerModeProps {
 }
 
 function ViewerMode({ roomName, roomId, students, connection, onSwitchToJoin }: ViewerModeProps) {
+  const [focusedStudentId, setFocusedStudentId] = useState<string | null>(null);
+
   const handleLockAll = async () => {
     if (!connection) return;
     try {
@@ -41,6 +44,27 @@ function ViewerMode({ roomName, roomId, students, connection, onSwitchToJoin }: 
     }
   };
 
+  useEffect(() => {
+    if (!focusedStudentId) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setFocusedStudentId(null);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [focusedStudentId]);
+
+  useEffect(() => {
+    if (!focusedStudentId) return;
+    const stillPresent = students.some(student => student.studentId === focusedStudentId);
+    if (!stillPresent) {
+      setFocusedStudentId(null);
+    }
+  }, [focusedStudentId, students]);
+
   return (
     <div className="viewer-mode-container">
       <div className="viewer-mode-header">
@@ -62,7 +86,14 @@ function ViewerMode({ roomName, roomId, students, connection, onSwitchToJoin }: 
         </div>
       </div>
 
-      <StudentGrid students={students} connection={connection} roomId={roomId} />
+      <StudentGrid
+        students={students}
+        connection={connection}
+        roomId={roomId}
+        focusedStudentId={focusedStudentId}
+        onFocusStudent={setFocusedStudentId}
+        onExitFocus={() => setFocusedStudentId(null)}
+      />
 
       <div className="classroom-controls">
         <h3>Classroom Controls</h3>
@@ -83,3 +114,4 @@ function ViewerMode({ roomName, roomId, students, connection, onSwitchToJoin }: 
 }
 
 export default ViewerMode;
+

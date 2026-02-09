@@ -94,6 +94,11 @@ body {
   border-radius: 8px;
 }
 
+.student-grid.focus-active {
+  overflow: hidden;
+  padding: 0;
+}
+
 .student-tile {
   background: white;
   border: 2px solid #ddd;
@@ -104,6 +109,23 @@ body {
   position: relative;
   align-self: flex-start;
   transition: all 0.3s ease;
+}
+
+.student-tile.hidden {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.student-tile.focused {
+  position: fixed;
+  inset: 0;
+  z-index: 20000;
+  border-radius: 0;
+  padding: 20px;
+  background: #f8f9fa;
+  box-shadow: none;
+  height: 100vh;
+  width: 100vw;
 }
 
 .student-tile.locked {
@@ -118,11 +140,53 @@ body {
   color: #333;
 }
 
+.student-tile.focused .student-tile-header {
+  font-size: 20px;
+}
+
+.student-canvas-wrapper {
+  width: 100%;
+  height: 150px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+}
+
+.student-tile.focused .student-canvas-wrapper {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+}
+
 .student-canvas {
   border: 1px solid #ccc;
   border-radius: 4px;
   touch-action: none;
   background: white;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.student-tile.focused .student-canvas {
+  width: 100%;
+  height: 100%;
+  border: 2px solid #dee2e6;
+}
+
+.focus-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.focus-controls-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 /* Room Create Page */

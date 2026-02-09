@@ -6,9 +6,19 @@ interface StudentGridProps {
   students: Student[];
   connection: HubConnection | null;
   roomId: string;
+  focusedStudentId: string | null;
+  onFocusStudent: (studentId: string) => void;
+  onExitFocus: () => void;
 }
 
-function StudentGrid({ students, connection, roomId }: StudentGridProps) {
+function StudentGrid({
+  students,
+  connection,
+  roomId,
+  focusedStudentId,
+  onFocusStudent,
+  onExitFocus,
+}: StudentGridProps) {
   if (students.length === 0) {
     return (
       <div className="student-grid">
@@ -18,13 +28,17 @@ function StudentGrid({ students, connection, roomId }: StudentGridProps) {
   }
 
   return (
-    <div className="student-grid">
+    <div className={`student-grid ${focusedStudentId ? 'focus-active' : ''}`}>
       {students.map(student => (
         <StudentTile
           key={student.studentId}
           student={student}
           connection={connection}
           roomId={roomId}
+          isFocused={focusedStudentId === student.studentId}
+          isFocusActive={focusedStudentId !== null}
+          onRequestFocus={onFocusStudent}
+          onExitFocus={onExitFocus}
         />
       ))}
     </div>

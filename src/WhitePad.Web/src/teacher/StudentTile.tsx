@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import { HubConnection } from '@microsoft/signalr';
 import { Student, StrokeBatch, StrokeUndone, BoardCleared, ShapeDrawn, Shape } from '../shared/types/messages';
 import { renderShape } from '../shared/utils/shapeRenderer';
@@ -8,6 +8,10 @@ interface StudentTileProps {
   student: Student;
   connection: HubConnection | null;
   roomId: string;
+  isFocused?: boolean;
+  isFocusActive?: boolean;
+  onRequestFocus?: (studentId: string) => void;
+  onExitFocus?: () => void;
 }
 
 interface ContextMenuPosition {
@@ -15,18 +19,29 @@ interface ContextMenuPosition {
   y: number;
 }
 
-function StudentTile({ student, connection, roomId }: StudentTileProps) {
+function StudentTile({
+  student,
+  connection,
+  roomId,
+  isFocused = false,
+  isFocusActive = false,
+  onRequestFocus,
+  onExitFocus,
+}: StudentTileProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const canvasWrapperRef = useRef<HTMLDivElement>(null);
   const strokesRef = useRef<Map<string, StrokeBatch>>(new Map());
   const shapesRef = useRef<Map<string, Shape>>(new Map());
   const [contextMenu, setContextMenu] = useState<ContextMenuPosition | null>(null);
 
-  const redrawCanvas = () => {
+  const redrawCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+
+    const lineWidthScale = isFocused ? 1 : 0.4;
 
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -37,7 +52,7 @@ function StudentTile({ student, connection, roomId }: StudentTileProps) {
 
       ctx.beginPath();
       ctx.strokeStyle = batch.color || '#000000';
-      ctx.lineWidth = (batch.lineWidth || 2) * 0.4; // Scale down for smaller teacher view
+      ctx.lineWidth = (batch.lineWidth || 2) * lineWidthScale;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
 
@@ -54,9 +69,9 @@ function StudentTile({ student, connection, roomId }: StudentTileProps) {
 
     // Redraw all shapes
     shapesRef.current.forEach((shape) => {
-      renderShape(ctx, shape, canvas.width, canvas.height, { lineWidthScale: 0.4 });
+      renderShape(ctx, shape, canvas.width, canvas.height, { lineWidthScale });
     });
-  };
+  }, [isFocused]);
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -67,6 +82,18 @@ function StudentTile({ student, connection, roomId }: StudentTileProps) {
   };
 
   const handleCloseContextMenu = () => {
+    setContextMenu(null);
+  };
+
+  const handleRequestFocus = () => {
+    if (!onRequestFocus) return;
+    onRequestFocus(student.studentId);
+    setContextMenu(null);
+  };
+
+  const handleExitFocus = () => {
+    if (!onExitFocus) return;
+    onExitFocus();
     setContextMenu(null);
   };
 
@@ -112,6 +139,22 @@ function StudentTile({ student, connection, roomId }: StudentTileProps) {
     setContextMenu(null);
   };
 
+  const handleResizeCanvas = useCallback(() => {
+    const canvas = canvasRef.current;
+    const wrapper = canvasWrapperRef.current;
+    if (!canvas || !wrapper) return;
+
+    const rect = wrapper.getBoundingClientRect();
+    const width = Math.max(1, Math.floor(rect.width));
+    const height = Math.max(1, Math.floor(rect.height));
+
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
+      redrawCanvas();
+    }
+  }, [redrawCanvas]);
+
   // Close context menu when clicking anywhere
   useEffect(() => {
     if (contextMenu) {
@@ -120,6 +163,23 @@ function StudentTile({ student, connection, roomId }: StudentTileProps) {
       return () => document.removeEventListener('click', handleClick);
     }
   }, [contextMenu]);
+
+  useEffect(() => {
+    const wrapper = canvasWrapperRef.current;
+    if (!wrapper) return;
+
+    handleResizeCanvas();
+
+    if (typeof ResizeObserver === 'undefined') {
+      const handleWindowResize = () => handleResizeCanvas();
+      window.addEventListener('resize', handleWindowResize);
+      return () => window.removeEventListener('resize', handleWindowResize);
+    }
+
+    const observer = new ResizeObserver(() => handleResizeCanvas());
+    observer.observe(wrapper);
+    return () => observer.disconnect();
+  }, [handleResizeCanvas, isFocused]);
 
   useEffect(() => {
     if (!connection) return;
@@ -198,7 +258,7 @@ function StudentTile({ student, connection, roomId }: StudentTileProps) {
       connection.off(HubEvents.BoardCleared, handleBoardCleared);
       connection.off(HubEvents.ReceiveShape, handleShapeDrawn);
     };
-  }, [connection, student.studentId]);
+  }, [connection, student.studentId, redrawCanvas]);
 
   // Periodic redraw to handle window dragging and other events that might clear the canvas
   useEffect(() => {
@@ -232,23 +292,62 @@ function StudentTile({ student, connection, roomId }: StudentTileProps) {
     }, 50); // Check every 50ms for faster detection
 
     return () => clearInterval(interval);
-  }, []);
+  }, [redrawCanvas]);
 
   return (
     <>
       <div
-        className={`student-tile ${student.isLocked ? 'locked' : ''}`}
+        className={`student-tile ${student.isLocked ? 'locked' : ''} ${isFocused ? 'focused' : ''} ${isFocusActive && !isFocused ? 'hidden' : ''}`}
         onContextMenu={handleContextMenu}
+        onDoubleClick={() => {
+          if (!isFocused) handleRequestFocus();
+        }}
       >
+        {isFocused && (
+          <div className="focus-controls">
+            <button
+              type="button"
+              className="button secondary"
+              onClick={handleExitFocus}
+            >
+              Back to Class View
+            </button>
+            <div className="focus-controls-actions">
+              <button
+                type="button"
+                className="button secondary"
+                onClick={handleLockToggle}
+              >
+                {student.isLocked ? 'Unlock' : 'Lock'}
+              </button>
+              <button
+                type="button"
+                className="button secondary"
+                onClick={handleClear}
+              >
+                Clear Board
+              </button>
+              <button
+                type="button"
+                className="button danger"
+                onClick={handleKick}
+              >
+                Kick
+              </button>
+            </div>
+          </div>
+        )}
         <div className="student-tile-header">
           {student.isLocked && '🔒 '}{student.displayName}
         </div>
-        <canvas
-          ref={canvasRef}
-          className="student-canvas"
-          width={200}
-          height={150}
-        />
+        <div className="student-canvas-wrapper" ref={canvasWrapperRef}>
+          <canvas
+            ref={canvasRef}
+            className="student-canvas"
+            width={200}
+            height={150}
+          />
+        </div>
         {student.confidenceLevel && student.confidenceLevel !== 'none' && (
           <div
             className={`confidence-indicator ${student.confidenceLevel}`}
@@ -262,6 +361,13 @@ function StudentTile({ student, connection, roomId }: StudentTileProps) {
           className="context-menu"
           style={{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }}
         >
+          <button
+            type="button"
+            className="context-menu-item"
+            onClick={isFocused ? handleExitFocus : handleRequestFocus}
+          >
+            {isFocused ? 'Back to Class View' : 'Focus Student'}
+          </button>
           <button
             type="button"
             className="context-menu-item"
@@ -290,3 +396,4 @@ function StudentTile({ student, connection, roomId }: StudentTileProps) {
 }
 
 export default StudentTile;
+
