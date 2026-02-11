@@ -3,6 +3,8 @@
 ## Purpose
 Lock down recent waiting-room, lock-state, viewer-sync, iPad input, and iOS overlay regressions.
 
+Last updated: February 10, 2026
+
 ## Automated Coverage
 - Frontend unit tests now cover waiting-room and lock-state transitions:
   - `src/WhitePad.Web/src/student/hooks/waitingRoomStateMachine.test.ts`

@@ -6,7 +6,7 @@ Build a web-based system that replaces physical mini whiteboards with stylus inp
 
 **Primary goal**: Deliver a working MVP you can test at home (server on one machine, iPads on home Wi-Fi), then deploy on-prem on a school IIS-hosted server for in-school use.
 
-## 1.5 Current Delivery Snapshot (February 8, 2026)
+## 1.5 Current Delivery Snapshot (February 10, 2026)
 - Stage 0 to Stage 3 are complete.
 - Stage 4 is in progress (cross-device iPad hardening and regression testing).
 - Recently completed Stage 4 hardening:
@@ -1052,16 +1052,16 @@ The following documents have been created in the `docs/` folder to guide impleme
 
 1. ✅ **Stage 0 complete**: Documentation and project structure ready
 2. ✅ **Stage 1 complete**: Local MVP implemented (Kestrel, SignalR, React, basic drawing)
-3. **Stage 2 (NEXT)**: Add drawing tools (colors, thickness, eraser, undo/redo) - LOCAL DEMO
-4. **Stage 3**: Add shape tools and graph aids (geometric shapes, axes, grids) - LOCAL DEMO
-5. **Stage 4**: Test on iPads at home (QR codes, Apple Pencil, networking, touch-optimized tools)
-6. **Stage 5**: Add classroom controls and text input mode
+3. ✅ **Stage 2 complete**: Drawing tools (colors, thickness, eraser, undo/redo, confidence)
+4. ✅ **Stage 3 complete**: Shape tools, graph aids, toolbar redesign, clear controls
+5. **Stage 4 (in progress)**: iPad testing at home (QR codes, Apple Pencil, LAN setup, touch-optimized tools)
+6. **Stage 5**: Advanced classroom controls and text input mode
 7. **Stage 6**: Scale testing and optimization (28 students, 10 rooms)
 8. **Stage 7**: Package for IIS deployment
 9. **Stage 8**: Deploy to school server
 10. **Stage 9**: Pilot in classroom
 11. **Stage 10+**: Authentication, exports, and advanced features
 
-**Current Status**: Stage 1 MVP is working! Multiple students can connect and draw in real-time.
+**Current Status**: Stage 0-3 complete; Stage 4 in progress with iPad hardening and regression testing.
 
-**Next Priority**: Stage 2-3 will add drawing tools and shapes for a feature-rich local demo to show school viability, then Stage 4 will test on iPads.
+**Next Priority**: Finish Stage 4 QR join + iPad validation, then proceed to Stage 5 classroom controls.

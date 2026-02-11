@@ -1,0 +1,52 @@
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { StrokeBatcher } from '../strokeBatching';
+
+describe('StrokeBatcher', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('batches points and flushes on interval', () => {
+    const onBatch = vi.fn();
+    const batcher = new StrokeBatcher('stroke-1', onBatch);
+
+    batcher.addPoint({ x: 0.1, y: 0.2, pressure: 0.5 });
+    batcher.addPoint({ x: 0.2, y: 0.3, pressure: 0.6 });
+
+    expect(onBatch).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(50);
+
+    expect(onBatch).toHaveBeenCalledTimes(1);
+    expect(onBatch).toHaveBeenCalledWith({
+      strokeId: 'stroke-1',
+      points: [
+        { x: 0.1, y: 0.2, pressure: 0.5 },
+        { x: 0.2, y: 0.3, pressure: 0.6 },
+      ],
+      isComplete: false,
+    });
+  });
+
+  it('flushes immediately when requested and clears timer', () => {
+    const onBatch = vi.fn();
+    const batcher = new StrokeBatcher('stroke-2', onBatch);
+
+    batcher.addPoint({ x: 0.4, y: 0.5, pressure: 0.7 });
+    batcher.flush(true);
+
+    expect(onBatch).toHaveBeenCalledTimes(1);
+    expect(onBatch).toHaveBeenCalledWith({
+      strokeId: 'stroke-2',
+      points: [{ x: 0.4, y: 0.5, pressure: 0.7 }],
+      isComplete: true,
+    });
+
+    vi.advanceTimersByTime(50);
+    expect(onBatch).toHaveBeenCalledTimes(1);
+  });
+});

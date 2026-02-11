@@ -1,4 +1,4 @@
-# WhitePad Repository Structure
+﻿# WhitePad Repository Structure
 
 This document defines the complete folder and file organization for the WhitePad project.
 
@@ -8,37 +8,37 @@ This document defines the complete folder and file organization for the WhitePad
 
 ```
 WhitePad/
-├── .gitignore                    # Git ignore patterns (see below)
-├── .claudeignore                 # Claude Code ignore patterns (optional)
-├── README.md                     # Project overview and quick start guide
-├── WhitePad.sln                  # Visual Studio solution file
-│
-├── .claude/                      # Claude Code configuration (auto-generated)
-│   └── (auto-managed by Claude)
-│
-├── docs/                         # Documentation
-│   ├── WhitePad Project Plan.md  # Main project specification
-│   ├── stage0-architecture.md    # System architecture
-│   ├── stage0-message-contracts.md  # SignalR message contracts
-│   ├── stage0-wireframes.md      # UI wireframes
-│   ├── stage0-repo-structure.md  # This file
-│   └── deployment/               # Deployment guides (added in Stage 5)
-│       ├── iis-setup.md
-│       ├── local-testing.md
-│       └── troubleshooting.md
-│
-├── src/                          # Source code
-│   ├── WhitePad.Server/          # ASP.NET Core backend
-│   └── WhitePad.Web/             # React frontend
-│
-├── tests/                        # Tests
-│   ├── WhitePad.Tests/           # Backend unit/integration tests
-│   └── WhitePad.E2E/             # End-to-end tests (Playwright, Stage 4+)
-│
-└── scripts/                      # Build and deployment scripts (Stage 5+)
-    ├── build.ps1                 # Build script (Windows)
-    ├── publish.ps1               # Publish for IIS deployment
-    └── load-test.js              # Load testing script (Stage 4)
+â”œâ”€â”€ .gitignore                    # Git ignore patterns (see below)
+â”œâ”€â”€ .claudeignore                 # Claude Code ignore patterns (optional)
+â”œâ”€â”€ README.md                     # Project overview and quick start guide
+â”œâ”€â”€ WhitePad.sln                  # Visual Studio solution file
+â”‚
+â”œâ”€â”€ .claude/                      # Claude Code configuration (auto-generated)
+â”‚   â””â”€â”€ (auto-managed by Claude)
+â”‚
+â”œâ”€â”€ docs/                         # Documentation
+â”‚   â”œâ”€â”€ WhitePad Project Plan.md  # Main project specification
+â”‚   â”œâ”€â”€ stage0-architecture.md    # System architecture
+â”‚   â”œâ”€â”€ stage0-message-contracts.md  # SignalR message contracts
+â”‚   â”œâ”€â”€ stage0-wireframes.md      # UI wireframes
+â”‚   â”œâ”€â”€ stage0-repo-structure.md  # This file
+â”‚   â””â”€â”€ deployment/               # Deployment guides (added in Stage 5)
+â”‚       â”œâ”€â”€ iis-setup.md
+â”‚       â”œâ”€â”€ local-testing.md
+â”‚       â””â”€â”€ troubleshooting.md
+â”‚
+â”œâ”€â”€ src/                          # Source code
+â”‚   â”œâ”€â”€ WhitePad.Server/          # ASP.NET Core backend
+â”‚   â””â”€â”€ WhitePad.Web/             # React frontend
+â”‚
+â”œâ”€â”€ tests/                        # Tests
+â”‚   â”œâ”€â”€ WhitePad.Tests/           # Backend unit/integration tests
+â”‚   â””â”€â”€ WhitePad.E2E/             # End-to-end tests (Playwright, Stage 4+)
+â”‚
+â””â”€â”€ scripts/                      # Build and deployment scripts (Stage 5+)
+    â”œâ”€â”€ build.ps1                 # Build script (Windows)
+    â”œâ”€â”€ publish.ps1               # Publish for IIS deployment
+    â””â”€â”€ load-test.js              # Load testing script (Stage 4)
 ```
 
 ---
@@ -47,50 +47,50 @@ WhitePad/
 
 ```
 src/WhitePad.Server/
-├── WhitePad.Server.csproj        # Project file (.NET 8)
-├── Program.cs                    # Application entry point, Kestrel config
-├── appsettings.json              # Configuration (Kestrel, logging, etc.)
-├── appsettings.Development.json  # Development overrides (local HTTPS, etc.)
-│
-├── Hubs/                         # SignalR hubs
-│   ├── WhiteboardHub.cs          # Main SignalR hub (student/teacher methods)
-│   └── IWhiteboardClient.cs      # Client interface (strongly-typed callbacks)
-│
-├── Models/                       # Data models
-│   ├── Room.cs                   # Room entity
-│   ├── Student.cs                # Student participant entity
-│   ├── RoomSettings.cs           # Room settings (isLocked, isFrozen, etc.)
-│   ├── StrokeBatch.cs            # Stroke batch message
-│   ├── StrokePoint.cs            # Stroke point (x, y, pressure)
-│   ├── TextUpdate.cs             # Text update message
-│   └── Messages/                 # Message DTOs (request/response)
-│       ├── JoinRoomRequest.cs
-│       ├── JoinRoomResponse.cs
-│       ├── CreateRoomRequest.cs
-│       ├── CreateRoomResponse.cs
-│       └── ... (other messages)
-│
-├── Services/                     # Business logic services
-│   ├── IRoomStateManager.cs      # Interface for room state management
-│   ├── InMemoryRoomStateManager.cs  # In-memory implementation (MVP)
-│   ├── ITokenGenerator.cs        # Interface for join token generation
-│   ├── TokenGenerator.cs         # Token generation service
-│   └── RoomCleanupService.cs     # Background service (auto-expire rooms)
-│
-├── Middleware/                   # Custom middleware (optional)
-│   ├── RateLimitingMiddleware.cs # Rate limiting (Stage 4)
-│   └── ErrorHandlingMiddleware.cs # Global error handling
-│
-├── wwwroot/                      # Static files (React build output)
-│   ├── index.html                # SPA entry point (from Vite build)
-│   ├── assets/                   # JS/CSS bundles (from Vite build)
-│   │   ├── index-[hash].js
-│   │   ├── index-[hash].css
-│   │   └── ...
-│   └── favicon.ico               # App icon
-│
-└── Properties/
-    └── launchSettings.json       # Launch profiles (IIS Express, Kestrel)
+â”œâ”€â”€ WhitePad.Server.csproj        # Project file (.NET 8)
+â”œâ”€â”€ Program.cs                    # Application entry point, Kestrel config
+â”œâ”€â”€ appsettings.json              # Configuration (Kestrel, logging, etc.)
+â”œâ”€â”€ appsettings.Development.json  # Development overrides (local HTTPS, etc.)
+â”‚
+â”œâ”€â”€ Hubs/                         # SignalR hubs
+â”‚   â”œâ”€â”€ WhiteboardHub.cs          # Main SignalR hub (student/teacher methods)
+â”‚   â””â”€â”€ IWhiteboardClient.cs      # Client interface (strongly-typed callbacks)
+â”‚
+â”œâ”€â”€ Models/                       # Data models
+â”‚   â”œâ”€â”€ Room.cs                   # Room entity
+â”‚   â”œâ”€â”€ Student.cs                # Student participant entity
+â”‚   â”œâ”€â”€ RoomSettings.cs           # Room settings (isLocked, isFrozen, etc.)
+â”‚   â”œâ”€â”€ StrokeBatch.cs            # Stroke batch message
+â”‚   â”œâ”€â”€ StrokePoint.cs            # Stroke point (x, y, pressure)
+â”‚   â”œâ”€â”€ TextUpdate.cs             # Text update message
+â”‚   â””â”€â”€ Messages/                 # Message DTOs (request/response)
+â”‚       â”œâ”€â”€ JoinRoomRequest.cs
+â”‚       â”œâ”€â”€ JoinRoomResponse.cs
+â”‚       â”œâ”€â”€ CreateRoomRequest.cs
+â”‚       â”œâ”€â”€ CreateRoomResponse.cs
+â”‚       â””â”€â”€ ... (other messages)
+â”‚
+â”œâ”€â”€ Services/                     # Business logic services
+â”‚   â”œâ”€â”€ IRoomStateManager.cs      # Interface for room state management
+â”‚   â”œâ”€â”€ InMemoryRoomStateManager.cs  # In-memory implementation (MVP)
+â”‚   â”œâ”€â”€ ITokenGenerator.cs        # Interface for join token generation
+â”‚   â”œâ”€â”€ TokenGenerator.cs         # Token generation service
+â”‚   â””â”€â”€ RoomCleanupService.cs     # Background service (auto-expire rooms)
+â”‚
+â”œâ”€â”€ Middleware/                   # Custom middleware (optional)
+â”‚   â”œâ”€â”€ RateLimitingMiddleware.cs # Rate limiting (Stage 4)
+â”‚   â””â”€â”€ ErrorHandlingMiddleware.cs # Global error handling
+â”‚
+â”œâ”€â”€ wwwroot/                      # Static files (React build output)
+â”‚   â”œâ”€â”€ index.html                # SPA entry point (from Vite build)
+â”‚   â”œâ”€â”€ assets/                   # JS/CSS bundles (from Vite build)
+â”‚   â”‚   â”œâ”€â”€ index-[hash].js
+â”‚   â”‚   â”œâ”€â”€ index-[hash].css
+â”‚   â”‚   â””â”€â”€ ...
+â”‚   â””â”€â”€ favicon.ico               # App icon
+â”‚
+â””â”€â”€ Properties/
+    â””â”€â”€ launchSettings.json       # Launch profiles (IIS Express, Kestrel)
 ```
 
 ---
@@ -99,78 +99,78 @@ src/WhitePad.Server/
 
 ```
 src/WhitePad.Web/
-├── package.json                  # Node dependencies (React, Vite, TypeScript, etc.)
-├── package-lock.json             # Dependency lock file
-├── tsconfig.json                 # TypeScript configuration
-├── vite.config.ts                # Vite build configuration
-├── .eslintrc.json                # ESLint configuration (optional)
-├── .prettierrc                   # Prettier configuration (optional)
-│
-├── public/                       # Public assets (copied to wwwroot)
-│   ├── favicon.ico
-│   └── robots.txt
-│
-├── src/                          # React source code
-│   ├── main.tsx                  # App entry point (ReactDOM.render)
-│   ├── App.tsx                   # Root component (routing)
-│   ├── vite-env.d.ts             # Vite type declarations
-│   │
-│   ├── teacher/                  # Teacher UI components
-│   │   ├── TeacherApp.tsx        # Teacher root component
-│   │   ├── RoomCreatePage.tsx    # Room creation page
-│   │   ├── RoomDashboard.tsx     # Room dashboard (grid view)
-│   │   ├── StudentTile.tsx       # Individual student tile
-│   │   ├── StudentGrid.tsx       # Grid of student tiles
-│   │   ├── SpotlightView.tsx     # Enlarged student view
-│   │   ├── ControlBar.tsx        # Lock/Freeze/Clear All buttons
-│   │   ├── QRCodeDisplay.tsx     # QR code component
-│   │   └── hooks/                # Teacher-specific hooks
-│   │       ├── useRoom.ts        # Room state management
-│   │       ├── useStudents.ts    # Student list management
-│   │       └── useSignalR.ts     # SignalR connection (teacher)
-│   │
-│   ├── student/                  # Student UI components
-│   │   ├── StudentApp.tsx        # Student root component
-│   │   ├── JoinPage.tsx          # Join room page
-│   │   ├── DrawingPage.tsx       # Drawing canvas page
-│   │   ├── TypingPage.tsx        # Text input page
-│   │   ├── InputModeToggle.tsx   # Draw/Type mode toggle
-│   │   ├── StatusIndicator.tsx   # Connection status indicator
-│   │   ├── LockedOverlay.tsx     # "Locked by teacher" overlay
-│   │   ├── FrozenOverlay.tsx     # "Frozen" overlay
-│   │   └── hooks/                # Student-specific hooks
-│   │       ├── useDrawing.ts     # Drawing canvas logic
-│   │       ├── useSignalR.ts     # SignalR connection (student)
-│   │       └── useInputMode.ts   # Input mode state
-│   │
-│   ├── shared/                   # Shared components and utilities
-│   │   ├── components/           # Reusable UI components
-│   │   │   ├── Button.tsx
-│   │   │   ├── Modal.tsx
-│   │   │   └── ErrorMessage.tsx
-│   │   ├── hooks/                # Shared hooks
-│   │   │   └── useLocalStorage.ts
-│   │   ├── utils/                # Utility functions
-│   │   │   ├── strokeBatching.ts  # Stroke point batching logic
-│   │   │   ├── textDebouncing.ts  # Text update debouncing
-│   │   │   └── coordinates.ts     # Normalize/denormalize coordinates
-│   │   └── types/                # TypeScript type definitions
-│   │       ├── messages.ts       # SignalR message types
-│   │       ├── room.ts           # Room-related types
-│   │       └── student.ts        # Student-related types
-│   │
-│   ├── services/                 # Frontend services
-│   │   ├── signalr.ts            # SignalR connection setup
-│   │   └── api.ts                # REST API client (if needed)
-│   │
-│   └── styles/                   # CSS/SCSS files
-│       ├── global.css            # Global styles
-│       ├── teacher.css           # Teacher-specific styles
-│       ├── student.css           # Student-specific styles
-│       └── variables.css         # CSS variables (colors, spacing, etc.)
-│
-└── dist/                         # Vite build output (ignored in git)
-    └── (generated at build time)
+â”œâ”€â”€ package.json                  # Node dependencies (React, Vite, TypeScript, etc.)
+â”œâ”€â”€ package-lock.json             # Dependency lock file
+â”œâ”€â”€ tsconfig.json                 # TypeScript configuration
+â”œâ”€â”€ vite.config.ts                # Vite build configuration
+â”œâ”€â”€ .eslintrc.json                # ESLint configuration (optional)
+â”œâ”€â”€ .prettierrc                   # Prettier configuration (optional)
+â”‚
+â”œâ”€â”€ public/                       # Public assets (copied to wwwroot)
+â”‚   â”œâ”€â”€ favicon.ico
+â”‚   â””â”€â”€ robots.txt
+â”‚
+â”œâ”€â”€ src/                          # React source code
+â”‚   â”œâ”€â”€ main.tsx                  # App entry point (ReactDOM.render)
+â”‚   â”œâ”€â”€ App.tsx                   # Root component (routing)
+â”‚   â”œâ”€â”€ vite-env.d.ts             # Vite type declarations
+â”‚   â”‚
+â”‚   â”œâ”€â”€ teacher/                  # Teacher UI components
+â”‚   â”‚   â”œâ”€â”€ TeacherApp.tsx        # Teacher root component
+â”‚   â”‚   â”œâ”€â”€ RoomCreatePage.tsx    # Room creation page
+â”‚   â”‚   â”œâ”€â”€ RoomDashboard.tsx     # Room dashboard (grid view)
+â”‚   â”‚   â”œâ”€â”€ StudentTile.tsx       # Individual student tile
+â”‚   â”‚   â”œâ”€â”€ StudentGrid.tsx       # Grid of student tiles
+â”‚   â”‚   â”œâ”€â”€ SpotlightView.tsx     # Enlarged student view
+â”‚   â”‚   â”œâ”€â”€ ControlBar.tsx        # Lock/Freeze/Clear All buttons
+â”‚   â”‚   â”œâ”€â”€ QRCodeDisplay.tsx     # QR code component
+â”‚   â”‚   â””â”€â”€ hooks/                # Teacher-specific hooks
+â”‚   â”‚       â”œâ”€â”€ useRoom.ts        # Room state management
+â”‚   â”‚       â”œâ”€â”€ useStudents.ts    # Student list management
+â”‚   â”‚       â””â”€â”€ useSignalR.ts     # SignalR connection (teacher)
+â”‚   â”‚
+â”‚   â”œâ”€â”€ student/                  # Student UI components
+â”‚   â”‚   â”œâ”€â”€ StudentApp.tsx        # Student root component
+â”‚   â”‚   â”œâ”€â”€ JoinPage.tsx          # Join room page
+â”‚   â”‚   â”œâ”€â”€ DrawingPage.tsx       # Drawing canvas page
+â”‚   â”‚   â”œâ”€â”€ TypingPage.tsx        # Text input page
+â”‚   â”‚   â”œâ”€â”€ InputModeToggle.tsx   # Draw/Type mode toggle
+â”‚   â”‚   â”œâ”€â”€ StatusIndicator.tsx   # Connection status indicator
+â”‚   â”‚   â”œâ”€â”€ LockedOverlay.tsx     # "Locked by teacher" overlay
+â”‚   â”‚   â”œâ”€â”€ FrozenOverlay.tsx     # "Frozen" overlay
+â”‚   â”‚   â””â”€â”€ hooks/                # Student-specific hooks
+â”‚   â”‚       â”œâ”€â”€ useDrawing.ts     # Drawing canvas logic
+â”‚   â”‚       â”œâ”€â”€ useSignalR.ts     # SignalR connection (student)
+â”‚   â”‚       â””â”€â”€ useInputMode.ts   # Input mode state
+â”‚   â”‚
+â”‚   â”œâ”€â”€ shared/                   # Shared components and utilities
+â”‚   â”‚   â”œâ”€â”€ components/           # Reusable UI components
+â”‚   â”‚   â”‚   â”œâ”€â”€ Button.tsx
+â”‚   â”‚   â”‚   â”œâ”€â”€ Modal.tsx
+â”‚   â”‚   â”‚   â””â”€â”€ ErrorMessage.tsx
+â”‚   â”‚   â”œâ”€â”€ hooks/                # Shared hooks
+â”‚   â”‚   â”‚   â””â”€â”€ useLocalStorage.ts
+â”‚   â”‚   â”œâ”€â”€ utils/                # Utility functions
+â”‚   â”‚   â”‚   â”œâ”€â”€ strokeBatching.ts  # Stroke point batching logic
+â”‚   â”‚   â”‚   â”œâ”€â”€ textDebouncing.ts  # Text update debouncing
+â”‚   â”‚   â”‚   â””â”€â”€ coordinates.ts     # Normalize/denormalize coordinates
+â”‚   â”‚   â””â”€â”€ types/                # TypeScript type definitions
+â”‚   â”‚       â”œâ”€â”€ messages.ts       # SignalR message types
+â”‚   â”‚       â”œâ”€â”€ room.ts           # Room-related types
+â”‚   â”‚       â””â”€â”€ student.ts        # Student-related types
+â”‚   â”‚
+â”‚   â”œâ”€â”€ services/                 # Frontend services
+â”‚   â”‚   â”œâ”€â”€ signalr.ts            # SignalR connection setup
+â”‚   â”‚   â””â”€â”€ api.ts                # REST API client (if needed)
+â”‚   â”‚
+â”‚   â””â”€â”€ styles/                   # CSS/SCSS files
+â”‚       â”œâ”€â”€ global.css            # Global styles
+â”‚       â”œâ”€â”€ teacher.css           # Teacher-specific styles
+â”‚       â”œâ”€â”€ student.css           # Student-specific styles
+â”‚       â””â”€â”€ variables.css         # CSS variables (colors, spacing, etc.)
+â”‚
+â””â”€â”€ dist/                         # Vite build output (ignored in git)
+    â””â”€â”€ (generated at build time)
 ```
 
 ---
@@ -179,23 +179,23 @@ src/WhitePad.Web/
 
 ```
 tests/WhitePad.Tests/
-├── WhitePad.Tests.csproj         # Test project file
-│
-├── Hubs/                         # Hub tests
-│   └── WhiteboardHubTests.cs     # Tests for SignalR hub methods
-│
-├── Services/                     # Service tests
-│   ├── InMemoryRoomStateManagerTests.cs
-│   ├── TokenGeneratorTests.cs
-│   └── RoomCleanupServiceTests.cs
-│
-├── Models/                       # Model/validation tests
-│   └── MessageValidationTests.cs
-│
-└── Integration/                  # Integration tests
-    ├── SignalRConnectionTests.cs
-    ├── RoomLifecycleTests.cs
-    └── CommandFlowTests.cs
+â”œâ”€â”€ WhitePad.Tests.csproj         # Test project file
+â”‚
+â”œâ”€â”€ Hubs/                         # Hub tests
+â”‚   â””â”€â”€ WhiteboardHubTests.cs     # Tests for SignalR hub methods
+â”‚
+â”œâ”€â”€ Services/                     # Service tests
+â”‚   â”œâ”€â”€ InMemoryRoomStateManagerTests.cs
+â”‚   â”œâ”€â”€ TokenGeneratorTests.cs
+â”‚   â””â”€â”€ RoomCleanupServiceTests.cs
+â”‚
+â”œâ”€â”€ Models/                       # Model/validation tests
+â”‚   â””â”€â”€ MessageValidationTests.cs
+â”‚
+â””â”€â”€ Integration/                  # Integration tests
+    â”œâ”€â”€ SignalRConnectionTests.cs
+    â”œâ”€â”€ RoomLifecycleTests.cs
+    â””â”€â”€ CommandFlowTests.cs
 ```
 
 ---
@@ -204,18 +204,18 @@ tests/WhitePad.Tests/
 
 ```
 tests/WhitePad.E2E/
-├── package.json                  # Node dependencies (Playwright)
-├── playwright.config.ts          # Playwright configuration
-│
-├── tests/                        # E2E test specs
-│   ├── room-creation.spec.ts     # Test room creation flow
-│   ├── student-join.spec.ts      # Test student join flow
-│   ├── drawing.spec.ts           # Test drawing and stroke streaming
-│   ├── teacher-controls.spec.ts  # Test lock/freeze/clear/kick
-│   └── reconnection.spec.ts      # Test reconnection handling
-│
-└── fixtures/                     # Test fixtures
-    └── testData.ts               # Sample room data, etc.
+â”œâ”€â”€ package.json                  # Node dependencies (Playwright)
+â”œâ”€â”€ playwright.config.ts          # Playwright configuration
+â”‚
+â”œâ”€â”€ tests/                        # E2E test specs
+â”‚   â”œâ”€â”€ room-creation.spec.ts     # Test room creation flow
+â”‚   â”œâ”€â”€ student-join.spec.ts      # Test student join flow
+â”‚   â”œâ”€â”€ drawing.spec.ts           # Test drawing and stroke streaming
+â”‚   â”œâ”€â”€ teacher-controls.spec.ts  # Test lock/freeze/clear/kick
+â”‚   â””â”€â”€ reconnection.spec.ts      # Test reconnection handling
+â”‚
+â””â”€â”€ fixtures/                     # Test fixtures
+    â””â”€â”€ testData.ts               # Sample room data, etc.
 ```
 
 ---
@@ -548,10 +548,10 @@ export default defineConfig({
 
 ## Next Steps
 
-- ✅ Stage 0 complete: Repository structure defined
-- **Stage 1**: Create `.csproj`, `package.json`, and initial project files
-- **Stage 1**: Set up SignalR hub and React app skeleton
-- **Stage 2**: Implement drawing canvas and stroke streaming
-- **Stage 3**: Implement teacher controls and student command handling
-- **Stage 4**: Add tests and optimize performance
-- **Stage 5**: Create deployment scripts and IIS documentation
+- Stage 0-3 complete: Repo structure implemented and used through shapes/toolbar work
+- **Stage 4 (in progress)**: iPad validation and test hardening
+- **Stage 5**: Advanced classroom controls and text input mode
+- **Stage 6**: Scale testing and optimization
+- **Stage 7**: IIS deployment prep
+
+Note: This is a Stage 0 reference document. For current status, see docs/WhitePad Project Plan.md.

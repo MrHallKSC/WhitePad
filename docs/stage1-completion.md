@@ -297,3 +297,9 @@ The application successfully demonstrates:
 - Solid foundation for adding advanced features
 
 All major bugs have been resolved, and the system is ready for the next phase of development: testing on real iPad hardware with Apple Pencil input over a local network.
+
+---
+
+## Status Update (February 10, 2026)
+
+Stage 2 and Stage 3 are now complete. Stage 4 (iPad testing and hardening) is in progress; QR join flow and Perfect Freehand smoothing are still pending.

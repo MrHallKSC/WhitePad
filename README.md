@@ -2,6 +2,21 @@
 
 WhitePad is a real-time classroom whiteboard system. Students join from iPad Safari and draw on personal boards; teachers monitor all boards live and control classroom flow.
 
+## Docs Index
+
+- `docs/WhitePad Project Plan.md`
+- `docs/TESTING-README.md`
+- `docs/stage0-architecture.md`
+- `docs/stage0-message-contracts.md`
+- `docs/stage0-wireframes.md`
+- `docs/stage0-repo-structure.md`
+- `docs/stage1-completion.md`
+- `docs/stage2-completion.md`
+- `docs/stage3-completion.md`
+- `docs/stage3-implementation-plan.md`
+- `docs/simplification-improvements-review.md`
+- `docs/stage4-regression-test-matrix.md`
+
 ## Current Status
 
 - Stage 0 to Stage 3: complete
@@ -86,8 +101,7 @@ For LAN iPad testing, run backend bound to your LAN address and use the generate
 
 Backend tests:
 ```bash
-cd tests/WhitePad.Tests
-dotnet test
+dotnet test tests/WhitePad.Server.Tests/WhitePad.Server.Tests.csproj
 ```
 
 Frontend tests (Vitest):
@@ -96,20 +110,37 @@ cd src/WhitePad.Web
 npm run test
 ```
 
+Run all tests (PowerShell):
+```powershell
+./scripts/run-tests.ps1
+```
+
 Manual regression matrix:
 - `docs/stage4-regression-test-matrix.md`
+
+Full testing guide:
+- `docs/TESTING-README.md`
 
 ## Documentation
 
 - `docs/WhitePad Project Plan.md` - full project plan and staged roadmap
+- `docs/TESTING-README.md` - automated + manual testing guide
+- `docs/stage0-architecture.md` - architecture and deployment models
+- `docs/stage0-message-contracts.md` - SignalR message contracts
+- `docs/stage0-wireframes.md` - UI wireframes
+- `docs/stage0-repo-structure.md` - repository structure plan
+- `docs/stage1-completion.md` - Stage 1 completion report
+- `docs/stage2-completion.md` - Stage 2 completion report
 - `docs/stage3-completion.md` - Stage 3 completion report
+- `docs/stage3-implementation-plan.md` - Stage 3 implementation plan (historical)
 - `docs/simplification-improvements-review.md` - simplification recommendations + status
 - `docs/stage4-regression-test-matrix.md` - Stage 4 manual regression checklist
 
 ## Next Priorities
 
-1. Continue Stage 4 cross-device validation (iPad Safari + desktop teacher).
-2. Expand automated frontend tests around waiting-room and lock interactions.
-3. Move to Stage 6 scale/robustness testing once Stage 4 matrix is consistently green.
+1. Finish Stage 4 QR join flow and LAN/iPad validation on real devices.
+2. Integrate pressure + smoothing (Perfect Freehand) for Apple Pencil strokes.
+3. Expand automated frontend tests around waiting-room and lock interactions.
+4. Move to Stage 6 scale/robustness testing once the Stage 4 matrix is consistently green.
 
-Last updated: February 8, 2026
+Last updated: February 10, 2026

@@ -13,7 +13,7 @@ WhitePad is a web-based collaborative whiteboard system for classroom use. Stude
 
 ---
 
-## Current Status: Stage 3 ✅ COMPLETE
+## Current Status: Stage 3 COMPLETE
 
 **What's Working**:
 - ✅ Real-time drawing with <200ms latency
@@ -67,7 +67,13 @@ dotnet run
 
 ---
 
-## Next Stage: Stage 4 - iPad Testing on Home Wi-Fi
+## Next Stage: Stage 4 - iPad Testing on Home Wi-Fi (In Progress)
+
+**Status (February 10, 2026)**:
+- Waiting-room join flow and classroom lock overlay shipped
+- iPad single-pointer/palm rejection improvements shipped
+- iOS toolbar picker overlay fix shipped
+- Regression matrix added + initial waiting-room/lock tests
 
 **Goal**: Validate Apple Pencil input and all drawing tools on real iPads before school deployment.
 
@@ -498,8 +504,7 @@ Before moving to next stage:
 
 ## Future Stages
 
-- **Stage 3**: 🔄 IN PROGRESS - Shape tools and UI improvements
-- **Stage 4**: iPad testing with Apple Pencil, QR codes
+- **Stage 4**: iPad testing with Apple Pencil, QR codes (in progress)
 - **Stage 5**: Advanced classroom controls (freeze, spotlight, text mode)
 - **Stage 6**: Scale testing (28 students, 10 rooms)
 - **Stage 7-8**: IIS deployment to school server
@@ -511,11 +516,10 @@ Before moving to next stage:
 ## Current Limitations (By Design)
 
 - No QR codes yet (Stage 4)
-- No shape tools yet (Stage 3)
+- No Perfect Freehand smoothing yet (Stage 4)
 - No text input mode (Stage 5)
 - No persistence (rooms lost on restart)
 - No authentication (anonymous join only)
-- Toolbar not optimized for landscape iPad yet (Stage 3)
 
 ---
 

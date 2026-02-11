@@ -640,4 +640,10 @@ All features are polished, tested, and ready for real-world iPad testing. The UI
 
 ---
 
+## Status Update (February 10, 2026)
+
+Stage 4 hardening has begun (waiting-room flow fixes, lock overlay behavior, iPad palm rejection, iOS picker layering fix, regression matrix + initial unit tests). QR join flow and Perfect Freehand smoothing are still pending.
+
+---
+
 **Next Milestone**: iPad Testing with Apple Pencil on Home Wi-Fi 🍎✏️

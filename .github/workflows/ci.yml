@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: Backend tests
+        run: dotnet test tests/WhitePad.Server.Tests/WhitePad.Server.Tests.csproj
+
+      - name: Frontend tests
+        working-directory: src/WhitePad.Web
+        run: |
+          npm ci
+          npm run test

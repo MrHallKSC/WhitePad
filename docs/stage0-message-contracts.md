@@ -1,12 +1,12 @@
-# WhitePad Message Contracts (SignalR Events)
+﻿# WhitePad Message Contracts (SignalR Events)
 
 This document defines all TypeScript/C# interface definitions for SignalR messages used in WhitePad.
 
 ## Overview
 
 SignalR communication is bidirectional:
-- **Client → Server**: Student/teacher invoke hub methods
-- **Server → Client**: Server invokes client methods (callbacks)
+- **Client â†’ Server**: Student/teacher invoke hub methods
+- **Server â†’ Client**: Server invokes client methods (callbacks)
 
 All messages are strongly typed using TypeScript interfaces (client) and C# classes (server).
 
@@ -14,7 +14,7 @@ All messages are strongly typed using TypeScript interfaces (client) and C# clas
 
 ## 1. Connection and Presence Events
 
-### JoinRoomRequest (Client → Server)
+### JoinRoomRequest (Client â†’ Server)
 
 **Student sends this when joining a room.**
 
@@ -41,7 +41,7 @@ public async Task<JoinRoomResponse> JoinRoomAsStudent(JoinRoomRequest request)
 
 ---
 
-### JoinRoomResponse (Server → Client)
+### JoinRoomResponse (Server â†’ Client)
 
 **Server responds to student join request.**
 
@@ -87,7 +87,7 @@ public class RoomSettings
 
 ---
 
-### JoinRoomAsTeacherRequest (Client → Server)
+### JoinRoomAsTeacherRequest (Client â†’ Server)
 
 **Teacher joins an existing room (after creation).**
 
@@ -114,7 +114,7 @@ public async Task JoinRoomAsTeacher(JoinRoomAsTeacherRequest request)
 
 ---
 
-### ParticipantJoined (Server → Teacher)
+### ParticipantJoined (Server â†’ Teacher)
 
 **Server notifies teacher when a student joins.**
 
@@ -147,7 +147,7 @@ connection.on('ParticipantJoined', (participant: ParticipantJoined) => {
 
 ---
 
-### ParticipantLeft (Server → Teacher)
+### ParticipantLeft (Server â†’ Teacher)
 
 **Server notifies teacher when a student disconnects.**
 
@@ -178,7 +178,7 @@ connection.on('ParticipantLeft', (info: ParticipantLeft) => {
 
 ---
 
-### Heartbeat (Client ⇄ Server, Optional)
+### Heartbeat (Client â‡„ Server, Optional)
 
 **Periodic ping to keep connection alive (optional, SignalR has built-in heartbeat).**
 
@@ -200,7 +200,7 @@ public class Heartbeat
 
 ## 2. Stroke Events (Drawing Mode)
 
-### StrokeBatch (Student → Server → Teacher)
+### StrokeBatch (Student â†’ Server â†’ Teacher)
 
 **Student sends batched stroke points (every 50ms while drawing).**
 
@@ -243,7 +243,7 @@ public class StrokePoint
 }
 ```
 
-**Hub Method (Student → Server):**
+**Hub Method (Student â†’ Server):**
 ```csharp
 public async Task SendStrokeBatch(StrokeBatch batch)
 ```
@@ -262,7 +262,7 @@ connection.on('ReceiveStrokeBatch', (batch: StrokeBatch) => {
 
 ---
 
-### ClearBoard (Server → Student)
+### ClearBoard (Server â†’ Student)
 
 **Teacher commands a student to clear their board.**
 
@@ -291,7 +291,7 @@ connection.on('ClearBoard', () => {
 
 ## 3. Text Input Events (Type Mode)
 
-### TextUpdate (Student → Server → Teacher)
+### TextUpdate (Student â†’ Server â†’ Teacher)
 
 **Student sends text content (debounced every 500ms while typing).**
 
@@ -315,7 +315,7 @@ public class TextUpdate
 }
 ```
 
-**Hub Method (Student → Server):**
+**Hub Method (Student â†’ Server):**
 ```csharp
 public async Task SendTextUpdate(TextUpdate update)
 ```
@@ -334,9 +334,9 @@ connection.on('ReceiveTextUpdate', (update: TextUpdate) => {
 
 ---
 
-## 4. Teacher Commands (Teacher → Server → Students)
+## 4. Teacher Commands (Teacher â†’ Server â†’ Students)
 
-### SetLock (Teacher → Server → Students)
+### SetLock (Teacher â†’ Server â†’ Students)
 
 **Lock or unlock writing for all students.**
 
@@ -354,7 +354,7 @@ public class SetLock
 }
 ```
 
-**Hub Method (Teacher → Server):**
+**Hub Method (Teacher â†’ Server):**
 ```csharp
 public async Task SetLock(bool isLocked)
 ```
@@ -369,7 +369,7 @@ connection.on('RoomLocked', (isLocked: boolean) => {
 
 ---
 
-### SetFreeze (Teacher → Server → Students)
+### SetFreeze (Teacher â†’ Server â†’ Students)
 
 **Freeze or unfreeze room (stops streaming AND input).**
 
@@ -387,7 +387,7 @@ public class SetFreeze
 }
 ```
 
-**Hub Method (Teacher → Server):**
+**Hub Method (Teacher â†’ Server):**
 ```csharp
 public async Task SetFreeze(bool isFrozen)
 ```
@@ -403,7 +403,7 @@ connection.on('RoomFrozen', (isFrozen: boolean) => {
 
 ---
 
-### ClearAll (Teacher → Server → Students)
+### ClearAll (Teacher â†’ Server â†’ Students)
 
 **Clear all student boards.**
 
@@ -411,7 +411,7 @@ connection.on('RoomFrozen', (isFrozen: boolean) => {
 // No payload needed
 ```
 
-**Hub Method (Teacher → Server):**
+**Hub Method (Teacher â†’ Server):**
 ```csharp
 public async Task ClearAll()
 ```
@@ -425,7 +425,7 @@ connection.on('ClearBoard', () => {
 
 ---
 
-### ClearOne (Teacher → Server → Specific Student)
+### ClearOne (Teacher â†’ Server â†’ Specific Student)
 
 **Clear a specific student's board.**
 
@@ -443,7 +443,7 @@ public class ClearOne
 }
 ```
 
-**Hub Method (Teacher → Server):**
+**Hub Method (Teacher â†’ Server):**
 ```csharp
 public async Task ClearOne(string studentId)
 ```
@@ -457,7 +457,7 @@ connection.on('ClearBoard', () => {
 
 ---
 
-### KickParticipant (Teacher → Server → Specific Student)
+### KickParticipant (Teacher â†’ Server â†’ Specific Student)
 
 **Disconnect a specific student.**
 
@@ -477,7 +477,7 @@ public class KickParticipant
 }
 ```
 
-**Hub Method (Teacher → Server):**
+**Hub Method (Teacher â†’ Server):**
 ```csharp
 public async Task KickParticipant(string studentId, string? reason = null)
 ```
@@ -493,7 +493,7 @@ connection.on('Kicked', (reason: string) => {
 
 ---
 
-### RotateJoinToken (Teacher → Server)
+### RotateJoinToken (Teacher â†’ Server)
 
 **Invalidate current join token and generate a new one.**
 
@@ -501,12 +501,12 @@ connection.on('Kicked', (reason: string) => {
 // No payload needed (teacher initiates)
 ```
 
-**Hub Method (Teacher → Server):**
+**Hub Method (Teacher â†’ Server):**
 ```csharp
 public async Task RotateJoinToken()
 ```
 
-**Response (Server → Teacher):**
+**Response (Server â†’ Teacher):**
 ```typescript
 interface JoinTokenRotated {
   newJoinToken: string; // New token for QR code
@@ -538,7 +538,7 @@ connection.on('JoinTokenRotated', (data: JoinTokenRotated) => {
 
 ## 5. Room Management (Teacher Only)
 
-### CreateRoomRequest (Teacher → Server)
+### CreateRoomRequest (Teacher â†’ Server)
 
 **Teacher creates a new room.**
 
@@ -558,14 +558,14 @@ public class CreateRoomRequest
 }
 ```
 
-**Hub Method (Teacher → Server):**
+**Hub Method (Teacher â†’ Server):**
 ```csharp
 public async Task<CreateRoomResponse> CreateRoom(CreateRoomRequest request)
 ```
 
 ---
 
-### CreateRoomResponse (Server → Teacher)
+### CreateRoomResponse (Server â†’ Teacher)
 
 **Server responds with room details.**
 
@@ -593,7 +593,7 @@ public class CreateRoomResponse
 
 ---
 
-### EndRoom (Teacher → Server)
+### EndRoom (Teacher â†’ Server)
 
 **Teacher manually ends the room (disconnects all students, deletes data).**
 
@@ -601,7 +601,7 @@ public class CreateRoomResponse
 // No payload needed
 ```
 
-**Hub Method (Teacher → Server):**
+**Hub Method (Teacher â†’ Server):**
 ```csharp
 public async Task EndRoom()
 ```
@@ -623,7 +623,7 @@ connection.on('RoomEnded', () => {
 
 ## 6. State Sync Events
 
-### RequestBoardState (Server → Student)
+### RequestBoardState (Server â†’ Student)
 
 **Server requests current board state from student (on reconnect or teacher refresh).**
 
@@ -642,7 +642,7 @@ connection.on('RequestBoardState', async () => {
 
 ---
 
-### BoardStateSnapshot (Student → Server → Teacher)
+### BoardStateSnapshot (Student â†’ Server â†’ Teacher)
 
 **Student sends current board state (strokes or text).**
 
@@ -668,7 +668,7 @@ public class BoardStateSnapshot
 }
 ```
 
-**Hub Method (Student → Server):**
+**Hub Method (Student â†’ Server):**
 ```csharp
 public async Task SendBoardState(BoardStateSnapshot snapshot)
 ```
@@ -684,7 +684,7 @@ connection.on('ReceiveBoardState', (snapshot: BoardStateSnapshot) => {
 
 ## 7. Input Mode Toggle (Student Only)
 
-### SetInputMode (Student → Server → Teacher)
+### SetInputMode (Student â†’ Server â†’ Teacher)
 
 **Student switches between draw and type modes.**
 
@@ -702,7 +702,7 @@ public class SetInputMode
 }
 ```
 
-**Hub Method (Student → Server):**
+**Hub Method (Student â†’ Server):**
 ```csharp
 public async Task SetInputMode(string inputMode)
 ```
@@ -710,7 +710,7 @@ public async Task SetInputMode(string inputMode)
 **Client Handler (Teacher):**
 ```typescript
 connection.on('StudentInputModeChanged', (data: { studentId: string, inputMode: 'draw' | 'type' }) => {
-  // Update tile UI to show ✏️ or ⌨️ icon
+  // Update tile UI to show âœï¸ or âŒ¨ï¸ icon
   // Clear previous content (strokes or text)
 });
 ```
@@ -719,7 +719,7 @@ connection.on('StudentInputModeChanged', (data: { studentId: string, inputMode: 
 
 ## 8. Error Handling
 
-### ErrorMessage (Server → Client)
+### ErrorMessage (Server â†’ Client)
 
 **Server sends error messages to clients.**
 
@@ -806,12 +806,12 @@ connection.onclose((error) => {
 
 ### Example 1: Student Joins Room
 
-1. Student scans QR code → opens `https://server/join?room=abc&token=xyz`
+1. Student scans QR code â†’ opens `https://server/join?room=abc&token=xyz`
 2. Student establishes SignalR connection
-3. **Student → Server**: `JoinRoomAsStudent({ roomId: "abc", joinToken: "xyz" })`
+3. **Student â†’ Server**: `JoinRoomAsStudent({ roomId: "abc", joinToken: "xyz" })`
 4. Server validates token, creates student record
-5. **Server → Student**: `JoinRoomResponse({ success: true, studentId: "123", displayName: "Student 1", roomSettings: { isLocked: false, isFrozen: false, maxStudents: 28 } })`
-6. **Server → Teacher**: `ParticipantJoined({ studentId: "123", displayName: "Student 1", connectedAt: "2024-01-15T10:30:00Z", inputMode: "draw" })`
+5. **Server â†’ Student**: `JoinRoomResponse({ success: true, studentId: "123", displayName: "Student 1", roomSettings: { isLocked: false, isFrozen: false, maxStudents: 28 } })`
+6. **Server â†’ Teacher**: `ParticipantJoined({ studentId: "123", displayName: "Student 1", connectedAt: "2024-01-15T10:30:00Z", inputMode: "draw" })`
 
 ---
 
@@ -819,9 +819,9 @@ connection.onclose((error) => {
 
 1. Student draws with Apple Pencil
 2. Client batches points for 50ms
-3. **Student → Server**: `SendStrokeBatch({ strokeId: "stroke-1", points: [{ x: 0.5, y: 0.3, pressure: 0.7 }, ...], color: "#000000", lineWidth: 2, isComplete: false })`
+3. **Student â†’ Server**: `SendStrokeBatch({ strokeId: "stroke-1", points: [{ x: 0.5, y: 0.3, pressure: 0.7 }, ...], color: "#000000", lineWidth: 2, isComplete: false })`
 4. Server validates points, adds `studentId`
-5. **Server → Teacher**: `ReceiveStrokeBatch({ studentId: "123", strokeId: "stroke-1", points: [...], color: "#000000", lineWidth: 2, isComplete: false })`
+5. **Server â†’ Teacher**: `ReceiveStrokeBatch({ studentId: "123", strokeId: "stroke-1", points: [...], color: "#000000", lineWidth: 2, isComplete: false })`
 6. Teacher renders points on student tile canvas
 
 ---
@@ -829,21 +829,21 @@ connection.onclose((error) => {
 ### Example 3: Teacher Locks Room
 
 1. Teacher clicks "Lock" button
-2. **Teacher → Server**: `SetLock(true)`
+2. **Teacher â†’ Server**: `SetLock(true)`
 3. Server updates room settings
-4. **Server → All Students**: `RoomLocked(true)`
+4. **Server â†’ All Students**: `RoomLocked(true)`
 5. Students disable drawing/typing input, show "Locked" overlay
-6. **Server → Teacher**: (optional) `CommandAck({ command: "lock", success: true })`
+6. **Server â†’ Teacher**: (optional) `CommandAck({ command: "lock", success: true })`
 
 ---
 
 ### Example 4: Teacher Kicks Student
 
 1. Teacher clicks "Kick" on student tile
-2. **Teacher → Server**: `KickParticipant("123", "inappropriate content")`
-3. **Server → Student 123**: `Kicked("inappropriate content")`
+2. **Teacher â†’ Server**: `KickParticipant("123", "inappropriate content")`
+3. **Server â†’ Student 123**: `Kicked("inappropriate content")`
 4. Student 123 shows error message, disconnects
-5. **Server → Teacher**: `ParticipantLeft({ studentId: "123", reason: "kick", leftAt: "..." })`
+5. **Server â†’ Teacher**: `ParticipantLeft({ studentId: "123", reason: "kick", leftAt: "..." })`
 6. Teacher removes student tile from grid
 
 ---
@@ -879,29 +879,32 @@ connection.onclose((error) => {
 
 | Event | Direction | Sender | Receiver | Purpose |
 |-------|-----------|--------|----------|---------|
-| `JoinRoomRequest` | Client → Server | Student | Server | Student joins room |
-| `JoinRoomResponse` | Server → Client | Server | Student | Confirm join |
-| `ParticipantJoined` | Server → Client | Server | Teacher | Notify new student |
-| `ParticipantLeft` | Server → Client | Server | Teacher | Notify student left |
-| `StrokeBatch` | Client → Server → Client | Student | Teacher | Stream drawing strokes |
-| `TextUpdate` | Client → Server → Client | Student | Teacher | Stream typed text |
-| `ClearBoard` | Server → Client | Server | Student(s) | Clear board command |
-| `SetLock` | Client → Server → Client | Teacher | Students | Lock/unlock input |
-| `SetFreeze` | Client → Server → Client | Teacher | Students | Freeze/unfreeze room |
-| `KickParticipant` | Client → Server → Client | Teacher | Student | Disconnect student |
-| `RotateJoinToken` | Client → Server | Teacher | Server | Generate new token |
-| `CreateRoom` | Client → Server | Teacher | Server | Create new room |
-| `EndRoom` | Client → Server → Client | Teacher | Students | End room |
-| `RequestBoardState` | Server → Client | Server | Student | Request current state |
-| `BoardStateSnapshot` | Client → Server → Client | Student | Teacher | Send current state |
-| `SetInputMode` | Client → Server → Client | Student | Teacher | Toggle draw/type mode |
-| `Error` | Server → Client | Server | Student/Teacher | Error notification |
+| `JoinRoomRequest` | Client â†’ Server | Student | Server | Student joins room |
+| `JoinRoomResponse` | Server â†’ Client | Server | Student | Confirm join |
+| `ParticipantJoined` | Server â†’ Client | Server | Teacher | Notify new student |
+| `ParticipantLeft` | Server â†’ Client | Server | Teacher | Notify student left |
+| `StrokeBatch` | Client â†’ Server â†’ Client | Student | Teacher | Stream drawing strokes |
+| `TextUpdate` | Client â†’ Server â†’ Client | Student | Teacher | Stream typed text |
+| `ClearBoard` | Server â†’ Client | Server | Student(s) | Clear board command |
+| `SetLock` | Client â†’ Server â†’ Client | Teacher | Students | Lock/unlock input |
+| `SetFreeze` | Client â†’ Server â†’ Client | Teacher | Students | Freeze/unfreeze room |
+| `KickParticipant` | Client â†’ Server â†’ Client | Teacher | Student | Disconnect student |
+| `RotateJoinToken` | Client â†’ Server | Teacher | Server | Generate new token |
+| `CreateRoom` | Client â†’ Server | Teacher | Server | Create new room |
+| `EndRoom` | Client â†’ Server â†’ Client | Teacher | Students | End room |
+| `RequestBoardState` | Server â†’ Client | Server | Student | Request current state |
+| `BoardStateSnapshot` | Client â†’ Server â†’ Client | Student | Teacher | Send current state |
+| `SetInputMode` | Client â†’ Server â†’ Client | Student | Teacher | Toggle draw/type mode |
+| `Error` | Server â†’ Client | Server | Student/Teacher | Error notification |
 
 ---
 
 ## Next Steps
 
-- ✅ Stage 0 complete: Message contracts defined
-- **Stage 1**: Implement SignalR hub methods and client handlers
-- **Stage 2**: Add stroke batching and text debouncing logic
-- **Stage 3**: Implement all teacher commands and student responses
+- Stage 0-3 complete: Contracts implemented and extended for tools, shapes, and controls
+- **Stage 4 (in progress)**: QR codes, iPad validation, reconnection handling
+- **Stage 5**: Advanced classroom controls and text input mode
+- **Stage 6**: Scale testing and optimization
+- **Stage 7**: IIS deployment prep
+
+Note: This is a Stage 0 reference document. For current status, see docs/WhitePad Project Plan.md.

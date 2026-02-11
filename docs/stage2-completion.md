@@ -449,3 +449,9 @@ The application now includes:
 - ✅ Real-time sync of all features
 
 All features are polished, tested, and ready for demonstration to school administrators. The next stage will add shape drawing tools and optimize the UI for landscape iPad use.
+
+---
+
+## Status Update (February 10, 2026)
+
+Stage 3 is complete (shape tools, graph aids, toolbar redesign). Stage 4 (iPad testing and hardening) is in progress; QR join flow and Perfect Freehand smoothing are still pending.
