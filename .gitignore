@@ -9,6 +9,7 @@ obj/
 *.vscode/
 .claude/
 .VSCodeCounter/
+.dotnet/
 
 # Build artifacts
 [Dd]ebug/
