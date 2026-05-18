@@ -1,8 +1,8 @@
 import { useEffect, useState, memo } from 'react';
 import { createPortal } from 'react-dom';
+import type { BackgroundType, PaperColor } from '../shared/types/messages';
 
 export type ToolType = 'pen' | 'eraser' | 'line' | 'rectangle' | 'circle' | 'arrow' | 'axesL' | 'axesCross';
-export type BackgroundType = 'none' | 'dotted' | 'lined' | 'squares';
 
 interface ToolbarProps {
   displayName: string;
@@ -11,11 +11,13 @@ interface ToolbarProps {
   currentTool: ToolType;
   currentConfidence: 'none' | 'red' | 'amber' | 'green';
   currentBackground: BackgroundType;
+  currentPaperColor: PaperColor;
   onColorChange: (color: string) => void;
   onThicknessChange: (thickness: number) => void;
   onToolChange: (tool: ToolType) => void;
   onConfidenceChange: (level: 'none' | 'red' | 'amber' | 'green') => void;
   onBackgroundChange: (background: BackgroundType) => void;
+  onPaperColorChange: (paperColor: PaperColor) => void;
   onUndo: () => void;
   onRedo: () => void;
   onClear: () => void;
@@ -65,6 +67,11 @@ const BACKGROUND_OPTIONS: Array<{ value: BackgroundType; icon: string; label: st
   { value: 'squares', icon: '⊞', label: 'Squares', title: 'Square Grid' },
 ];
 
+const PAPER_OPTIONS: Array<{ value: PaperColor; color: string; label: string; title: string }> = [
+  { value: 'white', color: '#FFFFFF', label: 'White', title: 'White Paper' },
+  { value: 'buff', color: '#F4E4BC', label: 'Buff', title: 'Buff Paper' },
+];
+
 const CONFIDENCE_OPTIONS = [
   { value: 'red' as const, icon: '🔴', title: 'Need Help', className: 'red' },
   { value: 'amber' as const, icon: '🟡', title: 'Unsure', className: 'amber' },
@@ -78,11 +85,13 @@ function Toolbar({
   currentTool,
   currentConfidence,
   currentBackground,
+  currentPaperColor,
   onColorChange,
   onThicknessChange,
   onToolChange,
   onConfidenceChange,
   onBackgroundChange,
+  onPaperColorChange,
   onUndo,
   onRedo,
   onClear,
@@ -90,7 +99,7 @@ function Toolbar({
   canUndo,
   canRedo,
 }: ToolbarProps) {
-  type PickerType = 'color' | 'thickness' | 'confidence' | 'background';
+  type PickerType = 'color' | 'thickness' | 'confidence' | 'background' | 'paper';
 
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -182,6 +191,11 @@ function Toolbar({
     setActivePicker(null);
   };
 
+  const handlePaperSelect = (paperColor: PaperColor) => {
+    onPaperColorChange(paperColor);
+    setActivePicker(null);
+  };
+
   const handleConfidenceToggle = (level: 'red' | 'amber' | 'green') => {
     onConfidenceChange(currentConfidence === level ? 'none' : level);
   };
@@ -203,6 +217,8 @@ function Toolbar({
       default: return '□';
     }
   };
+
+  const currentPaperOption = PAPER_OPTIONS.find(option => option.value === currentPaperColor) ?? PAPER_OPTIONS[0];
 
   return (
     <>
@@ -269,6 +285,46 @@ function Toolbar({
                     >
                       <span className="bg-icon">{background.icon}</span>
                       <span className="bg-label">{background.label}</span>
+                    </button>
+                  ))}
+                </div>,
+                portalTarget
+              )
+            )}
+          </div>
+        </div>
+
+        {/* Paper Picker */}
+        <div className="toolbar-section picker-section">
+          {!isCollapsed && <label className="toolbar-section-label">PAPER</label>}
+          <div className="picker-container">
+            <button
+              type="button"
+              className="picker-current-btn"
+              onClick={handlePickerToggle('paper')}
+              title="Select Paper"
+            >
+              <div
+                className="color-preview-large"
+                style={{ backgroundColor: currentPaperOption.color }}
+              />
+            </button>
+            {activePicker === 'paper' && (
+              portalTarget && createPortal(
+                <div
+                  className="picker-popup horizontal"
+                  style={{ top: `${pickerPos.top}px`, left: `${pickerPos.left}px` }}
+                >
+                  {PAPER_OPTIONS.map((paper) => (
+                    <button
+                      type="button"
+                      key={paper.value}
+                      className={`paper-button ${currentPaperColor === paper.value ? 'selected' : ''}`}
+                      onClick={() => handlePaperSelect(paper.value)}
+                      title={paper.title}
+                    >
+                      <span className="paper-swatch" style={{ backgroundColor: paper.color }} />
+                      <span className="paper-label">{paper.label}</span>
                     </button>
                   ))}
                 </div>,

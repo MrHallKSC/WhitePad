@@ -10,6 +10,8 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
     private readonly IRoomStateManager _roomStateManager;
     private readonly ILogger<WhiteboardHub> _logger;
     private const int MaxQuestionLength = 280;
+    private const string EraserStrokeMarker = "-eraser-";
+    private const string EraserColorSentinel = "__WHITEPAD_ERASER__";
 
     public WhiteboardHub(IRoomStateManager roomStateManager, ILogger<WhiteboardHub> logger)
     {
@@ -18,16 +20,15 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
     }
 
     // Teacher creates a room
-    public async Task<CreateRoomResponse> CreateRoom(string roomName)
+    public async Task<CreateRoomResponse> CreateRoom(string roomName, bool useLocalhostJoinUrl = false)
     {
         var room = await _roomStateManager.CreateRoomAsync();
         room.RoomName = roomName;
 
         _logger.LogInformation("Room created: {RoomId} - {RoomName}", room.RoomId, roomName);
 
-        // Get local IP address for network access
-        var localIp = NetworkUtility.GetLocalIPAddress();
-        var joinUrl = $"https://{localIp}:5001/join?roomId={room.RoomId}&token={room.JoinToken}";
+        var joinHost = useLocalhostJoinUrl ? "localhost" : NetworkUtility.GetLocalIPAddress();
+        var joinUrl = $"https://{joinHost}:5001/join?roomId={room.RoomId}&token={room.JoinToken}";
 
         _logger.LogInformation("Join URL for room {RoomId}: {JoinUrl}", room.RoomId, joinUrl);
 
@@ -145,6 +146,10 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
 
         // Set student ID on batch (security - don't trust client)
         batch.StudentId = student.StudentId;
+        batch.IsEraser = batch.IsEraser ||
+            batch.StrokeId.Contains(EraserStrokeMarker, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(batch.Color, EraserColorSentinel, StringComparison.Ordinal) ||
+            batch.LineWidth < 0;
 
         if (room == null)
         {
@@ -566,20 +571,43 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
     }
 
     // Teacher sets a question for the room
-    public async Task SetQuestion(string roomId, string? question)
+    public async Task SetQuestion(string? roomIdOrQuestion = null, string? question = null)
     {
+        var room = await _roomStateManager.GetRoomAsync(roomIdOrQuestion ?? string.Empty);
+        string? normalizedQuestionInput;
+        string roomId;
+
+        if (room != null)
+        {
+            // New signature: SetQuestion(roomId, question)
+            roomId = room.RoomId;
+            normalizedQuestionInput = question;
+        }
+        else
+        {
+            // Legacy signature: SetQuestion(question)
+            room = await GetRoomByTeacherConnectionIdAsync(Context.ConnectionId);
+            if (room == null)
+            {
+                _logger.LogWarning("No room found for teacher connection {ConnectionId} when setting question", Context.ConnectionId);
+                return;
+            }
+
+            roomId = room.RoomId;
+            normalizedQuestionInput = roomIdOrQuestion;
+        }
+
         _logger.LogInformation("Teacher setting question in room {RoomId}", roomId);
 
-        var room = await _roomStateManager.GetRoomAsync(roomId);
         if (room == null)
         {
             _logger.LogWarning("Room not found: {RoomId}", roomId);
             return;
         }
 
-        var normalized = string.IsNullOrWhiteSpace(question)
+        var normalized = string.IsNullOrWhiteSpace(normalizedQuestionInput)
             ? null
-            : question.Trim();
+            : normalizedQuestionInput.Trim();
 
         if (!string.IsNullOrEmpty(normalized) && normalized.Length > MaxQuestionLength)
         {
@@ -609,6 +637,12 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
                 HasAnswered = false
             });
         }
+    }
+
+    private async ValueTask<Room?> GetRoomByTeacherConnectionIdAsync(string connectionId)
+    {
+        var rooms = await _roomStateManager.GetAllRoomsAsync();
+        return rooms.FirstOrDefault(room => room.TeacherSessionId == connectionId);
     }
 
     // Student sets answered state
@@ -731,6 +765,8 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
         Points = shape.Points,
         Color = shape.Color,
         LineWidth = shape.LineWidth,
+        BackgroundType = shape.BackgroundType,
+        PaperColor = shape.PaperColor,
         IsComplete = shape.IsComplete
     };
 }

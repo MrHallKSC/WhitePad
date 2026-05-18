@@ -3,7 +3,7 @@ import { StrokeBatch, StrokePoint } from '../types/messages';
 export class StrokeBatcher {
   private points: StrokePoint[] = [];
   private batchInterval = 50;
-  private timer: number | null = null;
+  private timer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private strokeId: string,

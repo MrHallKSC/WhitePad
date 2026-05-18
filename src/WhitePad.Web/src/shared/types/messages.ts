@@ -1,6 +1,9 @@
 // TypeScript interfaces mirroring C# DTOs
 import type { RoomSettings } from './room';
 
+export type BackgroundType = 'none' | 'dotted' | 'lined' | 'squares';
+export type PaperColor = 'white' | 'buff';
+
 export interface StrokePoint {
   x: number;
   y: number;
@@ -14,6 +17,9 @@ export interface StrokeBatch {
   points: StrokePoint[];
   color: string;
   lineWidth: number;
+  backgroundType?: BackgroundType;
+  paperColor?: PaperColor;
+  isEraser?: boolean;
   isComplete: boolean;
 }
 
@@ -102,6 +108,8 @@ export interface Shape {
   points: StrokePoint[];
   color: string;
   lineWidth: number;
+  backgroundType?: BackgroundType;
+  paperColor?: PaperColor;
   isComplete: boolean;
 }
 

@@ -1,11 +1,11 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { HubConnection } from '@microsoft/signalr';
 import { StrokeBatcher } from '../shared/utils/strokeBatching';
-import { StrokePoint, StrokeBatch, Shape, QuestionChanged } from '../shared/types/messages';
+import { StrokePoint, StrokeBatch, Shape, QuestionChanged, BackgroundType, PaperColor } from '../shared/types/messages';
 import { renderShape } from '../shared/utils/shapeRenderer';
 import { debugLog } from '../shared/utils/debugLog';
 import { HubEvents, HubMethods } from '../shared/constants/hubContract';
-import Toolbar, { ToolType, BackgroundType } from './Toolbar';
+import Toolbar, { ToolType } from './Toolbar';
 import { useStrokeHistory } from './hooks/useStrokeHistory';
 import { useWaitingRoomState } from './hooks/useWaitingRoomState';
 import { useLatest } from '../shared/hooks/useLatest';
@@ -26,7 +26,14 @@ interface StoredStroke {
   batches: StrokeBatch[];
   color: string;
   lineWidth: number;
+  isEraser: boolean;
 }
+
+const ERASER_COLOR_SENTINEL = '__WHITEPAD_ERASER__';
+const PAPER_COLORS: Record<PaperColor, string> = {
+  white: '#FFFFFF',
+  buff: '#F4E4BC',
+};
 
 function DrawingPage({
   studentId,
@@ -52,6 +59,7 @@ function DrawingPage({
   const [currentThickness, setCurrentThickness] = useState(2);
   const [currentTool, setCurrentTool] = useState<ToolType>('pen');
   const [currentBackground, setCurrentBackground] = useState<BackgroundType>('none');
+  const [currentPaperColor, setCurrentPaperColor] = useState<PaperColor>('white');
   const [confidenceLevel, setConfidenceLevel] = useState<'none' | 'red' | 'amber' | 'green'>('none');
   const [currentQuestion, setCurrentQuestion] = useState<string | null>(initialQuestion);
   const [hasAnswered, setHasAnswered] = useState(false);
@@ -82,6 +90,7 @@ function DrawingPage({
     setUndoneStrokes,
   } = useStrokeHistory();
   const currentBackgroundRef = useLatest<BackgroundType>(currentBackground);
+  const currentPaperColorRef = useLatest<PaperColor>(currentPaperColor);
 
   // Cursor state for eraser
   const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null);
@@ -94,6 +103,8 @@ function DrawingPage({
   const currentColorRef = useLatest(currentColor);
   const currentThicknessRef = useLatest(currentThickness);
   const currentToolRef = useLatest(currentTool);
+  const currentBackgroundInputRef = useLatest(currentBackground);
+  const currentPaperColorInputRef = useLatest(currentPaperColor);
   const isLockedRef = useLatest(isLocked);
   const studentIdRef = useLatest(studentId);
   const connectionRef = useLatest(connection);
@@ -101,7 +112,25 @@ function DrawingPage({
   // Redraw background canvas when background changes
   useEffect(() => {
     renderBackgroundCanvas();
-  }, [currentBackground]);
+  }, [currentBackground, currentPaperColor]);
+
+  useEffect(() => {
+    if (isLockedRef.current) return;
+
+    connection.invoke(HubMethods.SendStrokeBatch, {
+      studentId,
+      strokeId: `${studentId}-background-${Date.now()}`,
+      points: [],
+      color: PAPER_COLORS[currentPaperColor],
+      lineWidth: 0,
+      backgroundType: currentBackground,
+      paperColor: currentPaperColor,
+      isEraser: false,
+      isComplete: true,
+    } satisfies StrokeBatch).catch(err => {
+      console.error('Failed to send background update:', err);
+    });
+  }, [connection, currentBackground, currentPaperColor, studentId]);
 
   // Listen for teacher-initiated board clear
   useEffect(() => {
@@ -178,7 +207,13 @@ function DrawingPage({
       // Redraw background on the background canvas
       const bgCtx = backgroundCanvas.getContext('2d');
       if (bgCtx) {
-        drawBackground(bgCtx, backgroundCanvas.width, backgroundCanvas.height, currentBackgroundRef.current);
+        drawBackground(
+          bgCtx,
+          backgroundCanvas.width,
+          backgroundCanvas.height,
+          currentBackgroundRef.current,
+          currentPaperColorRef.current
+        );
       }
     }
 
@@ -190,33 +225,41 @@ function DrawingPage({
 
     currentHistory.forEach(strokeId => {
       const stroke = strokesRef.current.get(strokeId);
-      if (!stroke) {
-        debugLog('DrawingPage', 'Resize redraw skipped missing stroke', strokeId);
+      if (stroke) {
+        ctx.globalCompositeOperation = stroke.isEraser ? 'destination-out' : 'source-over';
+        ctx.strokeStyle = stroke.isEraser ? '#000000' : stroke.color;
+        ctx.lineWidth = stroke.lineWidth;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        const allPoints: StrokePoint[] = [];
+        stroke.batches.forEach(batch => {
+          allPoints.push(...batch.points);
+        });
+
+        if (allPoints.length === 0) return;
+
+        ctx.beginPath();
+        const firstPoint = allPoints[0];
+        ctx.moveTo(firstPoint.x * canvas.width, firstPoint.y * canvas.height);
+
+        for (let i = 1; i < allPoints.length; i++) {
+          const point = allPoints[i];
+          ctx.lineTo(point.x * canvas.width, point.y * canvas.height);
+        }
+
+        ctx.stroke();
+        ctx.globalCompositeOperation = 'source-over';
         return;
       }
 
-      ctx.strokeStyle = stroke.color;
-      ctx.lineWidth = stroke.lineWidth;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-
-      const allPoints: StrokePoint[] = [];
-      stroke.batches.forEach(batch => {
-        allPoints.push(...batch.points);
-      });
-
-      if (allPoints.length === 0) return;
-
-      ctx.beginPath();
-      const firstPoint = allPoints[0];
-      ctx.moveTo(firstPoint.x * canvas.width, firstPoint.y * canvas.height);
-
-      for (let i = 1; i < allPoints.length; i++) {
-        const point = allPoints[i];
-        ctx.lineTo(point.x * canvas.width, point.y * canvas.height);
+      const shape = shapesRef.current.get(strokeId);
+      if (shape) {
+        renderShape(ctx, shape, canvas.width, canvas.height);
+        return;
       }
 
-      ctx.stroke();
+      debugLog('DrawingPage', 'Resize redraw skipped missing item', strokeId);
     });
   });
 
@@ -280,6 +323,10 @@ function DrawingPage({
       if (stroke) {
         ctx.strokeStyle = stroke.color;
         ctx.lineWidth = stroke.lineWidth;
+        ctx.globalCompositeOperation = stroke.isEraser ? 'destination-out' : 'source-over';
+        if (stroke.isEraser) {
+          ctx.strokeStyle = '#000000';
+        }
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
 
@@ -301,6 +348,7 @@ function DrawingPage({
         }
 
         ctx.stroke();
+        ctx.globalCompositeOperation = 'source-over';
         return;
       }
 
@@ -313,10 +361,22 @@ function DrawingPage({
     });
   }, []); // No dependencies - uses refs for all data
 
-  const drawBackground = (ctx: CanvasRenderingContext2D, width: number, height: number, backgroundType: BackgroundType) => {
-    if (backgroundType === 'none') return;
-
+  const drawBackground = (
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    height: number,
+    backgroundType: BackgroundType,
+    paperColor: PaperColor
+  ) => {
     ctx.save();
+    ctx.fillStyle = PAPER_COLORS[paperColor];
+    ctx.fillRect(0, 0, width, height);
+
+    if (backgroundType === 'none') {
+      ctx.restore();
+      return;
+    }
+
     ctx.strokeStyle = '#e5e5e5'; // Light gray, faint
     ctx.lineWidth = 0.5;
 
@@ -379,7 +439,7 @@ function DrawingPage({
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // Draw the background pattern
-    drawBackground(ctx, canvas.width, canvas.height, currentBackground);
+    drawBackground(ctx, canvas.width, canvas.height, currentBackground, currentPaperColor);
   };
 
   const getNormalizedPoint = (clientX: number, clientY: number, pressure: number): StrokePoint => {
@@ -465,6 +525,9 @@ function DrawingPage({
     const tool = currentToolRef.current;
     const color = currentColorRef.current;
     const thickness = currentThicknessRef.current;
+    const isEraser = tool === 'eraser';
+    const backgroundType = currentBackgroundInputRef.current;
+    const paperColor = currentPaperColorInputRef.current;
     const sid = studentIdRef.current;
     const conn = connectionRef.current;
 
@@ -478,6 +541,8 @@ function DrawingPage({
         points: [point],
         color: color,
         lineWidth: thickness,
+        backgroundType,
+        paperColor,
         isComplete: false,
       };
       setShapeInProgress(newShape);
@@ -486,7 +551,7 @@ function DrawingPage({
     }
 
     // Use destination-out composite mode for eraser to actually erase pixels
-    if (tool === 'eraser') {
+    if (isEraser) {
       ctx.globalCompositeOperation = 'destination-out';
     } else {
       ctx.globalCompositeOperation = 'source-over';
@@ -497,15 +562,16 @@ function DrawingPage({
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
-    const strokeId = `${sid}-${Date.now()}`;
+    const strokeId = `${sid}-${isEraser ? 'eraser' : 'stroke'}-${Date.now()}`;
     currentStrokeIdRef.current = strokeId; // Store for later use in pointerUp
 
     // Store stroke for undo/redo
     const newStroke: StoredStroke = {
       strokeId,
       batches: [],
-      color: color,
+      color: isEraser ? ERASER_COLOR_SENTINEL : color,
       lineWidth: thickness,
+      isEraser,
     };
     strokesRef.current.set(strokeId, newStroke);
 
@@ -521,8 +587,11 @@ function DrawingPage({
         strokeId: batch.strokeId || strokeId,
         points: batch.points || [],
         isComplete: batch.isComplete || false,
-        color: color,
-        lineWidth: thickness,
+        color: isEraser ? ERASER_COLOR_SENTINEL : color,
+        lineWidth: isEraser ? -thickness : thickness,
+        backgroundType,
+        paperColor,
+        isEraser,
       };
 
       // Store batch locally
@@ -547,24 +616,23 @@ function DrawingPage({
   const handlePointerMove = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
     if (isLockedRef.current) return; // Prevent interaction when locked
 
-    if (activePointerIdRef.current === null || e.pointerId !== activePointerIdRef.current) {
-      return;
-    }
-
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    e.preventDefault();
-
     const rect = canvas.getBoundingClientRect();
 
-    // Update cursor position for eraser preview ONLY when using eraser
     if (currentToolRef.current === 'eraser') {
       setCursorPosition({
         x: e.clientX - rect.left,
         y: e.clientY - rect.top,
       });
     }
+
+    if (activePointerIdRef.current === null || e.pointerId !== activePointerIdRef.current) {
+      return;
+    }
+
+    e.preventDefault();
 
     const pressure = e.pressure || 0.5;
     const point = getNormalizedPoint(e.clientX, e.clientY, pressure);
@@ -715,7 +783,24 @@ function DrawingPage({
 
     // Redraw with the new history immediately
     redrawCanvas(newHistory);
-  }, [undoneStrokes, strokeHistory]);
+
+    const restoredStroke = strokesRef.current.get(strokeToRedo);
+    if (restoredStroke) {
+      restoredStroke.batches.forEach(batch => {
+        connection.invoke(HubMethods.SendStrokeBatch, batch).catch(err => {
+          console.error('Failed to resend redone stroke batch:', err);
+        });
+      });
+      return;
+    }
+
+    const restoredShape = shapesRef.current.get(strokeToRedo);
+    if (restoredShape) {
+      connection.invoke(HubMethods.SendShape, restoredShape).catch(err => {
+        console.error('Failed to resend redone shape:', err);
+      });
+    }
+  }, [undoneStrokes, strokeHistory, connection, redrawCanvas]);
 
   const handleClear = useCallback(() => {
     if (isLockedRef.current) return;
@@ -836,11 +921,13 @@ function DrawingPage({
         currentTool={currentTool}
         currentConfidence={confidenceLevel}
         currentBackground={currentBackground}
+        currentPaperColor={currentPaperColor}
         onColorChange={handleColorChange}
         onThicknessChange={handleThicknessChange}
         onToolChange={handleToolChange}
         onConfidenceChange={handleConfidenceChange}
         onBackgroundChange={setCurrentBackground}
+        onPaperColorChange={setCurrentPaperColor}
         onUndo={handleUndo}
         onRedo={handleRedo}
         onClear={handleClear}

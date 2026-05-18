@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { HubConnection } from '@microsoft/signalr';
-import { Student, StrokeBatch, StrokeUndone, BoardCleared, ShapeDrawn, Shape } from '../shared/types/messages';
+import { Student, StrokeBatch, StrokeUndone, BoardCleared, ShapeDrawn, Shape, BackgroundType, PaperColor } from '../shared/types/messages';
 import { renderShape } from '../shared/utils/shapeRenderer';
 import { HubEvents, HubMethods } from '../shared/constants/hubContract';
 
@@ -19,6 +19,25 @@ interface ContextMenuPosition {
   y: number;
 }
 
+const ERASER_COLOR_SENTINEL = '__WHITEPAD_ERASER__';
+const ERASER_STROKE_MARKER = '-eraser-';
+const PAPER_COLORS: Record<PaperColor, string> = {
+  white: '#FFFFFF',
+  buff: '#F4E4BC',
+};
+
+function isEraserBatch(batch: StrokeBatch) {
+  const runtimeBatch = batch as StrokeBatch & { IsEraser?: boolean; iseraser?: boolean };
+  return (
+    batch.isEraser === true ||
+    runtimeBatch.IsEraser === true ||
+    runtimeBatch.iseraser === true ||
+    batch.color === ERASER_COLOR_SENTINEL ||
+    batch.strokeId.toLowerCase().includes(ERASER_STROKE_MARKER) ||
+    batch.lineWidth < 0
+  );
+}
+
 function StudentTile({
   student,
   connection,
@@ -32,7 +51,62 @@ function StudentTile({
   const canvasWrapperRef = useRef<HTMLDivElement>(null);
   const strokesRef = useRef<Map<string, StrokeBatch>>(new Map());
   const shapesRef = useRef<Map<string, Shape>>(new Map());
+  const drawOrderRef = useRef<string[]>([]);
+  const backgroundTypeRef = useRef<BackgroundType>('none');
+  const paperColorRef = useRef<PaperColor>('white');
   const [contextMenu, setContextMenu] = useState<ContextMenuPosition | null>(null);
+
+  const drawBackground = useCallback((ctx: CanvasRenderingContext2D, width: number, height: number) => {
+    const paperColor = PAPER_COLORS[paperColorRef.current];
+    ctx.fillStyle = paperColor;
+    ctx.fillRect(0, 0, width, height);
+
+    if (backgroundTypeRef.current === 'none') {
+      return;
+    }
+
+    ctx.save();
+    ctx.strokeStyle = '#e5e5e5';
+    ctx.lineWidth = 0.5;
+
+    const spacing = 35;
+    switch (backgroundTypeRef.current) {
+      case 'dotted':
+        ctx.fillStyle = '#d0d0d0';
+        for (let x = spacing; x < width; x += spacing) {
+          for (let y = spacing; y < height; y += spacing) {
+            ctx.beginPath();
+            ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+        break;
+      case 'lined':
+        for (let y = spacing; y < height; y += spacing) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(width, y);
+          ctx.stroke();
+        }
+        break;
+      case 'squares':
+        for (let x = spacing; x < width; x += spacing) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, height);
+          ctx.stroke();
+        }
+        for (let y = spacing; y < height; y += spacing) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(width, y);
+          ctx.stroke();
+        }
+        break;
+    }
+
+    ctx.restore();
+  }, []);
 
   const redrawCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -43,35 +117,43 @@ function StudentTile({
 
     const lineWidthScale = isFocused ? 1 : 0.4;
 
-    // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawBackground(ctx, canvas.width, canvas.height);
 
-    // Redraw all strokes
-    strokesRef.current.forEach((batch) => {
-      if (batch.points.length === 0) return;
+    // Redraw strokes and shapes in the order the student created them.
+    drawOrderRef.current.forEach((id) => {
+      const batch = strokesRef.current.get(id);
+      if (batch) {
+        if (batch.points.length === 0) return;
 
-      ctx.beginPath();
-      ctx.strokeStyle = batch.color || '#000000';
-      ctx.lineWidth = (batch.lineWidth || 2) * lineWidthScale;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
+        const isEraser = isEraserBatch(batch);
 
-      const firstPoint = batch.points[0];
-      ctx.moveTo(firstPoint.x * canvas.width, firstPoint.y * canvas.height);
+        ctx.beginPath();
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.strokeStyle = isEraser ? PAPER_COLORS[batch.paperColor ?? paperColorRef.current] : batch.color || '#000000';
+        ctx.lineWidth = Math.abs(batch.lineWidth || 2) * lineWidthScale;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
 
-      for (let i = 1; i < batch.points.length; i++) {
-        const point = batch.points[i];
-        ctx.lineTo(point.x * canvas.width, point.y * canvas.height);
+        const firstPoint = batch.points[0];
+        ctx.moveTo(firstPoint.x * canvas.width, firstPoint.y * canvas.height);
+
+        for (let i = 1; i < batch.points.length; i++) {
+          const point = batch.points[i];
+          ctx.lineTo(point.x * canvas.width, point.y * canvas.height);
+        }
+
+        ctx.stroke();
+        ctx.globalCompositeOperation = 'source-over';
+        return;
       }
 
-      ctx.stroke();
+      const shape = shapesRef.current.get(id);
+      if (shape) {
+        renderShape(ctx, shape, canvas.width, canvas.height, { lineWidthScale });
+      }
     });
-
-    // Redraw all shapes
-    shapesRef.current.forEach((shape) => {
-      renderShape(ctx, shape, canvas.width, canvas.height, { lineWidthScale });
-    });
-  }, [isFocused]);
+  }, [drawBackground, isFocused]);
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -195,13 +277,38 @@ function StudentTile({
     const handleStrokeBatch = (batch: StrokeBatch) => {
       if (batch.studentId !== student.studentId) return;
 
+      const isEraser = isEraserBatch(batch);
+      if (batch.backgroundType) {
+        backgroundTypeRef.current = batch.backgroundType;
+      }
+      if (batch.paperColor) {
+        paperColorRef.current = batch.paperColor;
+      }
+
+      if (batch.points.length === 0) {
+        redrawCanvas();
+        return;
+      }
+
       // Store the batch
       const existingBatch = strokesRef.current.get(batch.strokeId);
       if (existingBatch) {
         existingBatch.points.push(...batch.points);
         existingBatch.isComplete = batch.isComplete;
+        existingBatch.isEraser = isEraser;
+        if (batch.lineWidth < 0) {
+          existingBatch.lineWidth = batch.lineWidth;
+        }
+        if (batch.color === ERASER_COLOR_SENTINEL) {
+          existingBatch.color = ERASER_COLOR_SENTINEL;
+        }
       } else {
-        strokesRef.current.set(batch.strokeId, { ...batch, points: [...batch.points] });
+        strokesRef.current.set(batch.strokeId, {
+          ...batch,
+          points: [...batch.points],
+          isEraser,
+        });
+        drawOrderRef.current.push(batch.strokeId);
       }
 
       // Redraw entire canvas to ensure consistency
@@ -214,6 +321,7 @@ function StudentTile({
       // Undo can target either a strokeId or a shapeId from the student's history.
       strokesRef.current.delete(message.strokeId);
       shapesRef.current.delete(message.strokeId);
+      drawOrderRef.current = drawOrderRef.current.filter(id => id !== message.strokeId);
 
       // Redraw entire canvas without that item
       redrawCanvas();
@@ -225,15 +333,9 @@ function StudentTile({
       // Clear all strokes and shapes for this student
       strokesRef.current.clear();
       shapesRef.current.clear();
+      drawOrderRef.current = [];
 
-      // Clear the canvas
-      const canvas = canvasRef.current;
-      if (canvas) {
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-        }
-      }
+      redrawCanvas();
     };
 
     const handleShapeDrawn = (shapeDrawn: ShapeDrawn) => {
@@ -248,8 +350,17 @@ function StudentTile({
         color: shapeDrawn.color,
         lineWidth: shapeDrawn.lineWidth,
         isComplete: shapeDrawn.isComplete,
+        backgroundType: shapeDrawn.backgroundType,
+        paperColor: shapeDrawn.paperColor,
       };
+      if (shape.backgroundType) {
+        backgroundTypeRef.current = shape.backgroundType;
+      }
+      if (shape.paperColor) {
+        paperColorRef.current = shape.paperColor;
+      }
       shapesRef.current.set(shape.shapeId, shape);
+      drawOrderRef.current.push(shape.shapeId);
 
       // Redraw entire canvas to include the new shape
       redrawCanvas();
@@ -404,4 +515,3 @@ function StudentTile({
 }
 
 export default StudentTile;
-

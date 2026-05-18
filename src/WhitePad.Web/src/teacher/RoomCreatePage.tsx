@@ -12,6 +12,7 @@ interface RoomCreatePageProps {
 function RoomCreatePage({ onRoomCreated }: RoomCreatePageProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [roomName, setRoomName] = useState('');
+  const [useLocalhostJoinUrl, setUseLocalhostJoinUrl] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,14 +47,26 @@ function RoomCreatePage({ onRoomCreated }: RoomCreatePageProps) {
       connection = createSignalRConnection('/hub/whiteboard');
       await connection.start();
 
-      const response: CreateRoomResponse = await connection.invoke(HubMethods.CreateRoom, roomName.trim());
+      let response: CreateRoomResponse;
+      try {
+        response = await connection.invoke(
+          HubMethods.CreateRoom,
+          roomName.trim(),
+          useLocalhostJoinUrl
+        );
+      } catch (err) {
+        // Backward-compatible fallback for older backend that only accepts one CreateRoom argument.
+        response = await connection.invoke(HubMethods.CreateRoom, roomName.trim());
+      }
 
-      // In development, rewrite join URL to use Vite dev server
       let joinUrl = response.joinUrl;
       if (import.meta.env.DEV) {
-        const url = new URL(joinUrl);
-        joinUrl = `${window.location.origin}${url.pathname}${url.search}`;
-        console.log('[DEV] Rewrote join URL to:', joinUrl);
+        const parsed = new URL(joinUrl);
+        joinUrl = `${window.location.origin}${parsed.pathname}${parsed.search}`;
+      } else if (useLocalhostJoinUrl) {
+        const parsed = new URL(joinUrl);
+        parsed.hostname = 'localhost';
+        joinUrl = parsed.toString();
       }
 
       onRoomCreated(response.roomId, response.roomName, response.joinToken, joinUrl);
@@ -72,6 +85,21 @@ function RoomCreatePage({ onRoomCreated }: RoomCreatePageProps) {
     <>
       <div className="create-room-container">
         <h1>WhitePad Teacher</h1>
+        <div className="create-room-toggle">
+          <label className="checkbox-label" htmlFor="testingMode">
+            <input
+              id="testingMode"
+              type="checkbox"
+              checked={useLocalhostJoinUrl}
+              onChange={(e) => setUseLocalhostJoinUrl(e.target.checked)}
+              disabled={isCreating}
+            />
+            <span className="checkbox-text">
+              Testing mode (use localhost URL)
+              <span className="checkbox-hint">Off = local network IP URL</span>
+            </span>
+          </label>
+        </div>
         <button
           type="button"
           className="create-room-btn"

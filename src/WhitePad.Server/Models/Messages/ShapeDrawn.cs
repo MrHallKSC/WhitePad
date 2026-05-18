@@ -8,5 +8,7 @@ public class ShapeDrawn
     public List<StrokePoint> Points { get; set; } = new();
     public string Color { get; set; } = "#000000";
     public double LineWidth { get; set; } = 2.0;
+    public string BackgroundType { get; set; } = "none";
+    public string PaperColor { get; set; } = "white";
     public bool IsComplete { get; set; } = false;
 }

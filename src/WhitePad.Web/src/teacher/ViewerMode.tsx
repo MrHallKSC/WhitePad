@@ -110,25 +110,35 @@ function ViewerMode({ roomName, roomId, students, connection, onSwitchToJoin }: 
     };
   }, [connection]);
 
+  const invokeSetQuestion = async (question: string | null) => {
+    if (!connection) return;
+
+    try {
+      await connection.invoke(HubMethods.SetQuestion, roomId, question);
+      return;
+    } catch (err) {
+      console.warn('SetQuestion(roomId, question) failed, retrying legacy signature:', err);
+    }
+
+    try {
+      await connection.invoke(HubMethods.SetQuestion, question);
+    } catch (err) {
+      console.error('Failed to set question:', err);
+      alert('Failed to send question. Please refresh and try again.');
+    }
+  };
+
   const handleSendQuestion = async () => {
     if (!connection) return;
     const trimmed = questionDraft.trim();
     const payload = trimmed.length === 0 ? null : trimmed;
-    try {
-      await connection.invoke(HubMethods.SetQuestion, roomId, payload);
-    } catch (err) {
-      console.error('Failed to set question:', err);
-    }
+    await invokeSetQuestion(payload);
   };
 
   const handleClearQuestion = async () => {
     if (!connection) return;
     setQuestionDraft('');
-    try {
-      await connection.invoke(HubMethods.SetQuestion, roomId, null);
-    } catch (err) {
-      console.error('Failed to clear question:', err);
-    }
+    await invokeSetQuestion(null);
   };
 
   const openQuestionModal = () => {
@@ -243,7 +253,6 @@ function ViewerMode({ roomName, roomId, students, connection, onSwitchToJoin }: 
 }
 
 export default ViewerMode;
-
 
 
 
