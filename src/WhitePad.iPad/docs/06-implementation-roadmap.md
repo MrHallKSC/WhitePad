@@ -1,0 +1,95 @@
+# Implementation Roadmap
+
+## Stage 0 - Project Setup
+
+- Create `src/WhitePad.iPad` as an Xcode project or Swift Package-backed app.
+- Set deployment target after confirming school iPadOS versions.
+- Add basic SwiftUI app shell.
+- Add app icons, bundle id, and signing setup.
+- Add debug configuration for local server hosts.
+
+Deliverable: app launches to an idle screen and can parse a pasted join URL.
+
+## Stage 1 - Join Flow And SignalR
+
+- Add SignalR Swift client dependency.
+- Implement `WhiteboardHubClient`.
+- Implement typed DTOs for join response and core events.
+- Add join URL parser.
+- Add name entry screen.
+- Invoke `JoinRoomAsStudent`.
+- Show success and server error states.
+
+Deliverable: student can join a live web-created room from the iPad app.
+
+## Stage 2 - Waiting Room, Locking, Question, Confidence
+
+- Handle `waitingRoomStateChanged`.
+- Handle `studentLocked`.
+- Implement waiting room screen.
+- Implement `JoinFromWaitingRoom`.
+- Add question banner.
+- Implement answered toggle.
+- Implement confidence traffic light.
+- Handle `kicked`.
+
+Deliverable: app participates correctly in teacher classroom flow without drawing yet.
+
+## Stage 3 - Drawing MVP
+
+- Implement drawing surface.
+- Capture Pencil/finger input.
+- Normalize points.
+- Implement stroke batching.
+- Invoke `SendStrokeBatch`.
+- Render local strokes.
+- Implement color and thickness.
+- Implement basic undo, redo, and clear.
+- Handle teacher `boardCleared`.
+
+Deliverable: teacher web dashboard receives live iPad strokes.
+
+## Stage 4 - Tool Parity
+
+- Add eraser.
+- Add line, rectangle, circle, arrow, L-axes, and cross-axes.
+- Implement shape preview.
+- Invoke `SendShape`.
+- Add background renderer for none, dotted, lined, and square grid.
+- Tune toolbar for classroom speed.
+
+Deliverable: native app matches current web student feature set.
+
+## Stage 5 - QR Launch
+
+- Add custom URL scheme.
+- Add universal link handling where deployment host allows it.
+- Update web join page with app-open fallback if needed.
+- Test QR launch from Camera and Safari.
+- Confirm behavior when app is already open.
+
+Deliverable: one teacher QR code can launch app or web join flow.
+
+## Stage 6 - Reliability And Classroom Hardening
+
+- Add reconnect state.
+- Add connection timeout messaging.
+- Add server certificate guidance.
+- Tune drawing performance on target basic iPads.
+- Validate memory and battery usage.
+- Add local logs useful for teacher/admin troubleshooting.
+
+Deliverable: app is safe for pilot classroom use.
+
+## Stage 7 - Distribution
+
+- Prepare TestFlight build.
+- Prepare Apple School Manager or MDM deployment path.
+- Document server URL/certificate setup.
+- Produce pilot checklist.
+
+Deliverable: deployable app for a managed iPad classroom.
+
+## Suggested First Milestone
+
+Build through Stage 2 before investing deeply in drawing. That proves the native app can connect to the existing room lifecycle and teacher controls. Then drawing work can proceed against a stable session foundation.
