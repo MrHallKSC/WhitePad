@@ -69,7 +69,8 @@ Toolbar controls:
 
 - collapse/expand
 - tool selector
-- background selector
+- background selector for none, dotted, lined, and square grid
+- paper colour selector for white and buff
 - color selector
 - thickness selector
 - undo
@@ -89,9 +90,11 @@ Pen:
 
 Eraser:
 
-- erase local pixels or remove intersecting stroke segments depending on implementation
-- send eraser strokes as stroke batches using the existing color/lineWidth model only if teacher rendering matches
-- if pixel erasing cannot be represented accurately on the teacher view, prefer stroke-object erasing or add a server-compatible eraser contract later
+- show an eraser cursor before Pencil/finger contact, matching the web student view
+- render local eraser movement as paper-coloured cover strokes
+- send eraser strokes as stroke batches with `isEraser == true`
+- keep compatibility fields while the web teacher renderer supports both clients: `color == "__WHITEPAD_ERASER__"` and negative `lineWidth`
+- use the current paper colour for teacher rendering, so erasing on buff paper draws buff cover strokes rather than white or black marks
 
 Shapes:
 
@@ -107,6 +110,14 @@ Supported shapes:
 - arrow
 - L-shaped axes
 - cross axes
+
+Background and paper:
+
+- render backgrounds on a separate layer from drawing content
+- support plain, dotted, ruled, and square grid backgrounds
+- support white and buff paper
+- apply paper colour changes immediately and notify the teacher without waiting for the next stroke
+- preserve backgrounds through eraser, undo, redo, and clear operations
 
 ## Question Banner
 

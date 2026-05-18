@@ -78,6 +78,9 @@ Known errors:
   ],
   "color": "#000000",
   "lineWidth": 2,
+  "isEraser": false,
+  "backgroundType": "none",
+  "paperColor": "white",
   "isComplete": false
 }
 ```
@@ -89,6 +92,15 @@ Client rules:
 - Send final batch with `isComplete == true`.
 - Do not trust client-side `studentId`; the server replaces it.
 - Use normalized coordinates so teacher tiles can render at any size.
+- Include the active `backgroundType` and `paperColor` on stroke batches so teacher thumbnails can repaint paper changes immediately and render eraser strokes in the correct paper colour.
+
+Eraser rules:
+
+- Prefer the first-class `isEraser == true` flag.
+- Set `color` to `__WHITEPAD_ERASER__` for compatibility with the current web teacher renderer.
+- Send a negative `lineWidth` for compatibility with existing web eraser batches. The absolute value is the eraser width.
+- Current web stroke IDs also include `-eraser-`; native code should not rely on that as the primary signal, but it is useful while both clients coexist.
+- Render eraser strokes as paper-coloured cover strokes, not black strokes. On buff paper, teacher thumbnails must use the buff colour too.
 
 ## Shape
 
@@ -103,6 +115,8 @@ Client rules:
   ],
   "color": "#000000",
   "lineWidth": 2,
+  "backgroundType": "none",
+  "paperColor": "white",
   "isComplete": true
 }
 ```
@@ -117,6 +131,24 @@ arrow
 axesL
 axesCross
 ```
+
+Background values currently used by the web client:
+
+```text
+none
+dotted
+lined
+grid
+```
+
+Paper colour values currently used by the web client:
+
+```text
+white
+buff
+```
+
+The iPad client should treat paper colour as board state, not as a drawing stroke. Changing paper colour should send an update immediately, even if no new pen stroke follows.
 
 ## Confidence
 
@@ -182,7 +214,5 @@ Client behavior:
 - Invoke `SetAnswered(true|false)` when the student toggles the answered button.
 
 ## Compatibility Risks
-
-The web eraser currently uses canvas pixel erasing locally and sends stroke batches to the teacher. Before native implementation, verify teacher rendering expectations for eraser strokes. If teacher parity is not exact, define an explicit eraser contract instead of relying on pixel behavior.
 
 The web app's documented query string has historically used both `room` and `roomId` in docs, but current code expects `roomId`. The iPad app should accept both for robustness and prefer `roomId`.

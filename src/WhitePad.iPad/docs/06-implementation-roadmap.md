@@ -10,6 +10,8 @@
 
 Deliverable: app launches to an idle screen and can parse a pasted join URL.
 
+Current implementation note: Stage 0 is the first stage being implemented in this folder. It should stay deliberately small: a buildable SwiftUI iPad app, a join-link parser, and visible parsed-link feedback. Live SignalR joining begins in Stage 1.
+
 ## Stage 1 - Join Flow And SignalR
 
 - Add SignalR Swift client dependency.
@@ -21,6 +23,8 @@ Deliverable: app launches to an idle screen and can parse a pasted join URL.
 - Show success and server error states.
 
 Deliverable: student can join a live web-created room from the iPad app.
+
+Current implementation note: Stage 1 uses a small native SignalR JSON/WebSocket client for the join flow only. It negotiates with `/hub/whiteboard`, invokes `JoinRoomAsStudent`, and shows a joined confirmation screen. Broader realtime event handling starts in Stage 2.
 
 ## Stage 2 - Waiting Room, Locking, Question, Confidence
 
@@ -56,6 +60,9 @@ Deliverable: teacher web dashboard receives live iPad strokes.
 - Implement shape preview.
 - Invoke `SendShape`.
 - Add background renderer for none, dotted, lined, and square grid.
+- Add white and buff paper colours.
+- Send paper/background state changes immediately so the teacher dashboard updates without waiting for a drawing stroke.
+- Render eraser strokes in the active paper colour on both local and teacher views.
 - Tune toolbar for classroom speed.
 
 Deliverable: native app matches current web student feature set.
