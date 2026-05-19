@@ -29,6 +29,17 @@
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES">
       <Testables>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "5A2000402C00000000000040"
+               BuildableName = "WhitePad.iPadTests.xctest"
+               BlueprintName = "WhitePad.iPadTests"
+               ReferencedContainer = "container:WhitePad.iPad.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction

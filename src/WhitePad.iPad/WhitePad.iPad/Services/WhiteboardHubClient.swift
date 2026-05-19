@@ -1,7 +1,25 @@
 import Foundation
 
 @MainActor
-final class WhiteboardHubClient {
+protocol WhiteboardHubClientProtocol: AnyObject {
+    var onStudentLocked: ((StudentLocked) -> Void)? { get set }
+    var onWaitingRoomStateChanged: ((WaitingRoomStateChanged) -> Void)? { get set }
+    var onQuestionChanged: ((QuestionChanged) -> Void)? { get set }
+    var onBoardCleared: ((BoardCleared) -> Void)? { get set }
+    var onKicked: (() -> Void)? { get set }
+
+    func startListening()
+    func joinFromWaitingRoom() async throws
+    func setAnswered(_ hasAnswered: Bool) async throws
+    func setConfidence(_ confidenceLevel: String) async throws
+    func sendStrokeBatch(_ batch: StrokeBatch) async throws
+    func undoStroke(_ strokeId: String) async throws
+    func clearBoard() async throws
+    func stop()
+}
+
+@MainActor
+final class WhiteboardHubClient: WhiteboardHubClientProtocol {
     private static let recordSeparator = "\u{1e}"
 
     private let serverBaseURL: URL
@@ -9,6 +27,13 @@ final class WhiteboardHubClient {
     private let decoder = JSONDecoder()
     private var webSocketTask: URLSessionWebSocketTask?
     private var nextInvocationId = 1
+    private var listenTask: Task<Void, Never>?
+
+    var onStudentLocked: ((StudentLocked) -> Void)?
+    var onWaitingRoomStateChanged: ((WaitingRoomStateChanged) -> Void)?
+    var onQuestionChanged: ((QuestionChanged) -> Void)?
+    var onBoardCleared: ((BoardCleared) -> Void)?
+    var onKicked: (() -> Void)?
 
     init(serverBaseURL: URL, session: URLSession = .shared) {
         self.serverBaseURL = serverBaseURL
@@ -45,8 +70,53 @@ final class WhiteboardHubClient {
     }
 
     func stop() {
+        listenTask?.cancel()
+        listenTask = nil
         webSocketTask?.cancel(with: .goingAway, reason: nil)
         webSocketTask = nil
+    }
+
+    func startListening() {
+        listenTask?.cancel()
+        listenTask = Task { [weak self] in
+            guard let self else { return }
+
+            do {
+                while !Task.isCancelled {
+                    for record in try await receiveRecords() {
+                        try await handleIncomingRecord(record)
+                    }
+                }
+            } catch {
+                if !Task.isCancelled {
+                    stop()
+                }
+            }
+        }
+    }
+
+    func joinFromWaitingRoom() async throws {
+        try await sendInvocation(target: "JoinFromWaitingRoom")
+    }
+
+    func setAnswered(_ hasAnswered: Bool) async throws {
+        try await sendInvocation(target: "SetAnswered", arguments: [JSONValue.bool(hasAnswered)])
+    }
+
+    func setConfidence(_ confidenceLevel: String) async throws {
+        try await sendInvocation(target: "SetConfidence", arguments: [JSONValue.string(confidenceLevel)])
+    }
+
+    func sendStrokeBatch(_ batch: StrokeBatch) async throws {
+        try await sendInvocation(target: "SendStrokeBatch", arguments: [batch])
+    }
+
+    func undoStroke(_ strokeId: String) async throws {
+        try await sendInvocation(target: "UndoStroke", arguments: [JSONValue.string(strokeId)])
+    }
+
+    func clearBoard() async throws {
+        try await sendInvocation(target: "ClearBoard")
     }
 
     private func connect() async throws {
@@ -106,13 +176,47 @@ final class WhiteboardHubClient {
         }
     }
 
-    private func send(_ message: SignalRInvocationMessage) async throws {
+    private func send(_ message: SignalRInvocationMessage<String>) async throws {
         let data = try JSONEncoder().encode(message)
         guard let json = String(data: data, encoding: .utf8) else {
             throw WhitePadError.connectionFailed("Could not encode SignalR message.")
         }
 
         try await sendRaw(json + Self.recordSeparator)
+    }
+
+    private func sendInvocation<Argument: Encodable>(target: String, arguments: [Argument]) async throws {
+        try await sendRaw(makeInvocationRecord(target: target, arguments: arguments))
+    }
+
+    private func sendInvocation(target: String) async throws {
+        try await sendRaw(makeInvocationRecord(target: target, arguments: [JSONValue]()))
+    }
+
+    func makeInvocationRecord<Argument: Encodable>(target: String, arguments: [Argument]) throws -> String {
+        let message = SignalRInvocationMessage<JSONValue>(
+            target: target,
+            arguments: arguments.map(JSONValue.encodable)
+        )
+        let data = try JSONEncoder().encode(message)
+        guard let json = String(data: data, encoding: .utf8) else {
+            throw WhitePadError.connectionFailed("Could not encode SignalR message.")
+        }
+
+        return json + Self.recordSeparator
+    }
+
+    func makeInvocationRecord(target: String) throws -> String {
+        let message = SignalRInvocationMessage<JSONValue>(
+            target: target,
+            arguments: []
+        )
+        let data = try JSONEncoder().encode(message)
+        guard let json = String(data: data, encoding: .utf8) else {
+            throw WhitePadError.connectionFailed("Could not encode SignalR message.")
+        }
+
+        return json + Self.recordSeparator
     }
 
     private func sendRaw(_ message: String) async throws {
@@ -187,17 +291,76 @@ final class WhiteboardHubClient {
 
         return url
     }
+
+    func handleIncomingRecord(_ record: String) async throws {
+        guard let data = record.data(using: .utf8),
+              let envelope = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              envelope["type"] as? Int == 1 else {
+            return
+        }
+
+        let message = try decoder.decode(SignalRClientInvocationMessage.self, from: data)
+
+        switch message.target.lowercased() {
+        case "studentlocked":
+            if let payload = message.arguments.first {
+                onStudentLocked?(try decoder.decode(StudentLocked.self, from: payload))
+            }
+        case "waitingroomstatechanged":
+            if let payload = message.arguments.first {
+                onWaitingRoomStateChanged?(try decoder.decode(WaitingRoomStateChanged.self, from: payload))
+            }
+        case "questionchanged":
+            if let payload = message.arguments.first {
+                onQuestionChanged?(try decoder.decode(QuestionChanged.self, from: payload))
+            }
+        case "boardcleared":
+            if let payload = message.arguments.first {
+                onBoardCleared?(try decoder.decode(BoardCleared.self, from: payload))
+            }
+        case "kicked":
+            onKicked?()
+        default:
+            return
+        }
+    }
 }
 
 private struct NegotiateResponse: Decodable {
     let connectionToken: String
 }
 
-private struct SignalRInvocationMessage: Encodable {
+private struct SignalRInvocationMessage<Argument: Encodable>: Encodable {
     let type = 1
-    let invocationId: String
+    var invocationId: String? = nil
     let target: String
-    let arguments: [String]
+    let arguments: [Argument]
+}
+
+private struct SignalRClientInvocationMessage: Decodable {
+    let type: Int
+    let target: String
+    let arguments: [Data]
+
+    private enum CodingKeys: String, CodingKey {
+        case type
+        case target
+        case arguments
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        type = try container.decode(Int.self, forKey: .type)
+        target = try container.decode(String.self, forKey: .target)
+
+        var argumentsContainer = try container.nestedUnkeyedContainer(forKey: .arguments)
+        var decodedArguments: [Data] = []
+        while !argumentsContainer.isAtEnd {
+            let argumentDecoder = try argumentsContainer.superDecoder()
+            decodedArguments.append(try argumentDecoder.encodedData())
+        }
+        arguments = decodedArguments
+    }
 }
 
 private struct SignalRCompletionMessage: Decodable {
@@ -241,6 +404,19 @@ private enum JSONValue: Codable {
     case object([String: JSONValue])
     case array([JSONValue])
     case null
+
+    static func encodable(_ value: some Encodable) -> JSONValue {
+        if let value = value as? JSONValue {
+            return value
+        }
+
+        guard let data = try? JSONEncoder().encode(value),
+              let decodedValue = try? JSONDecoder().decode(JSONValue.self, from: data) else {
+            return .null
+        }
+
+        return decodedValue
+    }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()

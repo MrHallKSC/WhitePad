@@ -59,15 +59,18 @@ final class AppRouter: ObservableObject {
                 throw WhitePadError.connectionFailed("The server accepted the join but did not return student details.")
             }
 
-            phase = .joined(StudentSession(
+            let roomSession = StudentRoomSession(
                 studentId: studentId,
                 displayName: confirmedDisplayName,
                 joinLink: joinLink,
                 isLocked: response.isLocked ?? false,
                 waitingRoomEnabled: response.waitingRoomEnabled ?? false,
                 waitingRoomUnlocked: response.waitingRoomUnlocked ?? false,
-                currentQuestion: response.currentQuestion
-            ))
+                currentQuestion: response.currentQuestion,
+                hubClient: client
+            )
+            client.startListening()
+            phase = .joined(roomSession)
         } catch {
             client.stop()
             hubClient = nil

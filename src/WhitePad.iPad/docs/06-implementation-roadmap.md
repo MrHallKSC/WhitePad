@@ -39,6 +39,8 @@ Current implementation note: Stage 1 uses a small native SignalR JSON/WebSocket 
 
 Deliverable: app participates correctly in teacher classroom flow without drawing yet.
 
+Current implementation note: Stage 2 handles waiting-room state, lock/unlock, teacher questions, answered state, confidence updates, and kicked state. Drawing is still intentionally absent until Stage 3.
+
 ## Stage 3 - Drawing MVP
 
 - Implement drawing surface.
@@ -52,6 +54,8 @@ Deliverable: app participates correctly in teacher classroom flow without drawin
 - Handle teacher `boardCleared`.
 
 Deliverable: teacher web dashboard receives live iPad strokes.
+
+Current implementation note: Stage 3 now has the first native drawing loop: a fixed black pen, normalized local strokes, 50ms-ish stroke batching to `SendStrokeBatch`, local rendering, undo, clear, and teacher-triggered board clear handling. Color/thickness pickers and redo are intentionally deferred to tool-parity work.
 
 ## Stage 4 - Tool Parity
 

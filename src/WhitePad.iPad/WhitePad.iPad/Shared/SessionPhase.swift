@@ -1,6 +1,6 @@
-enum SessionPhase: Equatable {
+enum SessionPhase {
     case idle
     case resolvingJoinLink(JoinLink)
-    case joined(StudentSession)
+    case joined(StudentRoomSession)
     case failed(WhitePadError)
 }
