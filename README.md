@@ -2,6 +2,8 @@
 
 WhitePad is a real-time classroom whiteboard system. Students join from iPad Safari and draw on personal boards; teachers monitor all boards live and control classroom flow.
 
+**Live demo**: https://whiteboard.hall.dev
+
 ## Docs Index
 
 - `docs/WhitePad Project Plan.md`
@@ -16,24 +18,32 @@ WhitePad is a real-time classroom whiteboard system. Students join from iPad Saf
 - `docs/stage3-implementation-plan.md`
 - `docs/simplification-improvements-review.md`
 - `docs/stage4-regression-test-matrix.md`
+- `docs/handover-2026-05-20.md`
 
 ## Current Status
 
-- Stage 0 to Stage 3: complete
+- Stages 0–3: complete
 - Stage 4 (iPad hardening/testing): in progress
 
-Recent Stage 4 updates now shipped:
-- waiting-room join flow (teacher toggle + start activity unlock)
-- classroom lock behavior that freezes editing without sending students back to waiting room
-- iPad palm/multi-touch rejection (single active pointer, stylus-first support)
-- iOS toolbar picker overlay fix (color/background popups render above canvas)
-- regression matrix and first frontend unit tests for lock/waiting-room transitions
+Stage 4 work shipped so far:
+
+- Simplified join flow: students land directly on the drawing canvas (no waiting room)
+- Classroom lock overlay: teacher can freeze editing without removing students from canvas
+- iPad palm/multi-touch rejection: single active pointer, stylus-first support
+- iOS toolbar picker overlay fix: colour/background popups render above canvas
+- Question mode: teacher pushes a question to all students; students mark themselves answered
+- Native iPad app (Swift/SwiftUI): full drawing tool parity with web client
+- Docker containerisation: multi-stage Dockerfile, image pushed to GHCR on each `main` push
+- Cloudflare Tunnel deployment: app is live at https://whiteboard.hall.dev
+- Regression matrix and frontend unit tests for lock/join transitions
 
 ## Stack
 
 - Backend: ASP.NET Core 8 + SignalR
 - Frontend: React 18 + TypeScript + Vite
-- Drawing: pointer events + Perfect Freehand support
+- Native iPad: Swift / SwiftUI (PencilKit-style pointer handling)
+- Drawing: Pointer Events API, dual-canvas architecture
+- Deployment: Docker → GHCR → Cloudflare Tunnel
 
 ## Quick Start
 
@@ -82,20 +92,28 @@ Open:
 
 For LAN iPad testing, run backend bound to your LAN address and use the generated join QR/link.
 
+### Docker
+
+```bash
+docker build -t whitepad .
+docker run -p 8080:8080 whitepad
+```
+
+The container exposes HTTP on port 8080. The GitHub Actions workflow (`docker.yml`) builds and pushes `ghcr.io/mrhallksc/whitepad:latest` automatically on every push to `main`.
+
 ## Implemented Features
 
-- room creation and student join via QR/link + token
-- live teacher grid with student thumbnails
-- tools: pen, eraser, line, rectangle, circle, arrow, L-axes, cross-axes
-- backgrounds: none, dotted, lined, square grid
-- undo/redo, clear board (student + teacher controls)
-- confidence indicators and teacher confidence summary
-- waiting room flow:
-  - waiting room toggle
-  - start activity (unlock) flow
-  - explicit student "Join Room" action
-- classroom lock overlay (read-only board while locked)
-- iPad input hardening (single-pointer handling, no accidental multi-touch draw state)
+- Room creation and student join via QR/link + token
+- Live teacher grid with student thumbnails (200×150 px tiles)
+- Tools: pen, eraser, line, rectangle, circle, arrow, L-axes, cross-axes
+- Backgrounds: none, dotted, lined, square grid; paper colours: white, buff
+- Undo/redo (Ctrl+Z/Y), clear board (student + teacher controls)
+- Confidence indicators and teacher confidence summary
+- Classroom lock overlay (read-only board while locked, student stays on canvas)
+- Teacher kick and per-student clear controls
+- Question mode (teacher broadcasts a question; students mark answered)
+- Native iPad app with full drawing tool parity, floating tool palette, edge-to-edge canvas
+- iPad input hardening: single-pointer, palm rejection, iOS picker z-index fix
 
 ## Testing
 
@@ -115,32 +133,31 @@ Run all tests (PowerShell):
 ./scripts/run-tests.ps1
 ```
 
-Manual regression matrix:
-- `docs/stage4-regression-test-matrix.md`
+Manual regression matrix: `docs/stage4-regression-test-matrix.md`
 
-Full testing guide:
-- `docs/TESTING-README.md`
+Full testing guide: `docs/TESTING-README.md`
 
 ## Documentation
 
-- `docs/WhitePad Project Plan.md` - full project plan and staged roadmap
-- `docs/TESTING-README.md` - automated + manual testing guide
-- `docs/stage0-architecture.md` - architecture and deployment models
-- `docs/stage0-message-contracts.md` - SignalR message contracts
-- `docs/stage0-wireframes.md` - UI wireframes
-- `docs/stage0-repo-structure.md` - repository structure plan
-- `docs/stage1-completion.md` - Stage 1 completion report
-- `docs/stage2-completion.md` - Stage 2 completion report
-- `docs/stage3-completion.md` - Stage 3 completion report
-- `docs/stage3-implementation-plan.md` - Stage 3 implementation plan (historical)
-- `docs/simplification-improvements-review.md` - simplification recommendations + status
-- `docs/stage4-regression-test-matrix.md` - Stage 4 manual regression checklist
+- `docs/WhitePad Project Plan.md` — full project plan and staged roadmap
+- `docs/TESTING-README.md` — automated + manual testing guide
+- `docs/stage0-architecture.md` — architecture and deployment models
+- `docs/stage0-message-contracts.md` — SignalR message contracts
+- `docs/stage0-wireframes.md` — UI wireframes
+- `docs/stage0-repo-structure.md` — repository structure plan
+- `docs/stage1-completion.md` — Stage 1 completion report
+- `docs/stage2-completion.md` — Stage 2 completion report
+- `docs/stage3-completion.md` — Stage 3 completion report
+- `docs/stage3-implementation-plan.md` — Stage 3 implementation plan (historical)
+- `docs/simplification-improvements-review.md` — simplification recommendations + status
+- `docs/stage4-regression-test-matrix.md` — Stage 4 manual regression checklist
+- `docs/handover-2026-05-20.md` — May 2026 handover: join flow simplification + native iPad parity
 
 ## Next Priorities
 
-1. Finish Stage 4 QR join flow and LAN/iPad validation on real devices.
+1. Validate QR join flow and all drawing tools on real iPads over LAN/Wi-Fi.
 2. Integrate pressure + smoothing (Perfect Freehand) for Apple Pencil strokes.
-3. Expand automated frontend tests around waiting-room and lock interactions.
-4. Move to Stage 6 scale/robustness testing once the Stage 4 matrix is consistently green.
+3. Expand automated frontend tests around lock and join interactions.
+4. Move to Stage 5 (advanced classroom controls) once Stage 4 matrix is green.
 
-Last updated: February 10, 2026
+Last updated: 2026-05-20
