@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Security.Cryptography;
 using WhitePad.Server.Models;
 
 namespace WhitePad.Server.Services;
@@ -19,6 +20,7 @@ public class InMemoryRoomStateManager : IRoomStateManager
         {
             RoomId = _tokenGenerator.GenerateRoomId(),
             JoinToken = _tokenGenerator.GenerateJoinToken(),
+            TeacherToken = _tokenGenerator.GenerateTeacherToken(),
             CreatedAt = DateTime.UtcNow,
             LastActivityAt = DateTime.UtcNow
         };
@@ -39,6 +41,21 @@ public class InMemoryRoomStateManager : IRoomStateManager
             return ValueTask.FromResult(false);
 
         return ValueTask.FromResult(room.JoinToken == joinToken);
+    }
+
+    public ValueTask<bool> ValidateTeacherTokenAsync(string roomId, string teacherToken)
+    {
+        if (string.IsNullOrEmpty(teacherToken))
+            return ValueTask.FromResult(false);
+
+        if (!_rooms.TryGetValue(roomId, out var room))
+            return ValueTask.FromResult(false);
+
+        // Constant-time comparison to avoid leaking token length/prefix via timing.
+        var expected = System.Text.Encoding.UTF8.GetBytes(room.TeacherToken);
+        var actual = System.Text.Encoding.UTF8.GetBytes(teacherToken);
+        var match = CryptographicOperations.FixedTimeEquals(expected, actual);
+        return ValueTask.FromResult(match);
     }
 
     public ValueTask<Student> AddStudentAsync(string roomId, string connectionId, string? displayName = null)

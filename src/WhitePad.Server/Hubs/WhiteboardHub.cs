@@ -48,19 +48,32 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
             RoomId = room.RoomId,
             RoomName = roomName,
             JoinToken = room.JoinToken,
+            TeacherToken = room.TeacherToken,
             JoinUrl = joinUrl,
             CreatedAt = room.CreatedAt
         };
     }
 
-    // Teacher joins room to view dashboard
-    public async Task JoinRoomAsTeacher(string roomId)
+    // Teacher joins room to view dashboard.
+    // Requires the TeacherToken returned from CreateRoom — the student-facing
+    // JoinToken is not sufficient, otherwise any student could claim the teacher
+    // role and receive every participant's stroke broadcasts.
+    public async Task JoinRoomAsTeacher(string roomId, string? teacherToken = null)
     {
         var room = await _roomStateManager.GetRoomAsync(roomId);
         if (room == null)
         {
             _logger.LogWarning("Teacher tried to join non-existent room: {RoomId}", roomId);
-            return;
+            throw new HubException("Room not found");
+        }
+
+        if (string.IsNullOrEmpty(teacherToken) ||
+            !await _roomStateManager.ValidateTeacherTokenAsync(roomId, teacherToken))
+        {
+            _logger.LogWarning(
+                "Rejected JoinRoomAsTeacher for room {RoomId} from {ConnectionId}: invalid or missing teacher token",
+                roomId, Context.ConnectionId);
+            throw new HubException("Invalid teacher token");
         }
 
         await _roomStateManager.UpdateTeacherSessionAsync(roomId, Context.ConnectionId);
@@ -278,12 +291,8 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
     {
         _logger.LogInformation("Teacher locking student {StudentId} in room {RoomId}", studentId, roomId);
 
-        var room = await _roomStateManager.GetRoomAsync(roomId);
-        if (room == null)
-        {
-            _logger.LogWarning("Room not found: {RoomId}", roomId);
-            return;
-        }
+        var room = await GetAuthorizedTeacherRoomAsync(roomId);
+        if (room == null) return;
 
         var student = room.Participants.FirstOrDefault(s => s.StudentId == studentId);
         if (student == null)
@@ -300,12 +309,8 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
     {
         _logger.LogInformation("Teacher unlocking student {StudentId} in room {RoomId}", studentId, roomId);
 
-        var room = await _roomStateManager.GetRoomAsync(roomId);
-        if (room == null)
-        {
-            _logger.LogWarning("Room not found: {RoomId}", roomId);
-            return;
-        }
+        var room = await GetAuthorizedTeacherRoomAsync(roomId);
+        if (room == null) return;
 
         var student = room.Participants.FirstOrDefault(s => s.StudentId == studentId);
         if (student == null)
@@ -322,12 +327,8 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
     {
         _logger.LogInformation("Teacher locking all students in room {RoomId}", roomId);
 
-        var room = await _roomStateManager.GetRoomAsync(roomId);
-        if (room == null)
-        {
-            _logger.LogWarning("Room not found: {RoomId}", roomId);
-            return;
-        }
+        var room = await GetAuthorizedTeacherRoomAsync(roomId);
+        if (room == null) return;
 
         foreach (var student in room.Participants)
         {
@@ -340,12 +341,8 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
     {
         _logger.LogInformation("Teacher unlocking all students in room {RoomId}", roomId);
 
-        var room = await _roomStateManager.GetRoomAsync(roomId);
-        if (room == null)
-        {
-            _logger.LogWarning("Room not found: {RoomId}", roomId);
-            return;
-        }
+        var room = await GetAuthorizedTeacherRoomAsync(roomId);
+        if (room == null) return;
 
         foreach (var student in room.Participants)
         {
@@ -358,12 +355,8 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
     {
         _logger.LogInformation("Teacher kicking student {StudentId} from room {RoomId}", studentId, roomId);
 
-        var room = await _roomStateManager.GetRoomAsync(roomId);
-        if (room == null)
-        {
-            _logger.LogWarning("Room not found: {RoomId}", roomId);
-            return;
-        }
+        var room = await GetAuthorizedTeacherRoomAsync(roomId);
+        if (room == null) return;
 
         var student = room.Participants.FirstOrDefault(s => s.StudentId == studentId);
         if (student == null)
@@ -398,12 +391,8 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
     {
         _logger.LogInformation("Teacher clearing board for student {StudentId} in room {RoomId}", studentId, roomId);
 
-        var room = await _roomStateManager.GetRoomAsync(roomId);
-        if (room == null)
-        {
-            _logger.LogWarning("Room not found: {RoomId}", roomId);
-            return;
-        }
+        var room = await GetAuthorizedTeacherRoomAsync(roomId);
+        if (room == null) return;
 
         var student = room.Participants.FirstOrDefault(s => s.StudentId == studentId);
         if (student == null)
@@ -433,12 +422,8 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
     {
         _logger.LogInformation("Teacher clearing all boards in room {RoomId}", roomId);
 
-        var room = await _roomStateManager.GetRoomAsync(roomId);
-        if (room == null)
-        {
-            _logger.LogWarning("Room not found: {RoomId}", roomId);
-            return;
-        }
+        var room = await GetAuthorizedTeacherRoomAsync(roomId);
+        if (room == null) return;
 
         foreach (var student in room.Participants)
         {
@@ -465,12 +450,8 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
     {
         _logger.LogInformation("Ignoring legacy waiting room unlock in room {RoomId}", roomId);
 
-        var room = await _roomStateManager.GetRoomAsync(roomId);
-        if (room == null)
-        {
-            _logger.LogWarning("Room not found: {RoomId}", roomId);
-            return;
-        }
+        var room = await GetAuthorizedTeacherRoomAsync(roomId);
+        if (room == null) return;
 
         room.WaitingRoomEnabled = false;
         room.WaitingRoomUnlocked = true;
@@ -488,12 +469,8 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
     {
         _logger.LogInformation("Ignoring legacy waiting room enabled={Enabled} in room {RoomId}", enabled, roomId);
 
-        var room = await _roomStateManager.GetRoomAsync(roomId);
-        if (room == null)
-        {
-            _logger.LogWarning("Room not found: {RoomId}", roomId);
-            return;
-        }
+        var room = await GetAuthorizedTeacherRoomAsync(roomId);
+        if (room == null) return;
 
         room.WaitingRoomEnabled = false;
         room.WaitingRoomUnlocked = true;
@@ -564,6 +541,14 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
         if (room == null)
         {
             _logger.LogWarning("Room not found: {RoomId}", roomId);
+            return;
+        }
+
+        if (!IsAuthorizedTeacher(room))
+        {
+            _logger.LogWarning(
+                "Rejected SetQuestion in room {RoomId} from {ConnectionId}: not the active teacher session",
+                roomId, Context.ConnectionId);
             return;
         }
 
@@ -709,6 +694,33 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
     private static string TeacherGroup(string roomId) => $"room:{roomId}:teacher";
 
     private static string StudentsGroup(string roomId) => $"room:{roomId}:students";
+
+    // Returns the room only if the current connection is the active teacher
+    // session for that room. Centralises the authorization gate used by every
+    // teacher-only hub method; logs a warning on mismatch so abuse is visible.
+    private async Task<Room?> GetAuthorizedTeacherRoomAsync(string roomId)
+    {
+        var room = await _roomStateManager.GetRoomAsync(roomId);
+        if (room == null)
+        {
+            _logger.LogWarning("Room not found: {RoomId}", roomId);
+            return null;
+        }
+
+        if (!IsAuthorizedTeacher(room))
+        {
+            _logger.LogWarning(
+                "Rejected teacher action in room {RoomId} from {ConnectionId}: not the active teacher session",
+                roomId, Context.ConnectionId);
+            return null;
+        }
+
+        return room;
+    }
+
+    private bool IsAuthorizedTeacher(Room room) =>
+        !string.IsNullOrEmpty(room.TeacherSessionId) &&
+        room.TeacherSessionId == Context.ConnectionId;
 
     private static ParticipantJoined ToParticipantJoined(Student student) => new()
     {

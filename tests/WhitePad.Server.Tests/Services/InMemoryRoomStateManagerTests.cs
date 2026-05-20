@@ -9,16 +9,24 @@ public class InMemoryRoomStateManagerTests
     {
         public string RoomId { get; set; } = "room-1";
         public string JoinToken { get; set; } = "TOKEN1";
+        public string TeacherToken { get; set; } = "TEACHER-TOKEN-1";
 
         public string GenerateRoomId() => RoomId;
 
         public string GenerateJoinToken() => JoinToken;
+
+        public string GenerateTeacherToken() => TeacherToken;
     }
 
     [Fact]
     public async Task CreateRoomAsync_UsesTokenGeneratorValues()
     {
-        var tokens = new FakeTokenGenerator { RoomId = "room-xyz", JoinToken = "join-abc" };
+        var tokens = new FakeTokenGenerator
+        {
+            RoomId = "room-xyz",
+            JoinToken = "join-abc",
+            TeacherToken = "teacher-secret"
+        };
         var manager = new InMemoryRoomStateManager(tokens);
         var before = DateTime.UtcNow;
 
@@ -27,6 +35,7 @@ public class InMemoryRoomStateManagerTests
 
         Assert.Equal("room-xyz", room.RoomId);
         Assert.Equal("join-abc", room.JoinToken);
+        Assert.Equal("teacher-secret", room.TeacherToken);
         Assert.InRange(room.CreatedAt, before, after);
         Assert.InRange(room.LastActivityAt, before, after);
     }
@@ -45,6 +54,25 @@ public class InMemoryRoomStateManagerTests
         Assert.True(valid);
         Assert.False(invalid);
         Assert.False(missing);
+    }
+
+    [Fact]
+    public async Task ValidateTeacherTokenAsync_AcceptsMatchRejectsEverythingElse()
+    {
+        var tokens = new FakeTokenGenerator
+        {
+            RoomId = "room-1",
+            JoinToken = "TOKEN1",
+            TeacherToken = "teacher-secret"
+        };
+        var manager = new InMemoryRoomStateManager(tokens);
+        await manager.CreateRoomAsync();
+
+        Assert.True(await manager.ValidateTeacherTokenAsync("room-1", "teacher-secret"));
+        Assert.False(await manager.ValidateTeacherTokenAsync("room-1", "TOKEN1"));
+        Assert.False(await manager.ValidateTeacherTokenAsync("room-1", "wrong"));
+        Assert.False(await manager.ValidateTeacherTokenAsync("room-1", ""));
+        Assert.False(await manager.ValidateTeacherTokenAsync("missing-room", "teacher-secret"));
     }
 
     [Fact]

@@ -4,6 +4,7 @@ import { createSignalRConnection } from '../services/signalr';
 import { CreateRoomResponse } from '../shared/types/messages';
 import Modal from '../shared/components/Modal';
 import { HubMethods } from '../shared/constants/hubContract';
+import { storeTeacherToken } from './teacherTokenStore';
 
 interface RoomCreatePageProps {
   onRoomCreated: (roomId: string, roomName: string, joinToken: string, joinUrl: string) => void;
@@ -68,6 +69,11 @@ function RoomCreatePage({ onRoomCreated }: RoomCreatePageProps) {
         parsed.hostname = 'localhost';
         joinUrl = parsed.toString();
       }
+
+      if (!response.teacherToken) {
+        throw new Error('Server did not issue a teacher token; aborting.');
+      }
+      storeTeacherToken(response.roomId, response.teacherToken);
 
       onRoomCreated(response.roomId, response.roomName, response.joinToken, joinUrl);
     } catch (err) {

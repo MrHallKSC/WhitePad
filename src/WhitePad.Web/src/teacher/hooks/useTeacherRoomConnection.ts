@@ -10,6 +10,7 @@ import {
   AnsweredChanged,
 } from '../../shared/types/messages';
 import { HubEvents, HubMethods } from '../../shared/constants/hubContract';
+import { readTeacherToken } from '../teacherTokenStore';
 
 type TeacherRoomConnectionState = {
   connection: HubConnection | null;
@@ -85,9 +86,16 @@ export function useTeacherRoomConnection(roomId: string): TeacherRoomConnectionS
     conn.on('AnsweredChanged', handleAnsweredChanged);
 
     const setupConnection = async () => {
+      const teacherToken = readTeacherToken(roomId);
+      if (!teacherToken) {
+        console.error('No teacher token available for room', roomId);
+        setError('This dashboard is no longer authorised. Create a new room.');
+        return;
+      }
+
       try {
         await conn.start();
-        await conn.invoke(HubMethods.JoinRoomAsTeacher, roomId);
+        await conn.invoke(HubMethods.JoinRoomAsTeacher, roomId, teacherToken);
 
         if (isDisposed) {
           await conn.stop();

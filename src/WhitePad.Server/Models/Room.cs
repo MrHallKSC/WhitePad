@@ -5,6 +5,7 @@ public class Room
     public string RoomId { get; set; } = string.Empty;
     public string RoomName { get; set; } = string.Empty;
     public string JoinToken { get; set; } = string.Empty;
+    public string TeacherToken { get; set; } = string.Empty;
     public string? TeacherSessionId { get; set; }
     public List<Student> Participants { get; set; } = new();
     public RoomSettings Settings { get; set; } = new();

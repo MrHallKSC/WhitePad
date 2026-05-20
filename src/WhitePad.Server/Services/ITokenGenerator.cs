@@ -4,4 +4,5 @@ public interface ITokenGenerator
 {
     string GenerateRoomId();
     string GenerateJoinToken();
+    string GenerateTeacherToken();
 }
