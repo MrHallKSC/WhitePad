@@ -76,6 +76,21 @@ public class InMemoryRoomStateManagerTests
     }
 
     [Fact]
+    public async Task RemoveRoomAsync_RemovesExistingRoomAndReportsResult()
+    {
+        var tokens = new FakeTokenGenerator { RoomId = "room-1", JoinToken = "TOKEN1" };
+        var manager = new InMemoryRoomStateManager(tokens);
+        await manager.CreateRoomAsync();
+
+        var removed = await manager.RemoveRoomAsync("room-1");
+        var removedAgain = await manager.RemoveRoomAsync("room-1");
+
+        Assert.True(removed);
+        Assert.False(removedAgain);
+        Assert.Null(await manager.GetRoomAsync("room-1"));
+    }
+
+    [Fact]
     public async Task AddStudentAsync_AssignsDefaultNameAndIncrementsCounter()
     {
         var tokens = new FakeTokenGenerator { RoomId = "room-1", JoinToken = "TOKEN1" };

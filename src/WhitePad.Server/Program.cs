@@ -4,9 +4,14 @@ using WhitePad.Server.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddSignalR();
+builder.Services.AddSingleton<RateLimitingHubFilter>();
+builder.Services.AddSignalR(options =>
+{
+    options.AddFilter<RateLimitingHubFilter>();
+});
 builder.Services.AddSingleton<ITokenGenerator, TokenGenerator>();
 builder.Services.AddSingleton<IRoomStateManager, InMemoryRoomStateManager>();
+builder.Services.AddHostedService<RoomExpirationService>();
 
 // Trust forwarded headers from Cloudflare Tunnel / reverse proxy
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
