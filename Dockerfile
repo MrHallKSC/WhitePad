@@ -1,18 +1,18 @@
 # Stage 1: Build React frontend
 FROM node:20-alpine AS frontend
-WORKDIR /app
+WORKDIR /src/WhitePad.Web
 COPY src/WhitePad.Web/package*.json ./
 RUN npm ci
 COPY src/WhitePad.Web/ ./
-# Build to an absolute path inside the container to avoid the '../WhitePad.Server/wwwroot'
-# relative path failing when the parent directory doesn't exist in this layer
-RUN npx tsc --noEmit && npx vite build --outDir /wwwroot --emptyOutDir
+# Pre-create the parent so vite can write to ../WhitePad.Server/wwwroot
+RUN mkdir -p /src/WhitePad.Server
+RUN npm run build
 
 # Stage 2: Build .NET backend
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 COPY src/WhitePad.Server/ ./WhitePad.Server/
-COPY --from=frontend /wwwroot ./WhitePad.Server/wwwroot/
+COPY --from=frontend /src/WhitePad.Server/wwwroot ./WhitePad.Server/wwwroot/
 WORKDIR /src/WhitePad.Server
 RUN dotnet publish WhitePad.Server.csproj -c Release -o /publish
 
