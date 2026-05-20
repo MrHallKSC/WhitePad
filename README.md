@@ -2,7 +2,7 @@
 
 WhitePad is a real-time classroom whiteboard system. Students join from iPad Safari and draw on personal boards; teachers monitor all boards live and control classroom flow.
 
-**Live demo**: https://whiteboard.hall.dev
+**Live demo**: https://whiteboard.mrhall.dev
 
 ## Docs Index
 
@@ -34,7 +34,7 @@ Stage 4 work shipped so far:
 - Question mode: teacher pushes a question to all students; students mark themselves answered
 - Native iPad app (Swift/SwiftUI): full drawing tool parity with web client
 - Docker containerisation: multi-stage Dockerfile, image pushed to GHCR on each `main` push
-- Cloudflare Tunnel deployment: app is live at https://whiteboard.hall.dev
+- Cloudflare Tunnel deployment: app is live at https://whiteboard.mrhall.dev
 - Regression matrix and frontend unit tests for lock/join transitions
 
 ## Stack
