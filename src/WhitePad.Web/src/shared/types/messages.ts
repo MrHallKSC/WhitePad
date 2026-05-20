@@ -39,6 +39,7 @@ export interface CreateRoomResponse {
   roomId: string;
   roomName: string;
   joinToken: string;
+  teacherToken: string;
   joinUrl: string;
   createdAt: string;
 }
