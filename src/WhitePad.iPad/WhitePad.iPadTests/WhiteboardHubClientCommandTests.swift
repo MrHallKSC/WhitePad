@@ -56,6 +56,47 @@ final class WhiteboardHubClientCommandTests: XCTestCase {
         XCTAssertEqual(message.rawArguments.first as? String, "stroke-1")
     }
 
+    func testEncodesSendShapeInvocation() throws {
+        let client = makeClient()
+        let shape = WhiteboardShape(
+            shapeId: "student-1-shape-1",
+            studentId: "student-1",
+            type: .rectangle,
+            points: [
+                StrokePoint(x: 0.2, y: 0.3),
+                StrokePoint(x: 0.7, y: 0.8)
+            ],
+            color: "#1266CC",
+            lineWidth: 6,
+            backgroundType: .dotted,
+            paperColor: .buff,
+            isComplete: true
+        )
+
+        let message = try decodeInvocation(
+            client.makeInvocationRecord(target: "SendShape", arguments: [shape])
+        )
+
+        XCTAssertEqual(message.type, 1)
+        XCTAssertEqual(message.target, "SendShape")
+        XCTAssertEqual(message.arguments.count, 1)
+
+        let payload = try XCTUnwrap(message.arguments.first)
+        XCTAssertEqual(payload["shapeId"] as? String, "student-1-shape-1")
+        XCTAssertEqual(payload["studentId"] as? String, "student-1")
+        XCTAssertEqual(payload["type"] as? String, "rectangle")
+        XCTAssertEqual(payload["color"] as? String, "#1266CC")
+        XCTAssertEqual(payload["lineWidth"] as? Double, 6)
+        XCTAssertEqual(payload["backgroundType"] as? String, "dotted")
+        XCTAssertEqual(payload["paperColor"] as? String, "buff")
+        XCTAssertEqual(payload["isComplete"] as? Bool, true)
+
+        let points = try XCTUnwrap(payload["points"] as? [[String: Any]])
+        XCTAssertEqual(points.count, 2)
+        XCTAssertEqual(points[0]["x"] as? Double, 0.2)
+        XCTAssertEqual(points[1]["y"] as? Double, 0.8)
+    }
+
     func testEncodesClearBoardInvocationWithoutArguments() throws {
         let client = makeClient()
 

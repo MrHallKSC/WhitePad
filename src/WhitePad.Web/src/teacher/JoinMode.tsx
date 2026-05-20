@@ -6,8 +6,6 @@ interface JoinModeProps {
   joinToken: string;
   joinUrl: string;
   students: Student[];
-  waitingRoomEnabled: boolean;
-  onWaitingRoomToggle: (enabled: boolean) => void;
   onSwitchToViewer: () => void;
 }
 
@@ -16,8 +14,6 @@ function JoinMode({
   joinToken,
   joinUrl,
   students,
-  waitingRoomEnabled,
-  onWaitingRoomToggle,
   onSwitchToViewer
 }: JoinModeProps) {
   return (
@@ -47,38 +43,19 @@ function JoinMode({
 
         <div className="students-waiting-section">
           <div className="waiting-section-header">
-            <h2>Students Waiting ({students.length})</h2>
-            <div className="waiting-room-toggle">
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={waitingRoomEnabled}
-                  onChange={(e) => onWaitingRoomToggle(e.target.checked)}
-                />
-                <span className="checkbox-text">
-                  🔒 Waiting Room
-                  <span className="checkbox-hint">
-                    {waitingRoomEnabled
-                      ? 'Students locked until viewer mode'
-                      : 'Students can draw immediately'}
-                  </span>
-                </span>
-              </label>
-            </div>
+            <h2>Students Joined ({students.length})</h2>
           </div>
 
           <div className="students-waiting-list">
             {students.length === 0 ? (
-              <p className="no-students">Waiting for students to join...</p>
+              <p className="no-students">No students have joined yet...</p>
             ) : (
               <ul>
                 {students.map(student => (
                   <li key={student.studentId} className="student-waiting-item">
                     <div className="student-info">
                       <span className="student-name">{student.displayName}</span>
-                      {student.isLocked && waitingRoomEnabled && (
-                        <span className="student-status locked">🔒 Waiting</span>
-                      )}
+                      <span className="student-status drawing">Drawing</span>
                     </div>
                     <span className="student-joined-time">
                       {new Date(student.connectedAt).toLocaleTimeString()}
@@ -96,17 +73,11 @@ function JoinMode({
           type="button"
           className="button primary large"
           onClick={onSwitchToViewer}
-          disabled={students.length === 0}
         >
-          {waitingRoomEnabled ? 'Start Activity (Unlock & View)' : 'Switch to Student Viewer Mode'}
+          Switch to Teacher Viewer Mode
         </button>
         {students.length === 0 && (
-          <p className="helper-text">Wait for students to join before switching</p>
-        )}
-        {students.length > 0 && waitingRoomEnabled && (
-          <p className="helper-text">
-            ⚠️ Students are locked and waiting. Click to start the activity.
-          </p>
+          <p className="helper-text">Students will appear here as they join and can draw straight away.</p>
         )}
       </div>
     </div>

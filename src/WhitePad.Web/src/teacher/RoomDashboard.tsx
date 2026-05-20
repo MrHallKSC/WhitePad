@@ -13,22 +13,8 @@ interface RoomDashboardProps {
 type ViewMode = 'join' | 'viewer';
 
 function RoomDashboard({ roomId, roomName, joinToken, joinUrl }: RoomDashboardProps) {
-  const { connection, students, error, actions } = useTeacherRoomConnection(roomId);
+  const { connection, students, error } = useTeacherRoomConnection(roomId);
   const [viewMode, setViewMode] = useState<ViewMode>('join');
-  const [waitingRoomEnabled, setWaitingRoomEnabled] = useState(true);
-
-  const handleWaitingRoomToggle = async (enabled: boolean) => {
-    setWaitingRoomEnabled(enabled);
-    await actions.setWaitingRoomEnabled(enabled);
-  };
-
-  const handleSwitchToViewer = async () => {
-    // If waiting room was enabled, unlock the waiting room when entering viewer mode
-    if (waitingRoomEnabled) {
-      await actions.unlockWaitingRoom();
-    }
-    setViewMode('viewer');
-  };
 
   if (error) {
     return (
@@ -46,15 +32,14 @@ function RoomDashboard({ roomId, roomName, joinToken, joinUrl }: RoomDashboardPr
           joinToken={joinToken}
           joinUrl={joinUrl}
           students={students}
-          waitingRoomEnabled={waitingRoomEnabled}
-          onWaitingRoomToggle={handleWaitingRoomToggle}
-          onSwitchToViewer={handleSwitchToViewer}
+          onSwitchToViewer={() => setViewMode('viewer')}
         />
       </div>
       <div style={{ display: viewMode === 'viewer' ? 'block' : 'none', flex: 1, minHeight: 0 }}>
         <ViewerMode
           roomName={roomName}
           roomId={roomId}
+          joinUrl={joinUrl}
           students={students}
           connection={connection}
           onSwitchToJoin={() => setViewMode('join')}

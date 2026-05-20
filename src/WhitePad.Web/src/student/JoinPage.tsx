@@ -11,8 +11,6 @@ interface JoinPageProps {
     studentId: string;
     displayName: string;
     isLocked: boolean;
-    waitingRoomEnabled: boolean;
-    waitingRoomUnlocked: boolean;
     currentQuestion: string | null;
   }) => void;
 }
@@ -55,9 +53,7 @@ function JoinPage({ roomId, joinToken, connection, onJoined }: JoinPageProps) {
       onJoined({
         studentId: response.studentId!,
         displayName: response.displayName!,
-        isLocked: response.isLocked ?? false,
-        waitingRoomEnabled: response.waitingRoomEnabled ?? false,
-        waitingRoomUnlocked: response.waitingRoomUnlocked ?? false,
+        isLocked: false,
         currentQuestion: response.currentQuestion ?? null,
       });
     } catch (err) {

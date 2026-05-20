@@ -15,7 +15,14 @@ final class DrawingStrokeRecorderTests: XCTestCase {
     }
 
     func testFirstPointImmediatelySendsInitialBatch() throws {
-        var recorder = DrawingStrokeRecorder(studentId: "student-1", batchInterval: 0.05)
+        var recorder = DrawingStrokeRecorder(
+            studentId: "student-1",
+            color: "#1266CC",
+            lineWidth: 6,
+            backgroundType: .squares,
+            paperColor: .buff,
+            batchInterval: 0.05
+        )
 
         let batch = try XCTUnwrap(recorder.appendPoint(
             at: CGPoint(x: 10, y: 20),
@@ -28,7 +35,35 @@ final class DrawingStrokeRecorderTests: XCTestCase {
         XCTAssertEqual(batch.studentId, "student-1")
         XCTAssertEqual(batch.strokeId, "student-1-stroke-1")
         XCTAssertEqual(batch.points, [StrokePoint(x: 0.1, y: 0.2)])
+        XCTAssertEqual(batch.color, "#1266CC")
+        XCTAssertEqual(batch.lineWidth, 6)
+        XCTAssertEqual(batch.backgroundType, "squares")
+        XCTAssertEqual(batch.paperColor, "buff")
+        XCTAssertFalse(batch.isEraser)
         XCTAssertFalse(batch.isComplete)
+    }
+
+    func testEraserBatchUsesTeacherEraserContract() throws {
+        var recorder = DrawingStrokeRecorder(
+            studentId: "student-1",
+            lineWidth: 8,
+            paperColor: .buff,
+            isEraser: true,
+            batchInterval: 0.05
+        )
+
+        let batch = try XCTUnwrap(recorder.appendPoint(
+            at: CGPoint(x: 40, y: 50),
+            canvasSize: CGSize(width: 100, height: 100),
+            isComplete: false,
+            now: Date(timeIntervalSince1970: 1),
+            makeStrokeId: { "stroke-1" }
+        ))
+
+        XCTAssertEqual(batch.color, "__WHITEPAD_ERASER__")
+        XCTAssertEqual(batch.lineWidth, -8)
+        XCTAssertEqual(batch.paperColor, "buff")
+        XCTAssertTrue(batch.isEraser)
     }
 
     func testBatchIsHeldUntilIntervalElapses() throws {
@@ -104,6 +139,8 @@ final class DrawingStrokeRecorderTests: XCTestCase {
 
         XCTAssertEqual(stroke.id, "student-1-stroke-1")
         XCTAssertEqual(stroke.points, [StrokePoint(x: 0.25, y: 0.5)])
+        XCTAssertEqual(stroke.paperColor, .white)
+        XCTAssertFalse(stroke.isEraser)
         XCTAssertNil(recorder.activeStrokeId)
         XCTAssertTrue(recorder.activePoints.isEmpty)
     }

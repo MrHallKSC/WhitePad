@@ -7,7 +7,7 @@ import { debugLog } from '../shared/utils/debugLog';
 import { HubEvents, HubMethods } from '../shared/constants/hubContract';
 import Toolbar, { ToolType } from './Toolbar';
 import { useStrokeHistory } from './hooks/useStrokeHistory';
-import { useWaitingRoomState } from './hooks/useWaitingRoomState';
+import { useStudentLockState } from './hooks/useStudentLockState';
 import { useLatest } from '../shared/hooks/useLatest';
 
 interface DrawingPageProps {
@@ -16,8 +16,6 @@ interface DrawingPageProps {
   displayName: string;
   connection: HubConnection;
   initialIsLocked?: boolean;
-  initialWaitingRoomEnabled?: boolean;
-  initialWaitingRoomUnlocked?: boolean;
   initialQuestion?: string | null;
 }
 
@@ -41,8 +39,6 @@ function DrawingPage({
   connection,
   roomId: _roomId,
   initialIsLocked = false,
-  initialWaitingRoomEnabled = false,
-  initialWaitingRoomUnlocked = false,
   initialQuestion = null,
 }: DrawingPageProps) {
 
@@ -66,19 +62,13 @@ function DrawingPage({
 
   const {
     isLocked,
-    isInWaitingRoomFlow,
-    waitingRoomUnlocked,
-    joinFromWaitingRoom,
-  } = useWaitingRoomState({
+  } = useStudentLockState({
     connection,
     studentId,
     initialIsLocked,
-    initialWaitingRoomEnabled,
-    initialWaitingRoomUnlocked,
   });
 
-  const isWaitingRoomLocked = isLocked && isInWaitingRoomFlow;
-  const isClassroomLocked = isLocked && !isInWaitingRoomFlow;
+  const isClassroomLocked = isLocked;
 
   // Undo/redo state
   const strokesRef = useRef<Map<string, StoredStroke>>(new Map());
@@ -293,7 +283,7 @@ function DrawingPage({
     };
   }, []);
 
-  // Initialize canvas when transitioning from waiting room to drawing mode
+  // Initialize canvas when the board lock state changes.
   useEffect(() => {
     if (!isLocked && canvasRef.current) {
       // Small delay to ensure canvas is rendered in DOM
@@ -861,56 +851,6 @@ function DrawingPage({
   useEffect(() => {
     debugLog('DrawingPage', 'isLocked changed', isLocked);
   }, [isLocked]);
-
-  // Handle join room button click
-  const handleJoinRoom = async () => {
-    try {
-      await joinFromWaitingRoom();
-      debugLog('DrawingPage', 'Joined from waiting room');
-    } catch (err) {
-      console.error('[DRAWING PAGE] Failed to join from waiting room:', err);
-    }
-  };
-
-  // Show waiting room screen when locked
-  if (isWaitingRoomLocked) {
-    if (waitingRoomUnlocked) {
-      // Teacher has unlocked the waiting room - show "Join Room" button
-      return (
-        <div className="waiting-room-screen">
-          <div className="waiting-room-content">
-            <div className="waiting-room-icon">✅</div>
-            <h1 className="waiting-room-title">Ready to Join!</h1>
-            <p className="waiting-room-message">
-              Teacher has started! Click to join
-            </p>
-            <p className="waiting-room-name">Joined as: <strong>{displayName}</strong></p>
-            <button
-              type="button"
-              className="join-room-button"
-              onClick={handleJoinRoom}
-            >
-              Join Room
-            </button>
-          </div>
-        </div>
-      );
-    } else {
-      // Waiting for teacher to unlock
-      return (
-        <div className="waiting-room-screen">
-          <div className="waiting-room-content">
-            <div className="waiting-room-icon">🔒</div>
-            <h1 className="waiting-room-title">Waiting Room</h1>
-            <p className="waiting-room-message">
-              Waiting for teacher to start activity
-            </p>
-            <p className="waiting-room-name">Joined as: <strong>{displayName}</strong></p>
-          </div>
-        </div>
-      );
-    }
-  }
 
   return (
     <div className={`drawing-container ${isClassroomLocked ? 'drawing-locked' : ''}`}>

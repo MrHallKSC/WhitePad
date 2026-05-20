@@ -1,5 +1,6 @@
 import { HubConnection } from '@microsoft/signalr';
 import { useEffect, useRef, useState } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import { QuestionChanged, Student } from '../shared/types/messages';
 import StudentGrid from './StudentGrid';
 import { HubEvents, HubMethods } from '../shared/constants/hubContract';
@@ -8,12 +9,13 @@ import ConfidenceSummary from './ConfidenceSummary';
 interface ViewerModeProps {
   roomName: string;
   roomId: string;
+  joinUrl: string;
   students: Student[];
   connection: HubConnection | null;
   onSwitchToJoin: () => void;
 }
 
-function ViewerMode({ roomName, roomId, students, connection, onSwitchToJoin }: ViewerModeProps) {
+function ViewerMode({ roomName, roomId, joinUrl, students, connection, onSwitchToJoin }: ViewerModeProps) {
   const [focusedStudentId, setFocusedStudentId] = useState<string | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState<string | null>(null);
   const [questionDraft, setQuestionDraft] = useState('');
@@ -160,6 +162,15 @@ function ViewerMode({ roomName, roomId, students, connection, onSwitchToJoin }: 
 
         <ConfidenceSummary students={students} />
 
+        <div className="viewer-mode-qr" aria-label="Student join QR code">
+          <QRCodeSVG
+            value={joinUrl}
+            size={86}
+            level="M"
+            includeMargin={true}
+          />
+        </div>
+
         <div className="viewer-mode-actions">
           <button
             type="button"
@@ -253,7 +264,6 @@ function ViewerMode({ roomName, roomId, students, connection, onSwitchToJoin }: 
 }
 
 export default ViewerMode;
-
 
 
 

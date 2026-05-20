@@ -13,6 +13,7 @@ protocol WhiteboardHubClientProtocol: AnyObject {
     func setAnswered(_ hasAnswered: Bool) async throws
     func setConfidence(_ confidenceLevel: String) async throws
     func sendStrokeBatch(_ batch: StrokeBatch) async throws
+    func sendShape(_ shape: WhiteboardShape) async throws
     func undoStroke(_ strokeId: String) async throws
     func clearBoard() async throws
     func stop()
@@ -111,6 +112,10 @@ final class WhiteboardHubClient: WhiteboardHubClientProtocol {
         try await sendInvocation(target: "SendStrokeBatch", arguments: [batch])
     }
 
+    func sendShape(_ shape: WhiteboardShape) async throws {
+        try await sendInvocation(target: "SendShape", arguments: [shape])
+    }
+
     func undoStroke(_ strokeId: String) async throws {
         try await sendInvocation(target: "UndoStroke", arguments: [JSONValue.string(strokeId)])
     }
@@ -185,7 +190,7 @@ final class WhiteboardHubClient: WhiteboardHubClientProtocol {
         try await sendRaw(json + Self.recordSeparator)
     }
 
-    private func sendInvocation<Argument: Encodable>(target: String, arguments: [Argument]) async throws {
+    private func sendInvocation<Argument: Encodable & Sendable>(target: String, arguments: [Argument]) async throws {
         try await sendRaw(makeInvocationRecord(target: target, arguments: arguments))
     }
 
@@ -193,7 +198,7 @@ final class WhiteboardHubClient: WhiteboardHubClientProtocol {
         try await sendRaw(makeInvocationRecord(target: target, arguments: [JSONValue]()))
     }
 
-    func makeInvocationRecord<Argument: Encodable>(target: String, arguments: [Argument]) throws -> String {
+    func makeInvocationRecord<Argument: Encodable & Sendable>(target: String, arguments: [Argument]) throws -> String {
         let message = SignalRInvocationMessage<JSONValue>(
             target: target,
             arguments: arguments.map(JSONValue.encodable)
@@ -330,7 +335,7 @@ private struct NegotiateResponse: Decodable {
     let connectionToken: String
 }
 
-private struct SignalRInvocationMessage<Argument: Encodable>: Encodable {
+private struct SignalRInvocationMessage<Argument: Encodable & Sendable>: Encodable {
     let type = 1
     var invocationId: String? = nil
     let target: String
@@ -397,7 +402,7 @@ private extension Decoder {
     }
 }
 
-private enum JSONValue: Codable {
+private enum JSONValue: Codable, Sendable {
     case string(String)
     case number(Double)
     case bool(Bool)
@@ -405,7 +410,7 @@ private enum JSONValue: Codable {
     case array([JSONValue])
     case null
 
-    static func encodable(_ value: some Encodable) -> JSONValue {
+    static func encodable(_ value: some Encodable & Sendable) -> JSONValue {
         if let value = value as? JSONValue {
             return value
         }

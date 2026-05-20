@@ -31,10 +31,10 @@ final class StudentRoomSession: ObservableObject {
         self.studentId = studentId
         self.displayName = displayName
         self.joinLink = joinLink
-        self.isLocked = isLocked
-        self.isInWaitingRoomFlow = waitingRoomEnabled && isLocked
-        self.waitingRoomEnabled = waitingRoomEnabled
-        self.waitingRoomUnlocked = waitingRoomUnlocked
+        self.isLocked = false
+        self.isInWaitingRoomFlow = false
+        self.waitingRoomEnabled = false
+        self.waitingRoomUnlocked = true
         self.currentQuestion = currentQuestion
         self.hubClient = hubClient
 
@@ -42,11 +42,10 @@ final class StudentRoomSession: ObservableObject {
     }
 
     func joinFromWaitingRoom() async {
-        do {
-            try await hubClient.joinFromWaitingRoom()
-        } catch {
-            statusMessage = "Could not join from the waiting room yet."
-        }
+        isInWaitingRoomFlow = false
+        waitingRoomEnabled = false
+        waitingRoomUnlocked = true
+        isLocked = false
     }
 
     func setAnswered(_ value: Bool) async {
@@ -77,6 +76,14 @@ final class StudentRoomSession: ObservableObject {
             try await hubClient.sendStrokeBatch(batch)
         } catch {
             statusMessage = "Could not send drawing to the teacher."
+        }
+    }
+
+    func sendShape(_ shape: WhiteboardShape) async {
+        do {
+            try await hubClient.sendShape(shape)
+        } catch {
+            statusMessage = "Could not send shape to the teacher."
         }
     }
 
@@ -134,14 +141,12 @@ final class StudentRoomSession: ObservableObject {
     }
 
     private func applyWaitingRoomStateChanged(_ message: WaitingRoomStateChanged) {
-        waitingRoomEnabled = message.waitingRoomEnabled
-        waitingRoomUnlocked = message.waitingRoomUnlocked
+        waitingRoomEnabled = false
+        waitingRoomUnlocked = true
+        isInWaitingRoomFlow = false
 
         if !message.waitingRoomEnabled {
             isLocked = false
-            isInWaitingRoomFlow = false
-        } else if !message.waitingRoomUnlocked {
-            isInWaitingRoomFlow = true
         }
     }
 }

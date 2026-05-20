@@ -71,6 +71,8 @@ Current implementation note: Stage 3 now has the first native drawing loop: a fi
 
 Deliverable: native app matches current web student feature set.
 
+Current implementation note: Stage 4 has its first native tool-parity slice. The iPad drawing screen now has a classroom-speed toolbar with pen/eraser/shapes, colour and thickness controls, white/buff paper, none/dotted/lined/square backgrounds, shape preview, local undo/redo/clear, `SendShape`, and immediate background sync metadata. The remaining Stage 4 hardening is mostly hands-on iPad tuning: Pencil pressure/smoothing, toolbar ergonomics on real devices, and latency checks against the teacher dashboard.
+
 ## Stage 5 - QR Launch
 
 - Add custom URL scheme.

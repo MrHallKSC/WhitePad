@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { HubConnection } from '@microsoft/signalr';
 import { createSignalRConnection } from '../../services/signalr';
 import {
@@ -11,16 +11,10 @@ import {
 } from '../../shared/types/messages';
 import { HubEvents, HubMethods } from '../../shared/constants/hubContract';
 
-type TeacherRoomActions = {
-  setWaitingRoomEnabled: (enabled: boolean) => Promise<void>;
-  unlockWaitingRoom: () => Promise<void>;
-};
-
 type TeacherRoomConnectionState = {
   connection: HubConnection | null;
   students: Student[];
   error: string | null;
-  actions: TeacherRoomActions;
 };
 
 export function useTeacherRoomConnection(roomId: string): TeacherRoomConnectionState {
@@ -44,8 +38,12 @@ export function useTeacherRoomConnection(roomId: string): TeacherRoomConnectionS
         inputMode: data.inputMode,
         isLocked: false,
         hasAnswered: data.hasAnswered ?? false,
+        confidenceLevel: data.confidenceLevel ?? 'none',
       };
-      setStudents(prev => [...prev, student]);
+      setStudents(prev => [
+        ...prev.filter(existing => existing.studentId !== student.studentId),
+        student
+      ]);
     });
 
     conn.on(HubEvents.ParticipantLeft, (data: ParticipantLeft) => {
@@ -117,39 +115,9 @@ export function useTeacherRoomConnection(roomId: string): TeacherRoomConnectionS
     };
   }, [roomId]);
 
-  const setWaitingRoomEnabled = useCallback(async (enabled: boolean) => {
-    if (!connectionRef.current) {
-      return;
-    }
-
-    try {
-      await connectionRef.current.invoke(HubMethods.SetWaitingRoomEnabled, roomId, enabled);
-      console.log(`Waiting room ${enabled ? 'enabled' : 'disabled'}`);
-    } catch (err) {
-      console.error('Failed to toggle waiting room:', err);
-    }
-  }, [roomId]);
-
-  const unlockWaitingRoom = useCallback(async () => {
-    if (!connectionRef.current) {
-      return;
-    }
-
-    try {
-      await connectionRef.current.invoke(HubMethods.UnlockWaitingRoom, roomId);
-      console.log('Unlocked waiting room when entering viewer mode');
-    } catch (err) {
-      console.error('Failed to unlock waiting room:', err);
-    }
-  }, [roomId]);
-
   return {
     connection,
     students,
     error,
-    actions: {
-      setWaitingRoomEnabled,
-      unlockWaitingRoom,
-    },
   };
 }

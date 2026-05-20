@@ -7,4 +7,6 @@ public class ParticipantJoined
     public DateTime ConnectedAt { get; set; }
     public string InputMode { get; set; } = "draw";
     public bool HasAnswered { get; set; }
+    public string ConfidenceLevel { get; set; } = "none";
+    public bool IsLocked { get; set; }
 }

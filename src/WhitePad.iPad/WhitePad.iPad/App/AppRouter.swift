@@ -63,7 +63,7 @@ final class AppRouter: ObservableObject {
                 studentId: studentId,
                 displayName: confirmedDisplayName,
                 joinLink: joinLink,
-                isLocked: response.isLocked ?? false,
+                isLocked: false,
                 waitingRoomEnabled: response.waitingRoomEnabled ?? false,
                 waitingRoomUnlocked: response.waitingRoomUnlocked ?? false,
                 currentQuestion: response.currentQuestion,

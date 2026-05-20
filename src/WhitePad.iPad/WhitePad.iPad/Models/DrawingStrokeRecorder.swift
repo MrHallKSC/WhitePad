@@ -5,6 +5,9 @@ struct DrawingStrokeRecorder {
     let studentId: String
     let color: String
     let lineWidth: Double
+    let backgroundType: BackgroundType
+    let paperColor: PaperColor
+    let isEraser: Bool
     let batchInterval: TimeInterval
 
     private(set) var activeStrokeId: String?
@@ -16,11 +19,17 @@ struct DrawingStrokeRecorder {
         studentId: String,
         color: String = "#000000",
         lineWidth: Double = 4,
+        backgroundType: BackgroundType = .none,
+        paperColor: PaperColor = .white,
+        isEraser: Bool = false,
         batchInterval: TimeInterval = 0.05
     ) {
         self.studentId = studentId
         self.color = color
         self.lineWidth = lineWidth
+        self.backgroundType = backgroundType
+        self.paperColor = paperColor
+        self.isEraser = isEraser
         self.batchInterval = batchInterval
     }
 
@@ -63,7 +72,9 @@ struct DrawingStrokeRecorder {
             id: activeStrokeId,
             points: activePoints,
             color: color,
-            lineWidth: lineWidth
+            lineWidth: lineWidth,
+            paperColor: paperColor,
+            isEraser: isEraser
         )
     }
 
@@ -98,8 +109,11 @@ struct DrawingStrokeRecorder {
             studentId: studentId,
             strokeId: activeStrokeId,
             points: pendingPoints,
-            color: color,
-            lineWidth: lineWidth,
+            color: isEraser ? "__WHITEPAD_ERASER__" : color,
+            lineWidth: isEraser ? -lineWidth : lineWidth,
+            backgroundType: backgroundType.rawValue,
+            paperColor: paperColor.rawValue,
+            isEraser: isEraser,
             isComplete: isComplete
         )
     }

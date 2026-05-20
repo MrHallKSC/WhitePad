@@ -3,23 +3,23 @@ import XCTest
 
 @MainActor
 final class StudentRoomSessionTests: XCTestCase {
-    func testInitialWaitingRoomStateRequiresEnabledAndLocked() {
+    func testLegacyWaitingRoomStateIsIgnoredOnJoin() {
         let session = makeSession(isLocked: true, waitingRoomEnabled: true, waitingRoomUnlocked: false)
 
-        XCTAssertTrue(session.isLocked)
-        XCTAssertTrue(session.isInWaitingRoomFlow)
-        XCTAssertTrue(session.waitingRoomEnabled)
-        XCTAssertFalse(session.waitingRoomUnlocked)
+        XCTAssertFalse(session.isLocked)
+        XCTAssertFalse(session.isInWaitingRoomFlow)
+        XCTAssertFalse(session.waitingRoomEnabled)
+        XCTAssertTrue(session.waitingRoomUnlocked)
     }
 
-    func testTeacherUnlockMakesWaitingRoomReadyButKeepsFlowUntilStudentJoins() {
+    func testLegacyWaitingRoomUpdatesDoNotEnterWaitingRoomFlow() {
         let hubClient = FakeHubClient()
         let session = makeSession(hubClient: hubClient, isLocked: true, waitingRoomEnabled: true, waitingRoomUnlocked: false)
 
         hubClient.onWaitingRoomStateChanged?(WaitingRoomStateChanged(waitingRoomEnabled: true, waitingRoomUnlocked: true))
 
-        XCTAssertTrue(session.isInWaitingRoomFlow)
-        XCTAssertTrue(session.waitingRoomEnabled)
+        XCTAssertFalse(session.isInWaitingRoomFlow)
+        XCTAssertFalse(session.waitingRoomEnabled)
         XCTAssertTrue(session.waitingRoomUnlocked)
     }
 
@@ -120,6 +120,26 @@ final class StudentRoomSessionTests: XCTestCase {
         XCTAssertEqual(session.statusMessage, "Could not send drawing to the teacher.")
     }
 
+    func testSendShapeFailureSetsStatusMessage() async {
+        let hubClient = FakeHubClient()
+        hubClient.sendShapeError = WhitePadError.connectionFailed("offline")
+        let session = makeSession(hubClient: hubClient)
+
+        await session.sendShape(WhiteboardShape(
+            shapeId: "shape-1",
+            studentId: "student-1",
+            type: .line,
+            points: [StrokePoint(x: 0.1, y: 0.2), StrokePoint(x: 0.5, y: 0.6)],
+            color: "#000000",
+            lineWidth: 4,
+            backgroundType: .none,
+            paperColor: .white,
+            isComplete: true
+        ))
+
+        XCTAssertEqual(session.statusMessage, "Could not send shape to the teacher.")
+    }
+
     func testUndoStrokeFailureSetsStatusMessage() async {
         let hubClient = FakeHubClient()
         hubClient.undoStrokeError = WhitePadError.connectionFailed("offline")
@@ -177,6 +197,7 @@ private final class FakeHubClient: WhiteboardHubClientProtocol {
     var setAnsweredError: Error?
     var setConfidenceError: Error?
     var sendStrokeBatchError: Error?
+    var sendShapeError: Error?
     var undoStrokeError: Error?
     var clearBoardError: Error?
 
@@ -199,6 +220,12 @@ private final class FakeHubClient: WhiteboardHubClientProtocol {
     func sendStrokeBatch(_ batch: StrokeBatch) async throws {
         if let sendStrokeBatchError {
             throw sendStrokeBatchError
+        }
+    }
+
+    func sendShape(_ shape: WhiteboardShape) async throws {
+        if let sendShapeError {
+            throw sendShapeError
         }
     }
 

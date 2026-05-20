@@ -1060,95 +1060,6 @@ body {
   color: white;
 }
 
-/* Waiting Room Screen */
-.waiting-room-screen {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 20px;
-}
-
-.waiting-room-content {
-  text-align: center;
-  background: white;
-  padding: 60px 80px;
-  border-radius: 16px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-  max-width: 600px;
-}
-
-.waiting-room-icon {
-  font-size: 80px;
-  margin-bottom: 20px;
-  animation: pulse 2s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%, 100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: scale(1.1);
-    opacity: 0.8;
-  }
-}
-
-.waiting-room-title {
-  font-size: 32px;
-  font-weight: 700;
-  color: #333;
-  margin-bottom: 20px;
-}
-
-.waiting-room-message {
-  font-size: 18px;
-  color: #666;
-  margin-bottom: 30px;
-  line-height: 1.6;
-}
-
-.waiting-room-name {
-  font-size: 16px;
-  color: #888;
-  padding-top: 20px;
-  border-top: 2px solid #e0e0e0;
-}
-
-.waiting-room-name strong {
-  color: #333;
-  font-weight: 600;
-}
-
-.join-room-button {
-  margin-top: 30px;
-  padding: 16px 48px;
-  font-size: 18px;
-  font-weight: 600;
-  color: white;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border: none;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-}
-
-.join-room-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
-}
-
-.join-room-button:active {
-  transform: translateY(0);
-}
-
 /* Compact Toolbar Updates */
 .toolbar.vertical {
   width: 180px;
@@ -1647,7 +1558,7 @@ body {
 
 .viewer-mode-header {
   display: grid;
-  grid-template-columns: max-content minmax(320px, 1fr) max-content;
+  grid-template-columns: max-content minmax(320px, 1fr) max-content max-content;
   align-items: start;
   gap: 16px;
   margin-bottom: 20px;
@@ -1665,6 +1576,15 @@ body {
   display: flex;
   gap: 10px;
   justify-self: end;
+}
+
+.viewer-mode-qr {
+  background: white;
+  padding: 6px;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  line-height: 0;
+  justify-self: center;
 }
 
 .viewer-mode-header .confidence-summary {
@@ -1717,7 +1637,7 @@ body {
   background: #0056b3;
 }
 
-/* Waiting Room Styles */
+/* Join Mode Roster */
 .waiting-section-header {
   display: flex;
   justify-content: space-between;
@@ -1729,11 +1649,6 @@ body {
 
 .waiting-section-header h2 {
   margin: 0;
-}
-
-.waiting-room-toggle {
-  display: flex;
-  align-items: center;
 }
 
 .checkbox-label {
@@ -1788,4 +1703,9 @@ body {
 .student-status.locked {
   background: #fff3cd;
   color: #856404;
+}
+
+.student-status.drawing {
+  background: #d1e7dd;
+  color: #0f5132;
 }

@@ -49,6 +49,8 @@ export interface ParticipantJoined {
   connectedAt: string;
   inputMode: string;
   hasAnswered?: boolean;
+  confidenceLevel?: 'none' | 'red' | 'amber' | 'green';
+  isLocked?: boolean;
 }
 
 export interface ParticipantLeft {

@@ -9,8 +9,6 @@ function StudentApp() {
   const [studentId, setStudentId] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [initialIsLocked, setInitialIsLocked] = useState(false);
-  const [initialWaitingRoomEnabled, setInitialWaitingRoomEnabled] = useState(false);
-  const [initialWaitingRoomUnlocked, setInitialWaitingRoomUnlocked] = useState(false);
   const [initialQuestion, setInitialQuestion] = useState<string | null>(null);
   const [showKickedModal, setShowKickedModal] = useState(false);
 
@@ -21,15 +19,11 @@ function StudentApp() {
     studentId: string;
     displayName: string;
     isLocked: boolean;
-    waitingRoomEnabled: boolean;
-    waitingRoomUnlocked: boolean;
     currentQuestion: string | null;
   }) => {
     setStudentId(session.studentId);
     setDisplayName(session.displayName);
     setInitialIsLocked(session.isLocked);
-    setInitialWaitingRoomEnabled(session.waitingRoomEnabled);
-    setInitialWaitingRoomUnlocked(session.waitingRoomUnlocked);
     setInitialQuestion(session.currentQuestion);
   }, []);
 
@@ -38,8 +32,6 @@ function StudentApp() {
     setStudentId(null);
     setDisplayName(null);
     setInitialIsLocked(false);
-    setInitialWaitingRoomEnabled(false);
-    setInitialWaitingRoomUnlocked(false);
     setInitialQuestion(null);
   };
 
@@ -50,10 +42,6 @@ function StudentApp() {
   }, []);
 
   const { connection, error } = useStudentConnection(handleKicked);
-
-  // Note: DrawingPage handles studentLocked and waitingRoomStateChanged events
-  // We only set initial values here, which are passed as props to DrawingPage
-  // DrawingPage will then maintain its own state and listen to updates
 
   if (!roomId || !joinToken) {
     return (
@@ -94,8 +82,6 @@ function StudentApp() {
         displayName={displayName}
         connection={connection}
         initialIsLocked={initialIsLocked}
-        initialWaitingRoomEnabled={initialWaitingRoomEnabled}
-        initialWaitingRoomUnlocked={initialWaitingRoomUnlocked}
         initialQuestion={initialQuestion}
       />
 
