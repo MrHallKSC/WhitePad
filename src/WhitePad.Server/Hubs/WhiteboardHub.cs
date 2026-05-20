@@ -9,14 +9,16 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
 {
     private readonly IRoomStateManager _roomStateManager;
     private readonly ILogger<WhiteboardHub> _logger;
+    private readonly IConfiguration _configuration;
     private const int MaxQuestionLength = 280;
     private const string EraserStrokeMarker = "-eraser-";
     private const string EraserColorSentinel = "__WHITEPAD_ERASER__";
 
-    public WhiteboardHub(IRoomStateManager roomStateManager, ILogger<WhiteboardHub> logger)
+    public WhiteboardHub(IRoomStateManager roomStateManager, ILogger<WhiteboardHub> logger, IConfiguration configuration)
     {
         _roomStateManager = roomStateManager;
         _logger = logger;
+        _configuration = configuration;
     }
 
     // Teacher creates a room
@@ -27,10 +29,19 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
 
         _logger.LogInformation("Room created: {RoomId} - {RoomName}", room.RoomId, roomName);
 
-        var joinHost = useLocalhostJoinUrl ? "localhost" : NetworkUtility.GetLocalIPAddress();
-        var joinUrl = $"https://{joinHost}:5001/join?roomId={room.RoomId}&token={room.JoinToken}";
+        var publicHostname = _configuration["PublicHostname"];
+        string joinUrl;
+        if (!string.IsNullOrEmpty(publicHostname))
+        {
+            joinUrl = $"https://{publicHostname}/join?roomId={room.RoomId}&token={room.JoinToken}";
+        }
+        else
+        {
+            var joinHost = useLocalhostJoinUrl ? "localhost" : NetworkUtility.GetLocalIPAddress();
+            joinUrl = $"https://{joinHost}:5001/join?roomId={room.RoomId}&token={room.JoinToken}";
+        }
 
-        _logger.LogInformation("Join URL for room {RoomId}: {JoinUrl}", room.RoomId, joinUrl);
+        _logger.LogInformation("Join URL generated for room {RoomId}", room.RoomId);
 
         return new CreateRoomResponse
         {
@@ -54,16 +65,19 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
 
         await _roomStateManager.UpdateTeacherSessionAsync(roomId, Context.ConnectionId);
         await Groups.AddToGroupAsync(Context.ConnectionId, TeacherGroup(roomId));
-        room.WaitingRoomEnabled = false;
-        room.WaitingRoomUnlocked = true;
 
         _logger.LogInformation("Teacher joined room: {RoomId}", roomId);
 
-        // Send current participants to teacher
-        foreach (var student in room.Participants)
+        List<ParticipantJoined> participants;
+        lock (room.SyncRoot)
         {
-            student.IsLocked = false;
-            await Clients.Caller.ParticipantJoined(ToParticipantJoined(student));
+            participants = room.Participants.Select(ToParticipantJoined).ToList();
+        }
+
+        // Send current participants to teacher
+        foreach (var participant in participants)
+        {
+            await Clients.Caller.ParticipantJoined(participant);
         }
 
         await Clients.Caller.QuestionChanged(new QuestionChanged
@@ -90,20 +104,29 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
             return new JoinRoomResponse { Success = false, Error = "Invalid or expired join token" };
         }
 
-        if (room.Participants.Count >= room.Settings.MaxStudents)
+        lock (room.SyncRoot)
         {
-            return new JoinRoomResponse { Success = false, Error = $"Room is full (max {room.Settings.MaxStudents} students)" };
+            if (room.Participants.Count >= room.Settings.MaxStudents)
+            {
+                return new JoinRoomResponse { Success = false, Error = $"Room is full (max {room.Settings.MaxStudents} students)" };
+            }
         }
 
-        // Add student to room with custom name if provided
-        var student = await _roomStateManager.AddStudentAsync(roomId, Context.ConnectionId, displayName);
+        Student student;
+        try
+        {
+            // Add student to room with custom name if provided
+            student = await _roomStateManager.AddStudentAsync(roomId, Context.ConnectionId, displayName);
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "Student failed to join room {RoomId}", roomId);
+            return new JoinRoomResponse { Success = false, Error = ex.Message };
+        }
+
         await Groups.AddToGroupAsync(Context.ConnectionId, StudentsGroup(roomId));
 
         _logger.LogInformation("Student joined: {StudentId} ({DisplayName}) in room {RoomId}", student.StudentId, student.DisplayName, roomId);
-
-        student.IsLocked = false;
-        room.WaitingRoomEnabled = false;
-        room.WaitingRoomUnlocked = true;
 
         // Notify teacher
         await Clients.Group(TeacherGroup(roomId)).ParticipantJoined(ToParticipantJoined(student));
@@ -115,8 +138,6 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
             DisplayName = student.DisplayName,
             RoomSettings = room.Settings,
             IsLocked = student.IsLocked,
-            WaitingRoomEnabled = false,
-            WaitingRoomUnlocked = true,
             CurrentQuestion = room.CurrentQuestion
         };
     }
@@ -196,8 +217,11 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
         if (student == null) return;
 
         // Update confidence level
-        student.ConfidenceLevel = confidenceLevel;
-        student.LastSeenAt = DateTime.UtcNow;
+        lock (room.SyncRoot)
+        {
+            student.ConfidenceLevel = confidenceLevel;
+            student.LastSeenAt = DateTime.UtcNow;
+        }
 
         _logger.LogInformation("Student {StudentId} set confidence to {Level}", student.StudentId, confidenceLevel);
 
@@ -274,7 +298,12 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
             return;
         }
 
-        var student = room.Participants.FirstOrDefault(s => s.StudentId == studentId);
+        Student? student;
+        lock (room.SyncRoot)
+        {
+            student = room.Participants.FirstOrDefault(s => s.StudentId == studentId);
+        }
+
         if (student == null)
         {
             _logger.LogWarning("Student not found: {StudentId}", studentId);
@@ -296,7 +325,12 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
             return;
         }
 
-        var student = room.Participants.FirstOrDefault(s => s.StudentId == studentId);
+        Student? student;
+        lock (room.SyncRoot)
+        {
+            student = room.Participants.FirstOrDefault(s => s.StudentId == studentId);
+        }
+
         if (student == null)
         {
             _logger.LogWarning("Student not found: {StudentId}", studentId);
@@ -318,7 +352,13 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
             return;
         }
 
-        foreach (var student in room.Participants)
+        List<Student> students;
+        lock (room.SyncRoot)
+        {
+            students = room.Participants.ToList();
+        }
+
+        foreach (var student in students)
         {
             await SetStudentLockStateAndNotifyAsync(roomId, student, isLocked: true);
         }
@@ -336,7 +376,13 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
             return;
         }
 
-        foreach (var student in room.Participants)
+        List<Student> students;
+        lock (room.SyncRoot)
+        {
+            students = room.Participants.ToList();
+        }
+
+        foreach (var student in students)
         {
             await SetStudentLockStateAndNotifyAsync(roomId, student, isLocked: false);
         }
@@ -354,7 +400,17 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
             return;
         }
 
-        var student = room.Participants.FirstOrDefault(s => s.StudentId == studentId);
+        Student? student;
+        lock (room.SyncRoot)
+        {
+            student = room.Participants.FirstOrDefault(s => s.StudentId == studentId);
+            if (student != null)
+            {
+                room.Participants.Remove(student);
+                room.LastActivityAt = DateTime.UtcNow;
+            }
+        }
+
         if (student == null)
         {
             _logger.LogWarning("Student not found: {StudentId}", studentId);
@@ -362,9 +418,6 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
         }
 
         var connectionId = student.ConnectionId;
-
-        // Remove student from room
-        room.Participants.Remove(student);
         _logger.LogInformation("Removed student {StudentId} from room {RoomId}", studentId, roomId);
 
         // Notify teacher that student left
@@ -394,7 +447,12 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
             return;
         }
 
-        var student = room.Participants.FirstOrDefault(s => s.StudentId == studentId);
+        Student? student;
+        lock (room.SyncRoot)
+        {
+            student = room.Participants.FirstOrDefault(s => s.StudentId == studentId);
+        }
+
         if (student == null)
         {
             _logger.LogWarning("Student not found: {StudentId}", studentId);
@@ -429,7 +487,13 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
             return;
         }
 
-        foreach (var student in room.Participants)
+        List<Student> students;
+        lock (room.SyncRoot)
+        {
+            students = room.Participants.ToList();
+        }
+
+        foreach (var student in students)
         {
             var boardCleared = new BoardCleared
             {
@@ -447,78 +511,6 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
         }
 
         _logger.LogInformation("Sent BoardCleared notifications for all students in room {RoomId}", roomId);
-    }
-
-    // Legacy compatibility: waiting rooms are no longer used.
-    public async Task UnlockWaitingRoom(string roomId)
-    {
-        _logger.LogInformation("Ignoring legacy waiting room unlock in room {RoomId}", roomId);
-
-        var room = await _roomStateManager.GetRoomAsync(roomId);
-        if (room == null)
-        {
-            _logger.LogWarning("Room not found: {RoomId}", roomId);
-            return;
-        }
-
-        room.WaitingRoomEnabled = false;
-        room.WaitingRoomUnlocked = true;
-        var message = new WaitingRoomStateChanged
-        {
-            WaitingRoomEnabled = false,
-            WaitingRoomUnlocked = true
-        };
-
-        await Clients.Group(StudentsGroup(roomId)).WaitingRoomStateChanged(message);
-    }
-
-    // Legacy compatibility: waiting rooms are no longer used.
-    public async Task SetWaitingRoomEnabled(string roomId, bool enabled)
-    {
-        _logger.LogInformation("Ignoring legacy waiting room enabled={Enabled} in room {RoomId}", enabled, roomId);
-
-        var room = await _roomStateManager.GetRoomAsync(roomId);
-        if (room == null)
-        {
-            _logger.LogWarning("Room not found: {RoomId}", roomId);
-            return;
-        }
-
-        room.WaitingRoomEnabled = false;
-        room.WaitingRoomUnlocked = true;
-
-        foreach (var student in room.Participants.Where(student => student.IsLocked))
-        {
-            await SetStudentLockStateAndNotifyAsync(roomId, student, isLocked: false);
-        }
-
-        var message = new WaitingRoomStateChanged
-        {
-            WaitingRoomEnabled = false,
-            WaitingRoomUnlocked = true
-        };
-
-        await Clients.Group(StudentsGroup(roomId)).WaitingRoomStateChanged(message);
-    }
-
-    // Legacy compatibility: students now join the canvas immediately.
-    public async Task JoinFromWaitingRoom()
-    {
-        var connectionId = Context.ConnectionId;
-
-        var (room, student) = await GetRoomAndStudentByConnectionIdAsync(connectionId);
-        if (room == null)
-        {
-            _logger.LogWarning("Student not in any room, cannot join from waiting room");
-            return;
-        }
-
-        if (student == null) return;
-
-        room.WaitingRoomEnabled = false;
-        room.WaitingRoomUnlocked = true;
-
-        await SetStudentLockStateAndNotifyAsync(room.RoomId, student, isLocked: false);
     }
 
     // Teacher sets a question for the room
@@ -565,11 +557,15 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
             normalized = normalized[..MaxQuestionLength];
         }
 
-        room.CurrentQuestion = normalized;
-
-        foreach (var student in room.Participants)
+        List<Student> students;
+        lock (room.SyncRoot)
         {
-            student.HasAnswered = false;
+            room.CurrentQuestion = normalized;
+            students = room.Participants.ToList();
+            foreach (var student in students)
+            {
+                student.HasAnswered = false;
+            }
         }
 
         var message = new QuestionChanged
@@ -580,7 +576,7 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
         await Clients.Group(TeacherGroup(roomId)).QuestionChanged(message);
         await Clients.Group(StudentsGroup(roomId)).QuestionChanged(message);
 
-        foreach (var student in room.Participants)
+        foreach (var student in students)
         {
             await Clients.Group(TeacherGroup(roomId)).AnsweredChanged(new AnsweredChanged
             {
@@ -606,7 +602,10 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
             return;
         }
 
-        student.HasAnswered = hasAnswered;
+        lock (room.SyncRoot)
+        {
+            student.HasAnswered = hasAnswered;
+        }
 
         await Clients.Group(TeacherGroup(room.RoomId)).AnsweredChanged(new AnsweredChanged
         {
@@ -635,12 +634,19 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
         var rooms = await GetAllRoomsAsync();
         foreach (var room in rooms)
         {
-            if (room.Participants.Any(s => s.StudentId == student.StudentId))
+            bool removed;
+            lock (room.SyncRoot)
+            {
+                removed = room.Participants.RemoveAll(s => s.StudentId == student.StudentId) > 0;
+                if (removed)
+                {
+                    room.LastActivityAt = DateTime.UtcNow;
+                }
+            }
+
+            if (removed)
             {
                 _logger.LogInformation("Removing student {StudentId} from room {RoomId}", student.StudentId, room.RoomId);
-
-                await _roomStateManager.RemoveStudentAsync(room.RoomId, student.StudentId);
-
                 // Notify teacher
                 var leftMessage = new ParticipantLeft
                 {
@@ -666,7 +672,12 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
     {
         foreach (var room in await GetAllRoomsAsync())
         {
-            var student = room.Participants.FirstOrDefault(s => s.ConnectionId == connectionId);
+            Student? student;
+            lock (room.SyncRoot)
+            {
+                student = room.Participants.FirstOrDefault(s => s.ConnectionId == connectionId);
+            }
+
             if (student != null)
             {
                 return (room, student);
@@ -680,7 +691,18 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
 
     private async Task SetStudentLockStateAndNotifyAsync(string roomId, Student student, bool isLocked)
     {
-        student.IsLocked = isLocked;
+        var room = await _roomStateManager.GetRoomAsync(roomId);
+        if (room != null)
+        {
+            lock (room.SyncRoot)
+            {
+                student.IsLocked = isLocked;
+            }
+        }
+        else
+        {
+            student.IsLocked = isLocked;
+        }
 
         var message = new StudentLocked
         {
