@@ -7,7 +7,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddSingleton<RateLimitingHubFilter>();
 builder.Services.AddSignalR(options =>
 {
-    options.AddFilter<RateLimitingHubFilter>();
+    options.AddFilter(typeof(RateLimitingHubFilter));
 });
 builder.Services.AddSingleton<ITokenGenerator, TokenGenerator>();
 builder.Services.AddSingleton<IRoomStateManager, InMemoryRoomStateManager>();
