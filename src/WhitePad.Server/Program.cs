@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.SignalR;
 using WhitePad.Server.Hubs;
 using WhitePad.Server.Services;
 
@@ -7,7 +8,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddSingleton<RateLimitingHubFilter>();
 builder.Services.AddSignalR(options =>
 {
-    options.AddFilter(typeof(RateLimitingHubFilter));
+    options.AddFilter<RateLimitingHubFilter>();
 });
 builder.Services.AddSingleton<ITokenGenerator, TokenGenerator>();
 builder.Services.AddSingleton<IRoomStateManager, InMemoryRoomStateManager>();
