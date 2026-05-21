@@ -168,6 +168,9 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
             return;
         }
 
+        // Keep the room alive against the expiration sweep while drawing.
+        room.LastActivityAt = DateTime.UtcNow;
+
         // Send to teacher only
         await Clients.Group(TeacherGroup(room.RoomId)).ReceiveStrokeBatch(batch);
     }
@@ -190,6 +193,8 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
             _logger.LogWarning("Student {StudentId} not in any room", student.StudentId);
             return;
         }
+
+        room.LastActivityAt = DateTime.UtcNow;
 
         var shapeDrawn = ToShapeDrawn(shape);
 

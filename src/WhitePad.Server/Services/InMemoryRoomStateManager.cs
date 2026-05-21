@@ -35,6 +35,9 @@ public class InMemoryRoomStateManager : IRoomStateManager
         return ValueTask.FromResult(room);
     }
 
+    public ValueTask<bool> RemoveRoomAsync(string roomId) =>
+        ValueTask.FromResult(_rooms.TryRemove(roomId, out _));
+
     public ValueTask<bool> ValidateJoinTokenAsync(string roomId, string joinToken)
     {
         if (!_rooms.TryGetValue(roomId, out var room))

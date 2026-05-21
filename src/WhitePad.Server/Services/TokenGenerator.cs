@@ -4,19 +4,20 @@ namespace WhitePad.Server.Services;
 
 public class TokenGenerator : ITokenGenerator
 {
+    // Confusion-free alphabet (no 0/O/1/I) so a teacher can read out the
+    // token if QR scanning isn't available.
+    private const string JoinTokenChars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
     private const string TeacherTokenChars =
         "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
     public string GenerateRoomId() => Guid.NewGuid().ToString();
 
-    public string GenerateJoinToken()
-    {
-        // 6-character alphanumeric token (avoid confusing characters)
-        const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-        return new string(Enumerable.Range(0, 6)
-            .Select(_ => chars[Random.Shared.Next(chars.Length)])
-            .ToArray());
-    }
+    // 8 chars from a 32-char CSPRNG ≈ 40 bits of entropy. Combined with the
+    // per-connection rate limit on JoinRoomAsStudent, brute-forcing is
+    // infeasible. QR-friendly length keeps fallback by readout possible.
+    public string GenerateJoinToken() =>
+        RandomNumberGenerator.GetString(JoinTokenChars, length: 8);
 
     // Teacher tokens authorize teacher-only hub methods. They never appear in
     // student-facing URLs/QR codes, so they must be unguessable: 32 chars from
