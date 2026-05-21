@@ -22,7 +22,7 @@ public class TokenGeneratorTests
 
         var token = generator.GenerateJoinToken();
 
-        Assert.Equal(6, token.Length);
+        Assert.Equal(8, token.Length);
         Assert.All(token, ch => Assert.Contains(ch, allowed));
     }
 }
