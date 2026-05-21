@@ -25,4 +25,42 @@ public class TokenGeneratorTests
         Assert.Equal(8, token.Length);
         Assert.All(token, ch => Assert.Contains(ch, allowed));
     }
+
+    [Fact]
+    public void GenerateTeacherToken_UsesExpectedLengthAndCharset()
+    {
+        var generator = new TokenGenerator();
+        const string allowed =
+            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
+        var token = generator.GenerateTeacherToken();
+
+        Assert.Equal(32, token.Length);
+        Assert.All(token, ch => Assert.Contains(ch, allowed));
+    }
+
+    [Fact]
+    public void GenerateTeacherToken_ProducesUniqueValues()
+    {
+        var generator = new TokenGenerator();
+
+        var tokens = Enumerable.Range(0, 100)
+            .Select(_ => generator.GenerateTeacherToken())
+            .ToHashSet();
+
+        // 190 bits of entropy: collisions across 100 draws are astronomically unlikely.
+        Assert.Equal(100, tokens.Count);
+    }
+
+    [Fact]
+    public void GenerateJoinToken_ProducesUniqueValues()
+    {
+        var generator = new TokenGenerator();
+
+        var tokens = Enumerable.Range(0, 100)
+            .Select(_ => generator.GenerateJoinToken())
+            .ToHashSet();
+
+        Assert.Equal(100, tokens.Count);
+    }
 }

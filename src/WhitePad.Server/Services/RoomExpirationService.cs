@@ -59,7 +59,7 @@ public sealed class RoomExpirationService : BackgroundService
         }
     }
 
-    private async Task SweepAsync()
+    internal async Task SweepAsync()
     {
         var cutoff = DateTime.UtcNow - _expiration;
         var rooms = await _roomStateManager.GetAllRoomsAsync();
