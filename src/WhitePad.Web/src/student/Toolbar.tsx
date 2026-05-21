@@ -1,21 +1,27 @@
-import { useEffect, useState, memo } from 'react';
-import { createPortal } from 'react-dom';
+import { useState, memo, type ComponentType } from 'react';
 import type { BackgroundType, PaperColor } from '../shared/types/messages';
+import {
+  PenIcon, EraserIcon, LineIcon, RectangleIcon, CircleIcon, ArrowIcon,
+  AxesLIcon, AxesCrossIcon, UndoIcon, RedoIcon, TrashIcon, CloseIcon,
+  CheckIcon, QuestionIcon, BgNoneIcon, BgDottedIcon, BgLinedIcon, BgSquaresIcon,
+} from './icons';
 
 export type ToolType = 'pen' | 'eraser' | 'line' | 'rectangle' | 'circle' | 'arrow' | 'axesL' | 'axesCross';
+
+type ConfidenceLevel = 'none' | 'red' | 'amber' | 'green';
 
 interface ToolbarProps {
   displayName: string;
   currentColor: string;
   currentThickness: number;
   currentTool: ToolType;
-  currentConfidence: 'none' | 'red' | 'amber' | 'green';
+  currentConfidence: ConfidenceLevel;
   currentBackground: BackgroundType;
   currentPaperColor: PaperColor;
   onColorChange: (color: string) => void;
   onThicknessChange: (thickness: number) => void;
   onToolChange: (tool: ToolType) => void;
-  onConfidenceChange: (level: 'none' | 'red' | 'amber' | 'green') => void;
+  onConfidenceChange: (level: ConfidenceLevel) => void;
   onBackgroundChange: (background: BackgroundType) => void;
   onPaperColorChange: (paperColor: PaperColor) => void;
   onUndo: () => void;
@@ -26,60 +32,58 @@ interface ToolbarProps {
   canRedo: boolean;
 }
 
-const COLORS = [
+type IconComponent = ComponentType<{ size?: number }>;
+
+// iPad palette
+const COLORS: Array<{ name: string; hex: string }> = [
   { name: 'Black', hex: '#000000' },
-  { name: 'Red', hex: '#EF4444' },
-  { name: 'Blue', hex: '#3B82F6' },
-  { name: 'Green', hex: '#10B981' },
-  { name: 'Orange', hex: '#F97316' },
-  { name: 'Purple', hex: '#A855F7' },
-  { name: 'Brown', hex: '#92400E' },
-  { name: 'Yellow', hex: '#EAB308' },
-  { name: 'Pink', hex: '#EC4899' },
-  { name: 'Cyan', hex: '#06B6D4' },
-  { name: 'Gray', hex: '#6B7280' },
-  { name: 'White', hex: '#FFFFFF' },
+  { name: 'Red', hex: '#E11D48' },
+  { name: 'Amber', hex: '#F59E0B' },
+  { name: 'Green', hex: '#22C55E' },
+  { name: 'Blue', hex: '#2563EB' },
+  { name: 'Purple', hex: '#7C3AED' },
 ];
 
-const THICKNESSES = [
-  { name: 'Extra Thin', value: 1 },
-  { name: 'Thin', value: 2 },
-  { name: 'Medium', value: 4 },
-  { name: 'Thick', value: 6 },
-  { name: 'Extra Thick', value: 10 },
+const THICKNESSES = [2, 4, 6, 8, 10];
+
+const TOOL_OPTIONS: Array<{ tool: ToolType; Icon: IconComponent; label: string }> = [
+  { tool: 'pen', Icon: PenIcon, label: 'Pen' },
+  { tool: 'eraser', Icon: EraserIcon, label: 'Eraser' },
+  { tool: 'line', Icon: LineIcon, label: 'Line' },
+  { tool: 'rectangle', Icon: RectangleIcon, label: 'Rectangle' },
+  { tool: 'circle', Icon: CircleIcon, label: 'Circle' },
+  { tool: 'arrow', Icon: ArrowIcon, label: 'Arrow' },
+  { tool: 'axesL', Icon: AxesLIcon, label: 'L-Axes' },
+  { tool: 'axesCross', Icon: AxesCrossIcon, label: '+-Axes' },
 ];
 
-const TOOL_OPTIONS: Array<{ tool: ToolType; icon: string; label: string; title: string }> = [
-  { tool: 'pen', icon: '✏️', label: 'Pen', title: 'Pen Tool' },
-  { tool: 'eraser', icon: '🧹', label: 'Eraser', title: 'Eraser Tool' },
-  { tool: 'line', icon: '📏', label: 'Line', title: 'Line Tool' },
-  { tool: 'rectangle', icon: '▭', label: 'Rectangle', title: 'Rectangle Tool' },
-  { tool: 'circle', icon: '○', label: 'Circle', title: 'Circle Tool' },
-  { tool: 'arrow', icon: '→', label: 'Arrow', title: 'Arrow Tool' },
-  { tool: 'axesL', icon: '⌞', label: 'L-Axes', title: 'L-shaped Axes (bottom-left origin)' },
-  { tool: 'axesCross', icon: '✛', label: '+-Axes', title: 'Cross Axes (center origin)' },
+const BACKGROUND_OPTIONS: Array<{ value: BackgroundType; Icon: IconComponent; label: string }> = [
+  { value: 'none', Icon: BgNoneIcon, label: 'Plain' },
+  { value: 'dotted', Icon: BgDottedIcon, label: 'Dotted' },
+  { value: 'lined', Icon: BgLinedIcon, label: 'Lined' },
+  { value: 'squares', Icon: BgSquaresIcon, label: 'Squares' },
 ];
 
-const BACKGROUND_OPTIONS: Array<{ value: BackgroundType; icon: string; label: string; title: string }> = [
-  { value: 'none', icon: '□', label: 'None', title: 'No Background' },
-  { value: 'dotted', icon: '⋮⋮', label: 'Dotted', title: 'Dotted Grid' },
-  { value: 'lined', icon: '☰', label: 'Lined', title: 'Lined Paper' },
-  { value: 'squares', icon: '⊞', label: 'Squares', title: 'Square Grid' },
+const PAPER_OPTIONS: Array<{ value: PaperColor; color: string; label: string }> = [
+  { value: 'white', color: '#FFFFFF', label: 'White' },
+  { value: 'buff', color: '#F4E4BC', label: 'Buff' },
 ];
 
-const PAPER_OPTIONS: Array<{ value: PaperColor; color: string; label: string; title: string }> = [
-  { value: 'white', color: '#FFFFFF', label: 'White', title: 'White Paper' },
-  { value: 'buff', color: '#F4E4BC', label: 'Buff', title: 'Buff Paper' },
+const CONFIDENCE_OPTIONS: Array<{ value: ConfidenceLevel; color: string; label: string }> = [
+  { value: 'none', color: '#9CA3AF', label: 'Not set' },
+  { value: 'red', color: '#E11D48', label: 'Need help' },
+  { value: 'amber', color: '#F59E0B', label: 'Unsure' },
+  { value: 'green', color: '#22C55E', label: 'Got it' },
 ];
 
-const CONFIDENCE_OPTIONS = [
-  { value: 'red' as const, icon: '🔴', title: 'Need Help', className: 'red' },
-  { value: 'amber' as const, icon: '🟡', title: 'Unsure', className: 'amber' },
-  { value: 'green' as const, icon: '🟢', title: 'Got It!', className: 'green' },
-];
+const CONFIDENCE_COLORS: Record<ConfidenceLevel, string> = {
+  none: '#9CA3AF',
+  red: '#E11D48',
+  amber: '#F59E0B',
+  green: '#22C55E',
+};
 
 function Toolbar({
-  displayName,
   currentColor,
   currentThickness,
   currentTool,
@@ -95,425 +99,191 @@ function Toolbar({
   onUndo,
   onRedo,
   onClear,
-  onToolbarResized,
   canUndo,
   canRedo,
 }: ToolbarProps) {
-  type PickerType = 'color' | 'thickness' | 'confidence' | 'background' | 'paper';
-
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isPanelOpen, setIsPanelOpen] = useState(false);
+  const [isConfidenceOpen, setIsConfidenceOpen] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
-  const [activePicker, setActivePicker] = useState<PickerType | null>(null);
-  const [pickerPos, setPickerPos] = useState({ top: 0, left: 0 });
-  const portalTarget = typeof document !== 'undefined' ? document.body : null;
 
-  useEffect(() => {
-    if (!activePicker) {
-      return;
-    }
-
-    const handleOutsidePointerDown = (event: PointerEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (!target) {
-        return;
-      }
-
-      if (target.closest('.picker-popup') || target.closest('.picker-current-btn')) {
-        return;
-      }
-
-      setActivePicker(null);
-    };
-
-    document.addEventListener('pointerdown', handleOutsidePointerDown);
-    return () => {
-      document.removeEventListener('pointerdown', handleOutsidePointerDown);
-    };
-  }, [activePicker]);
-
-  const handleCollapseToggle = () => {
-    setIsCollapsed(!isCollapsed);
-    // Notify parent after a delay to allow CSS transition to complete
-    if (onToolbarResized) {
-      setTimeout(() => {
-        onToolbarResized();
-      }, 350); // Wait for CSS transition (usually 300ms) plus a bit extra
-    }
-  };
-
-  const handleClearClick = () => {
-    setShowClearConfirm(true);
-  };
+  const ActiveToolIcon = TOOL_OPTIONS.find(t => t.tool === currentTool)?.Icon ?? PenIcon;
 
   const handleClearConfirm = () => {
     onClear();
     setShowClearConfirm(false);
   };
 
-  const handleClearCancel = () => {
-    setShowClearConfirm(false);
-  };
-
-  const isErasing = currentTool === 'eraser';
-
-  const handleColorSelect = (color: string) => {
-    onColorChange(color);
-    setActivePicker(null);
-  };
-
-  const handleThicknessSelect = (thickness: number) => {
-    onThicknessChange(thickness);
-    setActivePicker(null);
-  };
-
-  const handlePickerToggle = (pickerType: PickerType) => (e: React.MouseEvent<HTMLButtonElement>) => {
-    const shouldOpen = activePicker !== pickerType;
-    if (shouldOpen) {
-      const rect = e.currentTarget.getBoundingClientRect();
-      setPickerPos({
-        top: rect.top,
-        left: rect.right + 8,
-      });
-      setActivePicker(pickerType);
-      return;
-    }
-
-    setActivePicker(null);
-  };
-
-  const handleConfidenceSelect = (level: 'none' | 'red' | 'amber' | 'green') => {
+  const selectConfidence = (level: ConfidenceLevel) => {
     onConfidenceChange(level);
-    setActivePicker(null);
+    setIsConfidenceOpen(false);
   };
-
-  const handleBackgroundSelect = (background: BackgroundType) => {
-    onBackgroundChange(background);
-    setActivePicker(null);
-  };
-
-  const handlePaperSelect = (paperColor: PaperColor) => {
-    onPaperColorChange(paperColor);
-    setActivePicker(null);
-  };
-
-  const handleConfidenceToggle = (level: 'red' | 'amber' | 'green') => {
-    onConfidenceChange(currentConfidence === level ? 'none' : level);
-  };
-
-  const getConfidenceIcon = (level: 'none' | 'red' | 'amber' | 'green') => {
-    switch (level) {
-      case 'red': return '🔴';
-      case 'amber': return '🟡';
-      case 'green': return '🟢';
-      default: return '⚪';
-    }
-  };
-
-  const getBackgroundIcon = (bg: BackgroundType) => {
-    switch (bg) {
-      case 'dotted': return '⋮⋮';
-      case 'lined': return '☰';
-      case 'squares': return '⊞';
-      default: return '□';
-    }
-  };
-
-  const currentPaperOption = PAPER_OPTIONS.find(option => option.value === currentPaperColor) ?? PAPER_OPTIONS[0];
 
   return (
     <>
-      <div className={`toolbar vertical ${isCollapsed ? 'collapsed' : ''}`}>
-        {/* Collapse Toggle */}
+      {/* Top-left: tool toggle + slide-out panel */}
+      <div className="wp-tool-dock">
         <button
           type="button"
-          className="toolbar-collapse-btn"
-          onClick={handleCollapseToggle}
-          title={isCollapsed ? 'Expand Toolbar' : 'Collapse Toolbar'}
+          className="wp-circle-btn wp-tool-toggle"
+          onClick={() => setIsPanelOpen(open => !open)}
+          aria-label={isPanelOpen ? 'Close tools' : 'Open tools'}
+          aria-expanded={isPanelOpen}
         >
-          {isCollapsed ? '▶' : '◀'}
+          {isPanelOpen ? <CloseIcon /> : <ActiveToolIcon />}
         </button>
 
-        {/* Student Name */}
-        {!isCollapsed && (
-          <div className="toolbar-student-name">
-            {displayName}
+        {isPanelOpen && (
+          <div className="wp-glass wp-tool-panel" role="dialog" aria-label="Drawing tools">
+            <section className="wp-panel-section">
+              <h3 className="wp-panel-label">Draw</h3>
+              <div className="wp-tool-grid">
+                {TOOL_OPTIONS.map(({ tool, Icon, label }) => (
+                  <button
+                    type="button"
+                    key={tool}
+                    className={`wp-tool-tile ${currentTool === tool ? 'active' : ''}`}
+                    onClick={() => onToolChange(tool)}
+                    title={label}
+                  >
+                    <Icon size={22} />
+                    <span>{label}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            <section className="wp-panel-section">
+              <h3 className="wp-panel-label">Paper style</h3>
+              <div className="wp-pill-grid two">
+                {BACKGROUND_OPTIONS.map(({ value, Icon, label }) => (
+                  <button
+                    type="button"
+                    key={value}
+                    className={`wp-pill ${currentBackground === value ? 'active' : ''}`}
+                    onClick={() => onBackgroundChange(value)}
+                  >
+                    <Icon size={18} />
+                    <span>{label}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            <section className="wp-panel-section">
+              <h3 className="wp-panel-label">Paper colour</h3>
+              <div className="wp-pill-grid two">
+                {PAPER_OPTIONS.map(({ value, color, label }) => (
+                  <button
+                    type="button"
+                    key={value}
+                    className={`wp-pill ${currentPaperColor === value ? 'active' : ''}`}
+                    onClick={() => onPaperColorChange(value)}
+                  >
+                    <span className="wp-paper-dot" style={{ backgroundColor: color }} />
+                    <span>{label}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            <section className="wp-panel-section">
+              <h3 className="wp-panel-label">Colour</h3>
+              <div className="wp-swatch-row">
+                {COLORS.map(({ name, hex }) => (
+                  <button
+                    type="button"
+                    key={hex}
+                    className={`wp-swatch ${currentColor === hex ? 'active' : ''}`}
+                    style={{ backgroundColor: hex }}
+                    onClick={() => onColorChange(hex)}
+                    title={name}
+                    aria-label={name}
+                  />
+                ))}
+              </div>
+            </section>
+
+            <section className="wp-panel-section">
+              <h3 className="wp-panel-label">Size</h3>
+              <div className="wp-size-row">
+                {THICKNESSES.map(thickness => (
+                  <button
+                    type="button"
+                    key={thickness}
+                    className={`wp-size-btn ${currentThickness === thickness ? 'active' : ''}`}
+                    onClick={() => onThicknessChange(thickness)}
+                    aria-label={`Size ${thickness}`}
+                  >
+                    <span className="wp-size-dot" style={{ width: thickness * 2, height: thickness * 2 }} />
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            <section className="wp-panel-section">
+              <div className="wp-action-row">
+                <button type="button" className="wp-btn" onClick={onUndo} disabled={!canUndo}>
+                  <UndoIcon size={18} /> Undo
+                </button>
+                <button type="button" className="wp-btn" onClick={onRedo} disabled={!canRedo}>
+                  <RedoIcon size={18} /> Redo
+                </button>
+              </div>
+              <button
+                type="button"
+                className="wp-btn danger full"
+                onClick={() => setShowClearConfirm(true)}
+                disabled={!canUndo}
+              >
+                <TrashIcon size={18} /> Clear
+              </button>
+            </section>
+          </div>
+        )}
+      </div>
+
+      {/* Bottom-right: clear + confidence cluster */}
+      <div className="wp-action-dock">
+        {isConfidenceOpen && (
+          <div className="wp-glass wp-confidence-panel" role="dialog" aria-label="Confidence">
+            <h3 className="wp-panel-label">How are you feeling?</h3>
+            {CONFIDENCE_OPTIONS.map(({ value, color, label }) => (
+              <button
+                type="button"
+                key={value}
+                className={`wp-confidence-option ${currentConfidence === value ? 'active' : ''}`}
+                onClick={() => selectConfidence(value)}
+              >
+                <span className="wp-confidence-dot" style={{ backgroundColor: color }} />
+                <span className="wp-confidence-text">{label}</span>
+                {currentConfidence === value && <CheckIcon size={16} />}
+              </button>
+            ))}
           </div>
         )}
 
-        {/* Drawing Tools Section */}
-        <div className="toolbar-section tools-section">
-          {!isCollapsed && <label className="toolbar-section-label">TOOLS</label>}
-          {TOOL_OPTIONS.map((tool) => (
-            <button
-              type="button"
-              key={tool.tool}
-              className={`tool-btn ${currentTool === tool.tool ? 'active' : ''}`}
-              onClick={() => onToolChange(tool.tool)}
-              title={tool.title}
-            >
-              <span className="tool-icon">{tool.icon}</span>
-              {!isCollapsed && <span className="tool-label">{tool.label}</span>}
-            </button>
-          ))}
-        </div>
-
-        {/* Background Picker */}
-        <div className="toolbar-section picker-section">
-          {!isCollapsed && <label className="toolbar-section-label">BACKGROUND</label>}
-          <div className="picker-container">
-            <button
-              type="button"
-              className="picker-current-btn"
-              onClick={handlePickerToggle('background')}
-              title="Select Background"
-            >
-              <span style={{ fontSize: '18px' }}>{getBackgroundIcon(currentBackground)}</span>
-            </button>
-            {activePicker === 'background' && (
-              portalTarget && createPortal(
-                <div
-                  className="picker-popup vertical"
-                  style={{ top: `${pickerPos.top}px`, left: `${pickerPos.left}px` }}
-                >
-                  {BACKGROUND_OPTIONS.map((background) => (
-                    <button
-                      type="button"
-                      key={background.value}
-                      className={`background-button ${currentBackground === background.value ? 'selected' : ''}`}
-                      onClick={() => handleBackgroundSelect(background.value)}
-                      title={background.title}
-                    >
-                      <span className="bg-icon">{background.icon}</span>
-                      <span className="bg-label">{background.label}</span>
-                    </button>
-                  ))}
-                </div>,
-                portalTarget
-              )
-            )}
-          </div>
-        </div>
-
-        {/* Paper Picker */}
-        <div className="toolbar-section picker-section">
-          {!isCollapsed && <label className="toolbar-section-label">PAPER</label>}
-          <div className="picker-container">
-            <button
-              type="button"
-              className="picker-current-btn"
-              onClick={handlePickerToggle('paper')}
-              title="Select Paper"
-            >
-              <div
-                className="color-preview-large"
-                style={{ backgroundColor: currentPaperOption.color }}
-              />
-            </button>
-            {activePicker === 'paper' && (
-              portalTarget && createPortal(
-                <div
-                  className="picker-popup horizontal"
-                  style={{ top: `${pickerPos.top}px`, left: `${pickerPos.left}px` }}
-                >
-                  {PAPER_OPTIONS.map((paper) => (
-                    <button
-                      type="button"
-                      key={paper.value}
-                      className={`paper-button ${currentPaperColor === paper.value ? 'selected' : ''}`}
-                      onClick={() => handlePaperSelect(paper.value)}
-                      title={paper.title}
-                    >
-                      <span className="paper-swatch" style={{ backgroundColor: paper.color }} />
-                      <span className="paper-label">{paper.label}</span>
-                    </button>
-                  ))}
-                </div>,
-                portalTarget
-              )
-            )}
-          </div>
-        </div>
-
-        {/* Color Picker - Horizontal Popup */}
-        <div className="toolbar-section picker-section">
-          {!isCollapsed && <label className="toolbar-section-label">COLOR</label>}
-          <div className="picker-container">
-            <button
-              type="button"
-              className="picker-current-btn"
-              onClick={handlePickerToggle('color')}
-              title="Select Color"
-              disabled={isErasing}
-            >
-              <div
-                className="color-preview-large"
-                style={{ backgroundColor: currentColor }}
-              />
-            </button>
-            {activePicker === 'color' && (
-              portalTarget && createPortal(
-                <div
-                  className="picker-popup horizontal"
-                  style={{ top: `${pickerPos.top}px`, left: `${pickerPos.left}px` }}
-                >
-                  {COLORS.map((color) => (
-                    <button
-                      type="button"
-                      key={color.hex}
-                      className={`color-button ${
-                        currentColor === color.hex ? 'selected' : ''
-                      }`}
-                      style={{ backgroundColor: color.hex }}
-                      onClick={() => handleColorSelect(color.hex)}
-                      title={color.name}
-                    />
-                  ))}
-                </div>,
-                portalTarget
-              )
-            )}
-          </div>
-        </div>
-
-        {/* Thickness Picker - Horizontal Popup */}
-        <div className="toolbar-section picker-section">
-          {!isCollapsed && <label className="toolbar-section-label">SIZE</label>}
-          <div className="picker-container">
-            <button
-              type="button"
-              className="picker-current-btn"
-              onClick={handlePickerToggle('thickness')}
-              title="Select Thickness"
-            >
-              <div
-                className="thickness-preview"
-                style={{
-                  width: `${currentThickness * 2}px`,
-                  height: `${currentThickness * 2}px`,
-                }}
-              />
-            </button>
-            {activePicker === 'thickness' && (
-              portalTarget && createPortal(
-                <div
-                  className="picker-popup horizontal"
-                  style={{ top: `${pickerPos.top}px`, left: `${pickerPos.left}px` }}
-                >
-                  {THICKNESSES.map((thickness) => (
-                    <button
-                      type="button"
-                      key={thickness.value}
-                      className={`thickness-button ${
-                        currentThickness === thickness.value ? 'selected' : ''
-                      }`}
-                      onClick={() => handleThicknessSelect(thickness.value)}
-                      title={thickness.name}
-                    >
-                      <div
-                        className="thickness-preview"
-                        style={{
-                          width: `${thickness.value * 2}px`,
-                          height: `${thickness.value * 2}px`,
-                        }}
-                      />
-                    </button>
-                  ))}
-                </div>,
-                portalTarget
-              )
-            )}
-          </div>
-        </div>
-
-        {/* Actions Section - Icon Only */}
-        <div className="toolbar-section actions-section">
-          {!isCollapsed && <label className="toolbar-section-label">ACTIONS</label>}
-          <div className="actions-icons">
-            <button
-              type="button"
-              className="action-icon-btn"
-              onClick={onUndo}
-              disabled={!canUndo}
-              title="Undo (Ctrl+Z)"
-            >
-              ↶
-            </button>
-            <button
-              type="button"
-              className="action-icon-btn"
-              onClick={onRedo}
-              disabled={!canRedo}
-              title="Redo (Ctrl+Y)"
-            >
-              ↷
-            </button>
-            <button
-              type="button"
-              className="action-icon-btn danger"
-              onClick={handleClearClick}
-              title="Clear Board"
-            >
-              🗑️
-            </button>
-          </div>
-        </div>
-
-        {/* Confidence Section */}
-        <div className="toolbar-section confidence-section">
-          {!isCollapsed && <label className="toolbar-section-label">HOW DO YOU FEEL?</label>}
-          {isCollapsed ? (
-            // Collapsed: Show current confidence as a button with popup
-            <div className="picker-container">
-              <button
-                type="button"
-                className="picker-current-btn"
-                onClick={handlePickerToggle('confidence')}
-                title="Select Confidence Level"
-              >
-                <span style={{ fontSize: '20px' }}>{getConfidenceIcon(currentConfidence)}</span>
-              </button>
-              {activePicker === 'confidence' && (
-                portalTarget && createPortal(
-                  <div
-                    className="picker-popup horizontal"
-                    style={{ top: `${pickerPos.top}px`, left: `${pickerPos.left}px` }}
-                  >
-                    {CONFIDENCE_OPTIONS.map((option) => (
-                      <button
-                        type="button"
-                        key={option.value}
-                        className={`confidence-button ${option.className} ${currentConfidence === option.value ? 'selected' : ''}`}
-                        onClick={() => handleConfidenceSelect(currentConfidence === option.value ? 'none' : option.value)}
-                        title={option.title}
-                      >
-                        {option.icon}
-                      </button>
-                    ))}
-                  </div>,
-                  portalTarget
-                )
-              )}
-            </div>
-          ) : (
-            // Expanded: Show all confidence buttons horizontally
-            <div className="confidence-selector horizontal">
-              {CONFIDENCE_OPTIONS.map((option) => (
-                <button
-                  type="button"
-                  key={option.value}
-                  className={`confidence-button ${option.className} ${currentConfidence === option.value ? 'selected' : ''}`}
-                  onClick={() => handleConfidenceToggle(option.value)}
-                  title={option.title}
-                >
-                  {option.icon}
-                </button>
-              ))}
-            </div>
-          )}
+        <div className="wp-dock-row">
+          <button
+            type="button"
+            className="wp-circle-btn danger"
+            onClick={() => setShowClearConfirm(true)}
+            disabled={!canUndo}
+            aria-label="Clear board"
+          >
+            <TrashIcon />
+          </button>
+          <button
+            type="button"
+            className="wp-circle-btn wp-confidence-toggle"
+            style={{ backgroundColor: CONFIDENCE_COLORS[currentConfidence] }}
+            onClick={() => setIsConfidenceOpen(open => !open)}
+            aria-label="Set confidence"
+          >
+            {currentConfidence === 'none' ? <QuestionIcon /> : <span className="wp-confidence-tick" />}
+          </button>
         </div>
       </div>
 
-      {/* Clear Confirmation Dialog */}
       {showClearConfirm && (
         <div className="modal-overlay">
           <div className="modal">
@@ -523,7 +293,7 @@ function Toolbar({
               <button className="button danger" onClick={handleClearConfirm}>
                 Yes, Clear
               </button>
-              <button className="button" onClick={handleClearCancel}>
+              <button className="button" onClick={() => setShowClearConfirm(false)}>
                 Cancel
               </button>
             </div>

@@ -6,6 +6,7 @@ import { renderShape } from '../shared/utils/shapeRenderer';
 import { debugLog } from '../shared/utils/debugLog';
 import { HubEvents, HubMethods } from '../shared/constants/hubContract';
 import Toolbar, { ToolType } from './Toolbar';
+import { CheckIcon } from './icons';
 import { useStrokeHistory } from './hooks/useStrokeHistory';
 import { useStudentLockState } from './hooks/useStudentLockState';
 import { useLatest } from '../shared/hooks/useLatest';
@@ -885,7 +886,8 @@ function DrawingPage({
               onClick={handleAnsweredToggle}
               aria-pressed={hasAnswered}
             >
-              Answered {hasAnswered ? '✓' : '✕'}
+              {hasAnswered ? <CheckIcon size={16} /> : null}
+              {hasAnswered ? 'Answered' : 'Answer'}
             </button>
           </div>
         )}

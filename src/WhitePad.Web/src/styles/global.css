@@ -248,71 +248,6 @@ body {
   flex-direction: column;
 }
 
-.question-banner {
-  position: absolute;
-  top: 12px;
-  left: 200px;
-  right: 20px;
-  z-index: 1500;
-  background: rgba(255, 255, 255, 0.92);
-  border: 2px solid #dee2e6;
-  border-radius: 8px;
-  padding: 12px 16px;
-  font-size: 20px;
-  font-weight: 600;
-  color: #212529;
-  white-space: pre-wrap;
-  pointer-events: auto;
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-}
-
-.question-banner-text {
-  flex: 1;
-  min-width: 0;
-  white-space: pre-wrap;
-  font-size: 20px;
-}
-
-.question-answered-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  font-size: 16px;
-  font-weight: 700;
-  color: white;
-  border: none;
-  border-radius: 10px;
-  padding: 12px 16px;
-  min-width: 140px;
-  cursor: pointer;
-  flex-shrink: 0;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-  transition: transform 0.12s ease, box-shadow 0.12s ease;
-}
-
-.question-answered-btn.not-answered {
-  background: #dc3545;
-}
-
-.question-answered-btn.answered {
-  background: #28a745;
-}
-
-.question-answered-btn:active {
-  transform: translateY(1px);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
-}
-
-@media (max-width: 900px) {
-  .question-banner {
-    left: 16px;
-    right: 16px;
-  }
-}
-
 .background-canvas {
   position: absolute;
   top: 0;
@@ -339,9 +274,10 @@ body {
   cursor: none;
 }
 
-.drawing-container.drawing-locked .toolbar.vertical {
+.drawing-container.drawing-locked .wp-tool-dock,
+.drawing-container.drawing-locked .wp-action-dock {
   pointer-events: none;
-  opacity: 0.75;
+  opacity: 0.55;
 }
 
 .drawing-container.drawing-locked .drawing-canvas {
@@ -426,334 +362,7 @@ body {
   cursor: not-allowed;
 }
 
-/* Toolbar Styles - Vertical Left Sidebar */
-.toolbar.vertical {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 240px;
-  height: 100vh;
-  background: #f8f9fa;
-  border-right: 2px solid #dee2e6;
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  overflow-y: auto;
-  z-index: 1000;
-  transition: width 0.3s ease;
-}
-
-.toolbar.vertical.collapsed {
-  width: 60px;
-}
-
-.toolbar-collapse-btn {
-  align-self: flex-end;
-  background: #e9ecef;
-  border: 1px solid #dee2e6;
-  border-radius: 4px;
-  padding: 6px 10px;
-  cursor: pointer;
-  font-size: 14px;
-  margin-bottom: 8px;
-  transition: all 0.2s;
-}
-
-.toolbar-collapse-btn:hover {
-  background: #dee2e6;
-}
-
-.toolbar-section {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 8px 0;
-  border-bottom: 1px solid #dee2e6;
-}
-
-.toolbar-section:last-child {
-  border-bottom: none;
-  margin-top: auto;
-}
-
-.toolbar-section-label {
-  font-size: 11px;
-  font-weight: 700;
-  color: #6c757d;
-  letter-spacing: 0.5px;
-  margin-bottom: 4px;
-  text-transform: uppercase;
-  background: none;
-  border: none;
-  padding: 0;
-  text-align: left;
-  width: 100%;
-  cursor: default;
-}
-
-.toolbar-section-label.clickable {
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 4px;
-  transition: background 0.2s;
-}
-
-.toolbar-section-label.clickable:hover {
-  background: #e9ecef;
-}
-
-/* Tool Buttons (Shape/Pen/Eraser Tools) */
-.tools-section {
-  padding-top: 0;
-}
-
-.tool-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: white;
-  border: 2px solid #dee2e6;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-size: 14px;
-  width: 100%;
-  text-align: left;
-}
-
-.toolbar.collapsed .tool-btn {
-  justify-content: center;
-  padding: 10px;
-}
-
-.tool-btn:hover {
-  background: #e9ecef;
-  border-color: #007bff;
-}
-
-.tool-btn.active {
-  background: #007bff;
-  color: white;
-  border-color: #0056b3;
-}
-
-.tool-icon {
-  font-size: 18px;
-  flex-shrink: 0;
-}
-
-.tool-label {
-  font-weight: 500;
-}
-
-.toolbar.collapsed .tool-label {
-  display: none;
-}
-
-/* Color Picker - Grid Layout */
-.color-picker-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
-  padding: 4px;
-}
-
-.color-button {
-  width: 32px;
-  height: 32px;
-  border: 2px solid #dee2e6;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.color-button:hover {
-  transform: scale(1.1);
-  border-color: #495057;
-}
-
-.color-button.selected {
-  border-color: #007bff;
-  border-width: 3px;
-  transform: scale(1.15);
-}
-
-.color-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* Thickness Selector - Vertical Layout */
-.thickness-selector-vertical {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 4px;
-}
-
-.thickness-button {
-  width: 100%;
-  padding: 8px 12px;
-  border: 2px solid #dee2e6;
-  border-radius: 6px;
-  background: white;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  transition: all 0.2s;
-}
-
-.thickness-button:hover {
-  border-color: #495057;
-  background: #f8f9fa;
-}
-
-.thickness-button.selected {
-  border-color: #007bff;
-  border-width: 3px;
-  background: #e7f3ff;
-}
-
-.thickness-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.thickness-preview {
-  background: #000;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.thickness-label {
-  font-size: 12px;
-  color: #495057;
-  font-weight: 500;
-}
-
-/* Action Buttons (Undo/Redo/Clear) */
-.actions-section {
-  margin-top: 8px;
-}
-
-.action-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: white;
-  border: 2px solid #dee2e6;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-size: 14px;
-  width: 100%;
-  text-align: left;
-}
-
-.toolbar.collapsed .action-btn {
-  justify-content: center;
-  padding: 10px;
-}
-
-.action-btn:hover:not(:disabled) {
-  background: #e9ecef;
-  border-color: #495057;
-}
-
-.action-btn.danger {
-  color: #dc3545;
-  border-color: #dc3545;
-}
-
-.action-btn.danger:hover:not(:disabled) {
-  background: #dc3545;
-  color: white;
-}
-
-.action-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.action-icon {
-  font-size: 16px;
-  flex-shrink: 0;
-}
-
-.action-label {
-  font-weight: 500;
-}
-
-.toolbar.collapsed .action-label {
-  display: none;
-}
-
-/* Confidence Section */
-.confidence-section {
-  margin-top: auto;
-}
-
-.confidence-selector.vertical {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.toolbar.collapsed .confidence-selector.vertical {
-  flex-direction: column;
-}
-
-/* Confidence Selector */
-.confidence-selector {
-  display: flex;
-  gap: 8px;
-}
-
-.confidence-button {
-  width: 48px;
-  height: 48px;
-  border: 2px solid #dee2e6;
-  border-radius: 50%;
-  background: white;
-  cursor: pointer;
-  font-size: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-}
-
-.confidence-button:hover {
-  transform: scale(1.1);
-  border-color: #495057;
-}
-
-.confidence-button.selected {
-  border-width: 3px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
-  transform: scale(1.15);
-}
-
-.confidence-button.red.selected {
-  border-color: #EF4444;
-  box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
-}
-
-.confidence-button.amber.selected {
-  border-color: #F59E0B;
-  box-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
-}
-
-.confidence-button.green.selected {
-  border-color: #10B981;
-  box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
-}
-
-/* Confidence Indicator on Student Tile */
+/* Toolbar Styles - Vertical Left Sidebar *//* Confidence Indicator on Student Tile */
 .confidence-indicator {
   position: absolute;
   bottom: 18px;
@@ -1023,338 +632,7 @@ body {
   min-width: 0;
 }
 
-/* Locked Overlay on Student Canvas */
-.locked-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(200, 200, 200, 0.15);
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  z-index: 2000;
-  pointer-events: none;
-}
-
-.locked-message {
-  background: rgba(108, 117, 125, 0.95);
-  padding: 16px 32px;
-  width: 100%;
-  text-align: center;
-  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-}
-
-.lock-icon {
-  font-size: 28px;
-}
-
-.lock-text {
-  font-size: 20px;
-  font-weight: 600;
-  color: white;
-}
-
-/* Compact Toolbar Updates */
-.toolbar.vertical {
-  width: 180px;
-}
-
-.toolbar-student-name {
-  font-size: 14px;
-  font-weight: 700;
-  color: #007bff;
-  text-align: center;
-  padding: 8px;
-  background: white;
-  border-radius: 6px;
-  border: 2px solid #007bff;
-  margin-bottom: 4px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Horizontal Picker Popouts */
-.picker-container {
-  position: relative;
-  z-index: 10001;
-}
-
-.picker-current-btn {
-  width: 100%;
-  padding: 10px;
-  background: white;
-  border: 2px solid #dee2e6;
-  border-radius: 6px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-}
-
-.picker-current-btn:hover:not(:disabled) {
-  border-color: #007bff;
-  background: #f8f9fa;
-}
-
-.picker-current-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.color-preview-large {
-  width: 36px;
-  height: 36px;
-  border-radius: 6px;
-  border: 2px solid #fff;
-  box-shadow: 0 0 0 1px #dee2e6;
-}
-
-.picker-popup {
-  position: fixed;
-  background: white;
-  border: 2px solid #007bff;
-  border-radius: 6px;
-  padding: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 30000;
-}
-
-.picker-popup.horizontal {
-  left: 100%;
-  top: 0;
-  margin-left: 8px;
-  display: flex;
-  gap: 6px;
-  max-width: 400px;
-  flex-wrap: wrap;
-}
-
-.picker-popup .color-button {
-  width: 36px;
-  height: 36px;
-}
-
-.picker-popup .thickness-button {
-  width: 44px;
-  height: 44px;
-  padding: 8px;
-  border: 2px solid #dee2e6;
-  border-radius: 6px;
-  background: white;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-}
-
-.picker-popup .thickness-button:hover {
-  border-color: #007bff;
-  background: #f8f9fa;
-}
-
-.picker-popup .thickness-button.selected {
-  border-color: #007bff;
-  background: #e7f3ff;
-  border-width: 3px;
-}
-
-/* Background Picker */
-.picker-popup.vertical {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 120px;
-}
-
-.background-button {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  border: 2px solid #dee2e6;
-  border-radius: 6px;
-  background: white;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-size: 14px;
-}
-
-.background-button:hover {
-  border-color: #007bff;
-  background: #f8f9fa;
-}
-
-.background-button.selected {
-  border-color: #007bff;
-  background: #e7f3ff;
-  border-width: 3px;
-}
-
-.background-button .bg-icon {
-  font-size: 18px;
-  width: 24px;
-  text-align: center;
-}
-
-.background-button .bg-label {
-  flex: 1;
-  text-align: left;
-  font-weight: 500;
-}
-
-.paper-button {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border: 2px solid #dee2e6;
-  border-radius: 6px;
-  background: white;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.paper-button:hover {
-  border-color: #007bff;
-  background: #f8f9fa;
-}
-
-.paper-button.selected {
-  border-color: #007bff;
-  background: #e7f3ff;
-  border-width: 3px;
-}
-
-.paper-swatch {
-  width: 22px;
-  height: 22px;
-  border: 1px solid #adb5bd;
-  border-radius: 4px;
-}
-
-.paper-label {
-  font-size: 14px;
-  font-weight: 500;
-}
-
-/* Icon-Only Action Buttons */
-.actions-icons {
-  display: flex;
-  gap: 6px;
-  justify-content: space-around;
-}
-
-.action-icon-btn {
-  flex: 1;
-  padding: 10px;
-  font-size: 20px;
-  background: white;
-  border: 2px solid #dee2e6;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.action-icon-btn:hover:not(:disabled) {
-  background: #e9ecef;
-  border-color: #007bff;
-}
-
-.action-icon-btn.danger {
-  color: #dc3545;
-  border-color: #ffc107;
-}
-
-.action-icon-btn.danger:hover:not(:disabled) {
-  background: #fff3cd;
-  border-color: #ffc107;
-}
-
-.action-icon-btn:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-
-/* Horizontal Confidence Selector */
-.confidence-selector.horizontal {
-  display: flex;
-  gap: 6px;
-  justify-content: space-around;
-}
-
-.confidence-selector.horizontal .confidence-button {
-  flex: 1;
-  font-size: 24px;
-  padding: 8px;
-  background: white;
-  border: 2px solid #dee2e6;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.confidence-selector.horizontal .confidence-button:hover {
-  transform: scale(1.1);
-}
-
-.confidence-selector.horizontal .confidence-button.selected {
-  border-width: 3px;
-  transform: scale(1.15);
-}
-
-.confidence-selector.horizontal .confidence-button.red.selected {
-  border-color: #dc3545;
-  background: #f8d7da;
-}
-
-.confidence-selector.horizontal .confidence-button.amber.selected {
-  border-color: #ffc107;
-  background: #fff3cd;
-}
-
-.confidence-selector.horizontal .confidence-button.green.selected {
-  border-color: #28a745;
-  background: #d4edda;
-}
-
-/* Reduce tool button sizes */
-.tool-btn {
-  padding: 6px 8px;
-  font-size: 13px;
-  gap: 6px;
-}
-
-.tool-icon {
-  font-size: 16px;
-}
-
-.tool-label {
-  font-size: 12px;
-}
-
-.toolbar-section {
-  gap: 4px;
-  padding: 4px 0;
-}
-
-.toolbar-section-label {
-  font-size: 10px;
-  margin-bottom: 2px;
-}
-
-/* Form Styles */
+/* Locked Overlay on Student Canvas *//* Form Styles */
 .form-group {
   margin-bottom: 20px;
 }
@@ -1708,4 +986,451 @@ body {
 .student-status.drawing {
   background: #d1e7dd;
   color: #0f5132;
+}
+
+/* =====================================================================
+   Student drawing screen — iPad-style frosted-glass UI
+   ===================================================================== */
+
+.wp-glass {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(22px) saturate(1.5);
+  -webkit-backdrop-filter: blur(22px) saturate(1.5);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  box-shadow: 0 12px 34px rgba(15, 23, 42, 0.16);
+}
+
+/* Floating circular buttons (tool toggle, clear, confidence) */
+.wp-circle-btn {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #1f2937;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(22px) saturate(1.5);
+  -webkit-backdrop-filter: blur(22px) saturate(1.5);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.18);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.wp-circle-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.22);
+}
+
+.wp-circle-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.wp-circle-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.wp-circle-btn.danger {
+  color: #e11d48;
+}
+
+.wp-confidence-toggle {
+  color: #fff;
+  border: 3px solid rgba(255, 255, 255, 0.9);
+}
+
+.wp-confidence-tick {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.95);
+}
+
+/* Top-left dock */
+.wp-tool-dock {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 1600;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.wp-tool-panel {
+  width: 340px;
+  max-height: calc(100vh - 96px);
+  overflow-y: auto;
+  border-radius: 26px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  animation: wp-panel-in 0.22s ease;
+}
+
+@keyframes wp-panel-in {
+  from { opacity: 0; transform: translateX(-12px) scale(0.98); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+.wp-panel-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.wp-panel-label {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+
+.wp-tool-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.wp-tool-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 66px;
+  border: none;
+  border-radius: 18px;
+  background: rgba(15, 23, 42, 0.06);
+  color: #1f2937;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease;
+}
+
+.wp-tool-tile:hover {
+  background: rgba(15, 23, 42, 0.1);
+}
+
+.wp-tool-tile:active {
+  transform: scale(0.96);
+}
+
+.wp-tool-tile.active {
+  background: #2563eb;
+  color: #fff;
+}
+
+.wp-pill-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.wp-pill-grid.two {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.wp-pill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.06);
+  color: #1f2937;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.wp-pill:hover {
+  background: rgba(15, 23, 42, 0.1);
+}
+
+.wp-pill.active {
+  background: rgba(37, 99, 235, 0.16);
+  box-shadow: inset 0 0 0 2px #2563eb;
+}
+
+.wp-paper-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.wp-swatch-row {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 10px;
+}
+
+.wp-swatch {
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+  transition: transform 0.12s ease;
+}
+
+.wp-swatch:hover {
+  transform: scale(1.1);
+}
+
+.wp-swatch.active {
+  box-shadow: 0 0 0 3px #fff, 0 0 0 6px #2563eb;
+}
+
+.wp-size-row {
+  display: flex;
+  gap: 8px;
+}
+
+.wp-size-btn {
+  flex: 1;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.06);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.wp-size-btn:hover {
+  background: rgba(15, 23, 42, 0.1);
+}
+
+.wp-size-btn.active {
+  background: rgba(37, 99, 235, 0.16);
+  box-shadow: inset 0 0 0 2px #2563eb;
+}
+
+.wp-size-dot {
+  background: #1f2937;
+  border-radius: 50%;
+}
+
+.wp-action-row {
+  display: flex;
+  gap: 8px;
+}
+
+.wp-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 11px 12px;
+  border: none;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.06);
+  color: #1f2937;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.wp-btn:hover:not(:disabled) {
+  background: rgba(15, 23, 42, 0.1);
+}
+
+.wp-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.wp-btn.danger {
+  color: #e11d48;
+}
+
+.wp-btn.danger:hover:not(:disabled) {
+  background: rgba(225, 29, 72, 0.12);
+}
+
+.wp-btn.full {
+  width: 100%;
+}
+
+/* Bottom-right dock */
+.wp-action-dock {
+  position: fixed;
+  bottom: 18px;
+  right: 18px;
+  z-index: 1600;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.wp-dock-row {
+  display: flex;
+  gap: 12px;
+}
+
+.wp-confidence-panel {
+  width: 248px;
+  border-radius: 22px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: wp-panel-in 0.2s ease;
+}
+
+.wp-confidence-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.06);
+  cursor: pointer;
+  transition: background 0.15s ease;
+  color: #1f2937;
+}
+
+.wp-confidence-option:hover {
+  background: rgba(15, 23, 42, 0.1);
+}
+
+.wp-confidence-option.active {
+  background: rgba(37, 99, 235, 0.16);
+}
+
+.wp-confidence-dot {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  flex-shrink: 0;
+}
+
+.wp-confidence-text {
+  flex: 1;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.wp-confidence-option .wp-confidence-text { color: #1f2937; }
+.wp-confidence-option svg { color: #2563eb; }
+
+/* Question banner — centered glass */
+.question-banner {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: min(680px, calc(100vw - 200px));
+  z-index: 1500;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(22px) saturate(1.5);
+  -webkit-backdrop-filter: blur(22px) saturate(1.5);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  box-shadow: 0 12px 34px rgba(15, 23, 42, 0.16);
+  border-radius: 20px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  pointer-events: auto;
+}
+
+.question-banner-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1f2937;
+  white-space: pre-wrap;
+}
+
+.question-answered-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  padding: 10px 16px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.12s ease, filter 0.12s ease;
+}
+
+.question-answered-btn.not-answered {
+  background: #6b7280;
+}
+
+.question-answered-btn.answered {
+  background: #22c55e;
+}
+
+.question-answered-btn:active {
+  transform: translateY(1px);
+}
+
+/* Locked overlay — centered glass card */
+.locked-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(148, 163, 184, 0.18);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  pointer-events: none;
+}
+
+.locked-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 28px 36px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(22px) saturate(1.5);
+  -webkit-backdrop-filter: blur(22px) saturate(1.5);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.22);
+}
+
+.lock-icon {
+  font-size: 34px;
+}
+
+.lock-text {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1f2937;
+  text-align: center;
+}
+
+@media (max-width: 760px) {
+  .question-banner {
+    max-width: calc(100vw - 32px);
+  }
 }
