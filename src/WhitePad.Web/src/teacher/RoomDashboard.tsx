@@ -13,7 +13,7 @@ interface RoomDashboardProps {
 type ViewMode = 'join' | 'viewer';
 
 function RoomDashboard({ roomId, roomName, joinToken, joinUrl }: RoomDashboardProps) {
-  const { connection, students, error } = useTeacherRoomConnection(roomId);
+  const { connection, students, boards, error } = useTeacherRoomConnection(roomId);
   const [viewMode, setViewMode] = useState<ViewMode>('join');
 
   if (error) {
@@ -26,7 +26,7 @@ function RoomDashboard({ roomId, roomName, joinToken, joinUrl }: RoomDashboardPr
 
   return (
     <div className="dashboard-container">
-      <div style={{ display: viewMode === 'join' ? 'block' : 'none', flex: 1, minHeight: 0 }}>
+      {viewMode === 'join' && (
         <JoinMode
           roomName={roomName}
           joinToken={joinToken}
@@ -34,17 +34,18 @@ function RoomDashboard({ roomId, roomName, joinToken, joinUrl }: RoomDashboardPr
           students={students}
           onSwitchToViewer={() => setViewMode('viewer')}
         />
-      </div>
-      <div style={{ display: viewMode === 'viewer' ? 'block' : 'none', flex: 1, minHeight: 0 }}>
+      )}
+      {viewMode === 'viewer' && (
         <ViewerMode
           roomName={roomName}
           roomId={roomId}
           joinUrl={joinUrl}
           students={students}
+          boards={boards}
           connection={connection}
           onSwitchToJoin={() => setViewMode('join')}
         />
-      </div>
+      )}
     </div>
   );
 }

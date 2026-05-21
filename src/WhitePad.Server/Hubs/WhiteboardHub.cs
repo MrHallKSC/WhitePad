@@ -677,6 +677,11 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
 
         _logger.LogInformation("Found student {StudentId} ({DisplayName}) for disconnection", student.StudentId, student.DisplayName);
 
+        await Clients.Group(TeacherGroup(room.RoomId)).BoardCleared(new BoardCleared
+        {
+            StudentId = student.StudentId
+        });
+
         _ = RemoveDisconnectedStudentAfterGraceAsync(room.RoomId, student.StudentId, Context.ConnectionId);
 
         await base.OnDisconnectedAsync(exception);

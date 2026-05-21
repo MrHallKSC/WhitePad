@@ -1,9 +1,11 @@
 import { HubConnection } from '@microsoft/signalr';
 import { Student } from '../shared/types/messages';
 import StudentTile from './StudentTile';
+import { TeacherBoardStates } from './teacherBoardState';
 
 interface StudentGridProps {
   students: Student[];
+  boards: TeacherBoardStates;
   connection: HubConnection | null;
   roomId: string;
   focusedStudentId: string | null;
@@ -13,6 +15,7 @@ interface StudentGridProps {
 
 function StudentGrid({
   students,
+  boards,
   connection,
   roomId,
   focusedStudentId,
@@ -33,6 +36,7 @@ function StudentGrid({
         <StudentTile
           key={student.studentId}
           student={student}
+          boardState={boards[student.studentId]}
           connection={connection}
           roomId={roomId}
           isFocused={focusedStudentId === student.studentId}

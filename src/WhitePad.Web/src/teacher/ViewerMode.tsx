@@ -5,17 +5,19 @@ import { QuestionChanged, Student } from '../shared/types/messages';
 import StudentGrid from './StudentGrid';
 import { HubEvents, HubMethods } from '../shared/constants/hubContract';
 import ConfidenceSummary from './ConfidenceSummary';
+import { TeacherBoardStates } from './teacherBoardState';
 
 interface ViewerModeProps {
   roomName: string;
   roomId: string;
   joinUrl: string;
   students: Student[];
+  boards: TeacherBoardStates;
   connection: HubConnection | null;
   onSwitchToJoin: () => void;
 }
 
-function ViewerMode({ roomName, roomId, joinUrl, students, connection, onSwitchToJoin }: ViewerModeProps) {
+function ViewerMode({ roomName, roomId, joinUrl, students, boards, connection, onSwitchToJoin }: ViewerModeProps) {
   const [focusedStudentId, setFocusedStudentId] = useState<string | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState<string | null>(null);
   const [questionDraft, setQuestionDraft] = useState('');
@@ -184,6 +186,7 @@ function ViewerMode({ roomName, roomId, joinUrl, students, connection, onSwitchT
 
       <StudentGrid
         students={students}
+        boards={boards}
         connection={connection}
         roomId={roomId}
         focusedStudentId={focusedStudentId}
@@ -264,7 +267,6 @@ function ViewerMode({ roomName, roomId, joinUrl, students, connection, onSwitchT
 }
 
 export default ViewerMode;
-
 
 
 

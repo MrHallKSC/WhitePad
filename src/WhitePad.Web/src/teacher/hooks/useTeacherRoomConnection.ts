@@ -8,19 +8,34 @@ import {
   ConfidenceChanged,
   StudentLocked,
   AnsweredChanged,
+  StrokeBatch,
+  StrokeUndone,
+  BoardCleared,
+  ShapeDrawn,
 } from '../../shared/types/messages';
 import { HubEvents, HubMethods } from '../../shared/constants/hubContract';
 import { readTeacherToken } from '../teacherTokenStore';
+import {
+  applyClearToBoard,
+  applyShapeToBoard,
+  applyStrokeBatchToBoard,
+  applyUndoToBoard,
+  emptyTeacherBoard,
+  TeacherBoardStates,
+  updateStudentBoard,
+} from '../teacherBoardState';
 
 type TeacherRoomConnectionState = {
   connection: HubConnection | null;
   students: Student[];
+  boards: TeacherBoardStates;
   error: string | null;
 };
 
 export function useTeacherRoomConnection(roomId: string): TeacherRoomConnectionState {
   const [connection, setConnection] = useState<HubConnection | null>(null);
   const [students, setStudents] = useState<Student[]>([]);
+  const [boards, setBoards] = useState<TeacherBoardStates>({});
   const [error, setError] = useState<string | null>(null);
   const connectionRef = useRef<HubConnection | null>(null);
 
@@ -28,6 +43,7 @@ export function useTeacherRoomConnection(roomId: string): TeacherRoomConnectionS
     let isDisposed = false;
     const conn = createSignalRConnection('/hub/whiteboard');
     setStudents([]);
+    setBoards({});
     setConnection(null);
     setError(null);
 
@@ -45,10 +61,51 @@ export function useTeacherRoomConnection(roomId: string): TeacherRoomConnectionS
         ...prev.filter(existing => existing.studentId !== student.studentId),
         student
       ]);
+      setBoards(prev => (
+        prev[data.studentId]
+          ? { ...prev, [data.studentId]: emptyTeacherBoard() }
+          : prev
+      ));
     });
 
     conn.on(HubEvents.ParticipantLeft, (data: ParticipantLeft) => {
       setStudents(prev => prev.filter(s => s.studentId !== data.studentId));
+      setBoards(prev => {
+        const { [data.studentId]: _removed, ...remaining } = prev;
+        return remaining;
+      });
+    });
+
+    conn.on(HubEvents.ReceiveStrokeBatch, (batch: StrokeBatch) => {
+      setBoards(prev => updateStudentBoard(
+        prev,
+        batch.studentId,
+        board => applyStrokeBatchToBoard(board, batch)
+      ));
+    });
+
+    conn.on(HubEvents.StrokeUndone, (message: StrokeUndone) => {
+      setBoards(prev => updateStudentBoard(
+        prev,
+        message.studentId,
+        board => applyUndoToBoard(board, message)
+      ));
+    });
+
+    conn.on(HubEvents.BoardCleared, (message: BoardCleared) => {
+      setBoards(prev => updateStudentBoard(
+        prev,
+        message.studentId,
+        board => applyClearToBoard(board, message)
+      ));
+    });
+
+    conn.on(HubEvents.ReceiveShape, (shapeDrawn: ShapeDrawn) => {
+      setBoards(prev => updateStudentBoard(
+        prev,
+        shapeDrawn.studentId,
+        board => applyShapeToBoard(board, shapeDrawn)
+      ));
     });
 
     conn.on(HubEvents.ConfidenceChanged, (message: ConfidenceChanged) => {
@@ -126,6 +183,7 @@ export function useTeacherRoomConnection(roomId: string): TeacherRoomConnectionS
   return {
     connection,
     students,
+    boards,
     error,
   };
 }
