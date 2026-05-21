@@ -129,7 +129,7 @@ function Toolbar({
           aria-label={isPanelOpen ? 'Close tools' : 'Open tools'}
           aria-expanded={isPanelOpen}
         >
-          {isPanelOpen ? <CloseIcon /> : <ActiveToolIcon />}
+          {isPanelOpen ? <CloseIcon size={26} /> : <ActiveToolIcon size={28} />}
         </button>
 
         {isPanelOpen && (

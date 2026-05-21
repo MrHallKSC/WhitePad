@@ -13,6 +13,7 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
     private const int MaxQuestionLength = 280;
     private const string EraserStrokeMarker = "-eraser-";
     private const string EraserColorSentinel = "__WHITEPAD_ERASER__";
+    private static readonly TimeSpan StudentDisconnectGracePeriod = TimeSpan.FromSeconds(20);
 
     public WhiteboardHub(IRoomStateManager roomStateManager, ILogger<WhiteboardHub> logger, IConfiguration configuration)
     {
@@ -22,7 +23,7 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
     }
 
     // Teacher creates a room
-    public async Task<CreateRoomResponse> CreateRoom(string roomName, bool useLocalhostJoinUrl = false)
+    public async Task<CreateRoomResponse> CreateRoom(string roomName)
     {
         var room = await _roomStateManager.CreateRoomAsync();
         room.RoomName = roomName;
@@ -37,7 +38,7 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
         }
         else
         {
-            var joinHost = useLocalhostJoinUrl ? "localhost" : NetworkUtility.GetLocalIPAddress();
+            var joinHost = NetworkUtility.GetLocalIPAddress();
             joinUrl = $"https://{joinHost}:5001/join?roomId={room.RoomId}&token={room.JoinToken}";
         }
 
@@ -136,6 +137,51 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
         {
             Success = true,
             StudentId = student.StudentId,
+            StudentSessionToken = student.StudentSessionToken,
+            DisplayName = student.DisplayName,
+            RoomSettings = room.Settings,
+            IsLocked = student.IsLocked,
+            WaitingRoomEnabled = false,
+            WaitingRoomUnlocked = true,
+            CurrentQuestion = room.CurrentQuestion
+        };
+    }
+
+    // Student reconnects after a browser refresh using the private session token
+    // returned by JoinRoomAsStudent. This keeps the teacher tile stable.
+    public async Task<JoinRoomResponse> ResumeStudentSession(string roomId, string joinToken, string studentSessionToken)
+    {
+        _logger.LogInformation("Student attempting to resume room: {RoomId}", roomId);
+
+        var room = await _roomStateManager.GetRoomAsync(roomId);
+        if (room == null)
+        {
+            return new JoinRoomResponse { Success = false, Error = "Room not found" };
+        }
+
+        var isValidToken = await _roomStateManager.ValidateJoinTokenAsync(roomId, joinToken);
+        if (!isValidToken)
+        {
+            return new JoinRoomResponse { Success = false, Error = "Invalid or expired join token" };
+        }
+
+        var student = await _roomStateManager.ResumeStudentAsync(roomId, studentSessionToken, Context.ConnectionId);
+        if (student == null)
+        {
+            return new JoinRoomResponse { Success = false, Error = "Student session expired" };
+        }
+
+        await Groups.AddToGroupAsync(Context.ConnectionId, StudentsGroup(roomId));
+
+        _logger.LogInformation("Student resumed: {StudentId} ({DisplayName}) in room {RoomId}", student.StudentId, student.DisplayName, roomId);
+
+        await Clients.Group(TeacherGroup(roomId)).ParticipantJoined(ToParticipantJoined(student));
+
+        return new JoinRoomResponse
+        {
+            Success = true,
+            StudentId = student.StudentId,
+            StudentSessionToken = student.StudentSessionToken,
             DisplayName = student.DisplayName,
             RoomSettings = room.Settings,
             IsLocked = student.IsLocked,
@@ -621,9 +667,8 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
     {
         _logger.LogInformation("Connection disconnected: {ConnectionId}", Context.ConnectionId);
 
-        var student = await _roomStateManager.GetStudentByConnectionIdAsync(Context.ConnectionId);
-
-        if (student == null)
+        var (room, student) = await _roomStateManager.MarkStudentDisconnectedAsync(Context.ConnectionId);
+        if (room == null || student == null)
         {
             _logger.LogInformation("No student found for connection {ConnectionId}, might be teacher", Context.ConnectionId);
             await base.OnDisconnectedAsync(exception);
@@ -632,33 +677,35 @@ public class WhiteboardHub : Hub<IWhiteboardClient>
 
         _logger.LogInformation("Found student {StudentId} ({DisplayName}) for disconnection", student.StudentId, student.DisplayName);
 
-        // Find and remove from room
-        var rooms = await GetAllRoomsAsync();
-        foreach (var room in rooms)
-        {
-            if (room.Participants.Any(s => s.StudentId == student.StudentId))
-            {
-                _logger.LogInformation("Removing student {StudentId} from room {RoomId}", student.StudentId, room.RoomId);
-
-                await _roomStateManager.RemoveStudentAsync(room.RoomId, student.StudentId);
-
-                // Notify teacher
-                var leftMessage = new ParticipantLeft
-                {
-                    StudentId = student.StudentId,
-                    Reason = "disconnect",
-                    LeftAt = DateTime.UtcNow
-                };
-
-                await Clients.Group(TeacherGroup(room.RoomId)).ParticipantLeft(leftMessage);
-
-                _logger.LogInformation("Sent ParticipantLeft notification for student {StudentId} to group {TeacherGroup}",
-                    student.StudentId, TeacherGroup(room.RoomId));
-                break;
-            }
-        }
+        _ = RemoveDisconnectedStudentAfterGraceAsync(room.RoomId, student.StudentId, Context.ConnectionId);
 
         await base.OnDisconnectedAsync(exception);
+    }
+
+    private async Task RemoveDisconnectedStudentAfterGraceAsync(string roomId, string studentId, string disconnectedConnectionId)
+    {
+        try
+        {
+            await Task.Delay(StudentDisconnectGracePeriod);
+
+            var removed = await _roomStateManager.RemoveStudentIfStillDisconnectedAsync(roomId, studentId, disconnectedConnectionId);
+            if (!removed) return;
+
+            var leftMessage = new ParticipantLeft
+            {
+                StudentId = studentId,
+                Reason = "disconnect",
+                LeftAt = DateTime.UtcNow
+            };
+
+            await Clients.Group(TeacherGroup(roomId)).ParticipantLeft(leftMessage);
+
+            _logger.LogInformation("Removed disconnected student {StudentId} from room {RoomId} after grace period", studentId, roomId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to remove disconnected student {StudentId} from room {RoomId}", studentId, roomId);
+        }
     }
 
     private ValueTask<IEnumerable<Room>> GetAllRoomsAsync() => _roomStateManager.GetAllRoomsAsync();

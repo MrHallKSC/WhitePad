@@ -37,9 +37,9 @@ export const PenIcon = (p: IconProps) => (
 
 export const EraserIcon = (p: IconProps) => (
   <Svg {...p}>
-    <path d="M7 21h12" />
-    <path d="M5 16l6-6 7 7-4 4H9l-4-4z" />
-    <path d="M11 10l7 7" />
+    <path d="M21 21H8" />
+    <path d="M3.6 15.6a2 2 0 0 1 0-2.8l8.8-8.8a2 2 0 0 1 2.8 0l5 5a2 2 0 0 1 0 2.8L11 21H9l-5.4-5.4z" />
+    <path d="M9.5 7l7.5 7.5" />
   </Svg>
 );
 

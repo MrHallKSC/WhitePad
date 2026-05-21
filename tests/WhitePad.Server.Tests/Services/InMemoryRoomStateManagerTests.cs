@@ -122,6 +122,69 @@ public class InMemoryRoomStateManagerTests
     }
 
     [Fact]
+    public async Task AddStudentAsync_AssignsSessionToken()
+    {
+        var tokens = new FakeTokenGenerator { RoomId = "room-1", JoinToken = "TOKEN1" };
+        var manager = new InMemoryRoomStateManager(tokens);
+        var room = await manager.CreateRoomAsync();
+
+        var student = await manager.AddStudentAsync(room.RoomId, "conn-1", "Alice");
+
+        Assert.False(string.IsNullOrWhiteSpace(student.StudentSessionToken));
+    }
+
+    [Fact]
+    public async Task ResumeStudentAsync_UpdatesConnectionWithoutAddingParticipant()
+    {
+        var tokens = new FakeTokenGenerator { RoomId = "room-1", JoinToken = "TOKEN1" };
+        var manager = new InMemoryRoomStateManager(tokens);
+        var room = await manager.CreateRoomAsync();
+        var student = await manager.AddStudentAsync(room.RoomId, "conn-1", "Alice");
+
+        var resumed = await manager.ResumeStudentAsync(room.RoomId, student.StudentSessionToken, "conn-2");
+
+        Assert.NotNull(resumed);
+        Assert.Equal(student.StudentId, resumed!.StudentId);
+        Assert.Equal("conn-2", resumed.ConnectionId);
+        Assert.True(resumed.IsConnected);
+        Assert.Null(resumed.DisconnectedAt);
+        Assert.Single(room.Participants);
+    }
+
+    [Fact]
+    public async Task DisconnectedStudentIsOnlyRemovedIfNotResumed()
+    {
+        var tokens = new FakeTokenGenerator { RoomId = "room-1", JoinToken = "TOKEN1" };
+        var manager = new InMemoryRoomStateManager(tokens);
+        var room = await manager.CreateRoomAsync();
+        var student = await manager.AddStudentAsync(room.RoomId, "conn-1", "Alice");
+
+        var disconnected = await manager.MarkStudentDisconnectedAsync("conn-1");
+        await manager.ResumeStudentAsync(room.RoomId, student.StudentSessionToken, "conn-2");
+        var removed = await manager.RemoveStudentIfStillDisconnectedAsync(room.RoomId, student.StudentId, "conn-1");
+
+        Assert.Equal(room.RoomId, disconnected.Room?.RoomId);
+        Assert.False(removed);
+        Assert.Single(room.Participants);
+        Assert.Equal("conn-2", student.ConnectionId);
+    }
+
+    [Fact]
+    public async Task DisconnectedStudentIsRemovedAfterGraceCheck()
+    {
+        var tokens = new FakeTokenGenerator { RoomId = "room-1", JoinToken = "TOKEN1" };
+        var manager = new InMemoryRoomStateManager(tokens);
+        var room = await manager.CreateRoomAsync();
+        var student = await manager.AddStudentAsync(room.RoomId, "conn-1", "Alice");
+
+        await manager.MarkStudentDisconnectedAsync("conn-1");
+        var removed = await manager.RemoveStudentIfStillDisconnectedAsync(room.RoomId, student.StudentId, "conn-1");
+
+        Assert.True(removed);
+        Assert.Empty(room.Participants);
+    }
+
+    [Fact]
     public async Task RemoveStudentAsync_RemovesStudentAndUpdatesLastActivity()
     {
         var tokens = new FakeTokenGenerator { RoomId = "room-1", JoinToken = "TOKEN1" };

@@ -1,8 +1,60 @@
-import { useState, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { JoinRoomResponse } from '../shared/types/messages';
+import { HubMethods } from '../shared/constants/hubContract';
 import JoinPage from './JoinPage';
 import DrawingPage from './DrawingPage';
 import { useStudentConnection } from './hooks/useStudentConnection';
+
+type StudentSession = {
+  studentId: string;
+  studentSessionToken: string;
+  displayName: string;
+  isLocked: boolean;
+  currentQuestion: string | null;
+};
+
+type StoredStudentSession = {
+  roomId: string;
+  joinToken: string;
+  studentSessionToken: string;
+};
+
+const storageKey = (roomId: string) => `whitepad.studentSession.${roomId}`;
+
+function readStoredSession(roomId: string, joinToken: string): StoredStudentSession | null {
+  try {
+    const raw = window.localStorage.getItem(storageKey(roomId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as StoredStudentSession;
+    if (parsed.roomId !== roomId || parsed.joinToken !== joinToken || !parsed.studentSessionToken) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredSession(roomId: string, joinToken: string, studentSessionToken: string) {
+  try {
+    window.localStorage.setItem(storageKey(roomId), JSON.stringify({
+      roomId,
+      joinToken,
+      studentSessionToken,
+    } satisfies StoredStudentSession));
+  } catch {
+    // Storage can be unavailable in private/restricted browser modes.
+  }
+}
+
+function clearStoredSession(roomId: string) {
+  try {
+    window.localStorage.removeItem(storageKey(roomId));
+  } catch {
+    // Ignore storage failures.
+  }
+}
 
 function StudentApp() {
   const [searchParams] = useSearchParams();
@@ -11,21 +63,20 @@ function StudentApp() {
   const [initialIsLocked, setInitialIsLocked] = useState(false);
   const [initialQuestion, setInitialQuestion] = useState<string | null>(null);
   const [showKickedModal, setShowKickedModal] = useState(false);
+  const [hasAttemptedResume, setHasAttemptedResume] = useState(false);
 
   const roomId = searchParams.get('roomId');
   const joinToken = searchParams.get('token');
 
-  const handleJoined = useCallback((session: {
-    studentId: string;
-    displayName: string;
-    isLocked: boolean;
-    currentQuestion: string | null;
-  }) => {
+  const handleJoined = useCallback((session: StudentSession) => {
     setStudentId(session.studentId);
     setDisplayName(session.displayName);
     setInitialIsLocked(session.isLocked);
     setInitialQuestion(session.currentQuestion);
-  }, []);
+    if (roomId && joinToken) {
+      writeStoredSession(roomId, joinToken, session.studentSessionToken);
+    }
+  }, [joinToken, roomId]);
 
   const handleKickedModalClose = () => {
     setShowKickedModal(false);
@@ -33,6 +84,9 @@ function StudentApp() {
     setDisplayName(null);
     setInitialIsLocked(false);
     setInitialQuestion(null);
+    if (roomId) {
+      clearStoredSession(roomId);
+    }
   };
 
   // Stable callback for kicked event
@@ -42,6 +96,66 @@ function StudentApp() {
   }, []);
 
   const { connection, error } = useStudentConnection(handleKicked);
+
+  useEffect(() => {
+    setHasAttemptedResume(false);
+    setStudentId(null);
+    setDisplayName(null);
+    setInitialIsLocked(false);
+    setInitialQuestion(null);
+  }, [roomId, joinToken]);
+
+  useEffect(() => {
+    if (!roomId || !joinToken || !connection || studentId || hasAttemptedResume) return;
+
+    const stored = readStoredSession(roomId, joinToken);
+    if (!stored) {
+      setHasAttemptedResume(true);
+      return;
+    }
+
+    let isCancelled = false;
+
+    const resume = async () => {
+      try {
+        const response: JoinRoomResponse = await connection.invoke(
+          HubMethods.ResumeStudentSession,
+          roomId,
+          joinToken,
+          stored.studentSessionToken
+        );
+
+        if (isCancelled) return;
+
+        if (!response.success || !response.studentId || !response.displayName || !response.studentSessionToken) {
+          clearStoredSession(roomId);
+          setHasAttemptedResume(true);
+          return;
+        }
+
+        handleJoined({
+          studentId: response.studentId,
+          studentSessionToken: response.studentSessionToken,
+          displayName: response.displayName,
+          isLocked: response.isLocked ?? false,
+          currentQuestion: response.currentQuestion ?? null,
+        });
+      } catch (err) {
+        console.warn('Failed to resume student session:', err);
+        clearStoredSession(roomId);
+      } finally {
+        if (!isCancelled) {
+          setHasAttemptedResume(true);
+        }
+      }
+    };
+
+    resume();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [connection, handleJoined, hasAttemptedResume, joinToken, roomId, studentId]);
 
   if (!roomId || !joinToken) {
     return (
@@ -61,6 +175,10 @@ function StudentApp() {
 
   if (!connection) {
     return <div className="join-container"><p>Connecting...</p></div>;
+  }
+
+  if (!hasAttemptedResume && !studentId) {
+    return <div className="join-container"><p>Reconnecting...</p></div>;
   }
 
   if (!studentId || !displayName) {

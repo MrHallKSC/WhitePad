@@ -1004,6 +1004,7 @@ body {
 .wp-circle-btn {
   width: 56px;
   height: 56px;
+  padding: 0;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -1016,6 +1017,11 @@ body {
   box-shadow: 0 8px 22px rgba(15, 23, 42, 0.18);
   cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.wp-circle-btn svg {
+  display: block;
+  flex: 0 0 auto;
 }
 
 .wp-circle-btn:hover:not(:disabled) {

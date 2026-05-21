@@ -66,37 +66,113 @@ public class InMemoryRoomStateManager : IRoomStateManager
         if (!_rooms.TryGetValue(roomId, out var room))
             throw new InvalidOperationException("Room not found");
 
-        var studentNumber = ++room.StudentCounter;
-
-        // Use provided name or generate default
-        var finalDisplayName = string.IsNullOrWhiteSpace(displayName)
-            ? $"Student {studentNumber}"
-            : displayName.Trim();
-
-        var student = new Student
+        lock (room.SyncRoot)
         {
-            StudentId = Guid.NewGuid().ToString(),
-            DisplayName = finalDisplayName,
-            ConnectionId = connectionId,
-            ConnectedAt = DateTime.UtcNow,
-            LastSeenAt = DateTime.UtcNow
-        };
+            if (room.Participants.Count >= room.Settings.MaxStudents)
+            {
+                throw new InvalidOperationException($"Room is full (max {room.Settings.MaxStudents} students)");
+            }
 
-        room.Participants.Add(student);
-        room.LastActivityAt = DateTime.UtcNow;
+            var studentNumber = ++room.StudentCounter;
 
-        return ValueTask.FromResult(student);
+            // Use provided name or generate default
+            var finalDisplayName = string.IsNullOrWhiteSpace(displayName)
+                ? $"Student {studentNumber}"
+                : displayName.Trim();
+
+            var student = new Student
+            {
+                StudentId = Guid.NewGuid().ToString(),
+                StudentSessionToken = CreateStudentSessionToken(room),
+                DisplayName = finalDisplayName,
+                ConnectionId = connectionId,
+                IsConnected = true,
+                ConnectedAt = DateTime.UtcNow,
+                LastSeenAt = DateTime.UtcNow
+            };
+
+            room.Participants.Add(student);
+            room.LastActivityAt = DateTime.UtcNow;
+
+            return ValueTask.FromResult(student);
+        }
+    }
+
+    public ValueTask<Student?> ResumeStudentAsync(string roomId, string studentSessionToken, string connectionId)
+    {
+        if (string.IsNullOrWhiteSpace(studentSessionToken))
+            return ValueTask.FromResult<Student?>(null);
+
+        if (!_rooms.TryGetValue(roomId, out var room))
+            return ValueTask.FromResult<Student?>(null);
+
+        lock (room.SyncRoot)
+        {
+            var student = room.Participants.FirstOrDefault(s => s.StudentSessionToken == studentSessionToken);
+            if (student == null)
+                return ValueTask.FromResult<Student?>(null);
+
+            student.ConnectionId = connectionId;
+            student.IsConnected = true;
+            student.DisconnectedAt = null;
+            student.LastSeenAt = DateTime.UtcNow;
+            room.LastActivityAt = DateTime.UtcNow;
+
+            return ValueTask.FromResult<Student?>(student);
+        }
+    }
+
+    public ValueTask<(Room? Room, Student? Student)> MarkStudentDisconnectedAsync(string connectionId)
+    {
+        foreach (var room in _rooms.Values)
+        {
+            lock (room.SyncRoot)
+            {
+                var student = room.Participants.FirstOrDefault(s => s.ConnectionId == connectionId);
+                if (student == null)
+                    continue;
+
+                student.IsConnected = false;
+                student.DisconnectedAt = DateTime.UtcNow;
+                student.LastSeenAt = DateTime.UtcNow;
+                room.LastActivityAt = DateTime.UtcNow;
+
+                return ValueTask.FromResult<(Room?, Student?)>((room, student));
+            }
+        }
+
+        return ValueTask.FromResult<(Room?, Student?)>((null, null));
+    }
+
+    public ValueTask<bool> RemoveStudentIfStillDisconnectedAsync(string roomId, string studentId, string disconnectedConnectionId)
+    {
+        if (!_rooms.TryGetValue(roomId, out var room))
+            return ValueTask.FromResult(false);
+
+        lock (room.SyncRoot)
+        {
+            var student = room.Participants.FirstOrDefault(s => s.StudentId == studentId);
+            if (student == null || student.IsConnected || student.ConnectionId != disconnectedConnectionId)
+                return ValueTask.FromResult(false);
+
+            room.Participants.Remove(student);
+            room.LastActivityAt = DateTime.UtcNow;
+            return ValueTask.FromResult(true);
+        }
     }
 
     public ValueTask RemoveStudentAsync(string roomId, string studentId)
     {
         if (_rooms.TryGetValue(roomId, out var room))
         {
-            var student = room.Participants.FirstOrDefault(s => s.StudentId == studentId);
-            if (student != null)
+            lock (room.SyncRoot)
             {
-                room.Participants.Remove(student);
-                room.LastActivityAt = DateTime.UtcNow;
+                var student = room.Participants.FirstOrDefault(s => s.StudentId == studentId);
+                if (student != null)
+                {
+                    room.Participants.Remove(student);
+                    room.LastActivityAt = DateTime.UtcNow;
+                }
             }
         }
 
@@ -107,7 +183,12 @@ public class InMemoryRoomStateManager : IRoomStateManager
     {
         foreach (var room in _rooms.Values)
         {
-            var student = room.Participants.FirstOrDefault(s => s.ConnectionId == connectionId);
+            Student? student;
+            lock (room.SyncRoot)
+            {
+                student = room.Participants.FirstOrDefault(s => s.ConnectionId == connectionId);
+            }
+
             if (student != null)
                 return ValueTask.FromResult<Student?>(student);
         }
@@ -129,5 +210,16 @@ public class InMemoryRoomStateManager : IRoomStateManager
     public ValueTask<IEnumerable<Room>> GetAllRoomsAsync()
     {
         return ValueTask.FromResult<IEnumerable<Room>>(_rooms.Values);
+    }
+
+    private static string CreateStudentSessionToken(Room room)
+    {
+        string token;
+        do
+        {
+            token = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
+        } while (room.Participants.Any(student => student.StudentSessionToken == token));
+
+        return token;
     }
 }

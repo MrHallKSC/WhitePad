@@ -26,6 +26,7 @@ export interface StrokeBatch {
 export interface JoinRoomResponse {
   success: boolean;
   studentId?: string;
+  studentSessionToken?: string;
   displayName?: string;
   roomSettings?: RoomSettings;
   isLocked?: boolean;

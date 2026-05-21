@@ -2,6 +2,7 @@ export const HubMethods = {
   CreateRoom: 'CreateRoom',
   JoinRoomAsTeacher: 'JoinRoomAsTeacher',
   JoinRoomAsStudent: 'JoinRoomAsStudent',
+  ResumeStudentSession: 'ResumeStudentSession',
   SetWaitingRoomEnabled: 'SetWaitingRoomEnabled',
   UnlockWaitingRoom: 'UnlockWaitingRoom',
   LockStudent: 'LockStudent',

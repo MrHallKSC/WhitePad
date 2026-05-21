@@ -4,6 +4,7 @@ public class JoinRoomResponse
 {
     public bool Success { get; set; }
     public string? StudentId { get; set; }
+    public string? StudentSessionToken { get; set; }
     public string? DisplayName { get; set; }
     public RoomSettings? RoomSettings { get; set; }
     public bool IsLocked { get; set; }

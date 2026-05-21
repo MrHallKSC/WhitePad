@@ -2,6 +2,8 @@ namespace WhitePad.Server.Models;
 
 public class Room
 {
+    internal object SyncRoot { get; } = new();
+
     public string RoomId { get; set; } = string.Empty;
     public string RoomName { get; set; } = string.Empty;
     public string JoinToken { get; set; } = string.Empty;

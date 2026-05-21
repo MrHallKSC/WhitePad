@@ -9,6 +9,7 @@ interface JoinPageProps {
   connection: HubConnection;
   onJoined: (session: {
     studentId: string;
+    studentSessionToken: string;
     displayName: string;
     isLocked: boolean;
     currentQuestion: string | null;
@@ -52,8 +53,9 @@ function JoinPage({ roomId, joinToken, connection, onJoined }: JoinPageProps) {
 
       onJoined({
         studentId: response.studentId!,
+        studentSessionToken: response.studentSessionToken!,
         displayName: response.displayName!,
-        isLocked: false,
+        isLocked: response.isLocked ?? false,
         currentQuestion: response.currentQuestion ?? null,
       });
     } catch (err) {

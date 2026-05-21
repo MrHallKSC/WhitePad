@@ -180,7 +180,7 @@ public class WhiteboardHubLifecycleTests
     // ---------- OnDisconnectedAsync ----------
 
     [Fact]
-    public async Task OnDisconnectedAsync_StudentConnection_RemovesAndNotifiesTeacher()
+    public async Task OnDisconnectedAsync_StudentConnection_MarksDisconnectedWithoutImmediateRemoval()
     {
         var harness = new WhiteboardHubHarness();
         var room = await harness.State.CreateRoomAsync();
@@ -189,12 +189,10 @@ public class WhiteboardHubLifecycleTests
         var hub = harness.CreateHub("student-conn");
         await hub.OnDisconnectedAsync(null);
 
-        Assert.DoesNotContain(room.Participants, s => s.StudentId == student.StudentId);
-        var inv = Assert.Single(harness.Clients.Invocations, i => i.Method == nameof(IWhiteboardClient.ParticipantLeft));
-        Assert.Equal($"Group:{WhiteboardHubHarness.TeacherGroup(room.RoomId)}", inv.Target);
-        var message = (ParticipantLeft)inv.Payload!;
-        Assert.Equal(student.StudentId, message.StudentId);
-        Assert.Equal("disconnect", message.Reason);
+        Assert.Contains(room.Participants, s => s.StudentId == student.StudentId);
+        Assert.False(student.IsConnected);
+        Assert.NotNull(student.DisconnectedAt);
+        Assert.DoesNotContain(harness.Clients.Invocations, i => i.Method == nameof(IWhiteboardClient.ParticipantLeft));
     }
 
     [Fact]
