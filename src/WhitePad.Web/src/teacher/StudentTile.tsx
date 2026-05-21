@@ -26,6 +26,11 @@ const PAPER_COLORS: Record<PaperColor, string> = {
   buff: '#F4E4BC',
 };
 
+const BACKGROUND_MARK_COLORS: Record<PaperColor, { stroke: string; dot: string }> = {
+  white: { stroke: '#e5e5e5', dot: '#d0d0d0' },
+  buff: { stroke: '#c7a763', dot: '#b8944b' },
+};
+
 function StudentTile({
   student,
   boardState = EMPTY_TEACHER_BOARD,
@@ -50,13 +55,14 @@ function StudentTile({
     }
 
     ctx.save();
-    ctx.strokeStyle = '#e5e5e5';
+    const markColor = BACKGROUND_MARK_COLORS[boardState.paperColor];
+    ctx.strokeStyle = markColor.stroke;
     ctx.lineWidth = 0.5;
 
     const spacing = 35;
     switch (boardState.backgroundType) {
       case 'dotted':
-        ctx.fillStyle = '#d0d0d0';
+        ctx.fillStyle = markColor.dot;
         for (let x = spacing; x < width; x += spacing) {
           for (let y = spacing; y < height; y += spacing) {
             ctx.beginPath();

@@ -542,17 +542,25 @@ struct NativeWhiteboardView: View {
     }
 
     private var lockedOverlay: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "lock.fill")
-                .font(.largeTitle)
-            Text("Drawing is locked")
-                .font(.title2.bold())
-            Text("Your teacher will unlock the board when it is time to write.")
-                .foregroundStyle(.secondary)
+        VStack {
+            Spacer()
+
+            HStack(spacing: 12) {
+                Image(systemName: "lock.fill")
+                    .font(.headline)
+                Text("Drawing is locked by your teacher")
+                    .font(.headline.weight(.semibold))
+            }
+            .foregroundStyle(.primary)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 14)
+            .background(.regularMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: 18))
+            .shadow(color: .black.opacity(0.16), radius: 18, y: 8)
+            .padding(.bottom, 24)
         }
-        .padding(24)
-        .background(.regularMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .allowsHitTesting(false)
     }
 
     private func appendPoint(at location: CGPoint, canvasSize: CGSize, isComplete: Bool) {

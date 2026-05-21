@@ -34,6 +34,11 @@ const PAPER_COLORS: Record<PaperColor, string> = {
   buff: '#F4E4BC',
 };
 
+const BACKGROUND_MARK_COLORS: Record<PaperColor, { stroke: string; dot: string }> = {
+  white: { stroke: '#e5e5e5', dot: '#d0d0d0' },
+  buff: { stroke: '#c7a763', dot: '#b8944b' },
+};
+
 function DrawingPage({
   studentId,
   displayName,
@@ -368,7 +373,8 @@ function DrawingPage({
       return;
     }
 
-    ctx.strokeStyle = '#e5e5e5'; // Light gray, faint
+    const markColor = BACKGROUND_MARK_COLORS[paperColor];
+    ctx.strokeStyle = markColor.stroke;
     ctx.lineWidth = 0.5;
 
     const spacing = 35; // ~35px spacing similar to notebook paper on iPad
@@ -378,7 +384,7 @@ function DrawingPage({
         // Draw dots in a grid
         for (let x = spacing; x < width; x += spacing) {
           for (let y = spacing; y < height; y += spacing) {
-            ctx.fillStyle = '#d0d0d0';
+            ctx.fillStyle = markColor.dot;
             ctx.beginPath();
             ctx.arc(x, y, 1.5, 0, Math.PI * 2);
             ctx.fill();

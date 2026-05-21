@@ -1396,43 +1396,43 @@ body {
   transform: translateY(1px);
 }
 
-/* Locked overlay — centered glass card */
+/* Locked overlay — compact bottom status */
 .locked-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(148, 163, 184, 0.18);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
+  padding: 0 20px max(24px, env(safe-area-inset-bottom));
   z-index: 2000;
   pointer-events: none;
 }
 
 .locked-message {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 10px;
-  padding: 28px 36px;
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.78);
+  gap: 12px;
+  max-width: min(520px, 100%);
+  padding: 14px 18px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.86);
   backdrop-filter: blur(22px) saturate(1.5);
   -webkit-backdrop-filter: blur(22px) saturate(1.5);
   border: 1px solid rgba(255, 255, 255, 0.65);
-  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.22);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.2);
 }
 
 .lock-icon {
-  font-size: 34px;
+  font-size: 22px;
+  line-height: 1;
 }
 
 .lock-text {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
   color: #1f2937;
-  text-align: center;
+  line-height: 1.25;
 }
 
 @media (max-width: 760px) {
