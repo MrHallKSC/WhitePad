@@ -5,8 +5,8 @@ using WhitePad.Server.Models;
 namespace WhitePad.Server.Services;
 
 // Sweeps the in-memory room store, removing rooms whose LastActivityAt is
-// older than the configured TTL. Hub methods bump LastActivityAt on activity,
-// so a room with active drawing or teacher control stays alive indefinitely.
+// older than the configured TTL. SendStrokeBatch/SendShape bump LastActivityAt,
+// so a room with active drawing stays alive indefinitely.
 // Default TTL is 12h, configurable via Room:ExpirationHours.
 public sealed class RoomExpirationService : BackgroundService
 {
